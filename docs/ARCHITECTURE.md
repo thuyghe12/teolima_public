@@ -54,7 +54,7 @@ The layout is computed from the board, never chosen by the model, and follows th
 | Handoff | the start agent on the left, the agents it hands off to on the right |
 | Group chat, Magentic | the manager on top, participants in a row below |
 
-The tools, knowledge and approvals a team uses sit in a lane below its agents. An approval sits on the path to the tool it gates: the agent's line reaches the approval, and the approval leads to the tool. Connections are routed orthogonally through the gaps between columns. A legend under the drawing names the line and border styles in use. Tests check that no two cards overlap, that no connector crosses a card it does not connect, that teams and bands sit inside the boundary with triggers and outputs outside it, and that the legend lists only the styles in use.
+Each element is drawn in the visual family of its building block ([BLOCKS.md](BLOCKS.md)). A capability used by one agent only is docked on that agent's card. Shared or gated tools, knowledge and memory, and the approvals, sit in a lane below the team's agents. An approval sits on the path to the tool it gates: the agent's line reaches the approval, and the approval leads to the tool. Connections are routed orthogonally through the gaps between columns. A legend under the drawing names the line and border styles in use. Tests check that no two cards overlap, that no connector crosses a card it does not connect, that teams and bands sit inside the boundary with triggers and outputs outside it, and that the legend lists only the styles in use.
 
 The call panel shows how far the board is through the design standard (`readiness()`), with the next step named and every open item explained.
 

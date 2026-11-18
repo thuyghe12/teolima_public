@@ -1,4 +1,5 @@
 import rough from 'roughjs';
+import { drawAgentCard, drawBlock, drawCapsule, drawGate } from './familyRenderer';
 import { CanvasElement, Point, ShapeKind } from '../../types';
 
 // Global image cache for 60fps rendering without image reload jitter
@@ -281,6 +282,19 @@ export function renderCanvasElement(
         break;
       }
 
+      case 'agentCard':
+        drawAgentCard(ctx, element, Math.min(1, clampedProgress * 1.5));
+        break;
+      case 'capsule':
+        drawCapsule(ctx, element, Math.min(1, clampedProgress * 1.5));
+        break;
+      case 'gate':
+        drawGate(ctx, element, Math.min(1, clampedProgress * 1.5));
+        break;
+      case 'block':
+        drawBlock(ctx, element, Math.min(1, clampedProgress * 1.5));
+        break;
+
       case 'boundary': {
         // The system boundary: a solid outline with a small label, drawn behind everything.
         ctx.save();
@@ -348,12 +362,40 @@ export function renderCanvasElement(
         ctx.textBaseline = 'middle';
         ctx.fillStyle = '#87868e';
         ctx.fillText('LEGEND', x, y + 10);
-        let cx = x;
-        const cy = y + 38;
         for (const item of items) {
+          const cx = x + item.dx;
+          const cy = y + item.dy;
           ctx.strokeStyle = item.key === 'uses' ? '#87868e' : item.key === 'guardrail' ? '#991b1b' : item.key === 'team' ? '#87868e' : '#18181c';
           ctx.lineWidth = 1.5;
-          if (item.key === 'team' || item.key === 'boundary' || item.key === 'guardrail') {
+          if (item.key === 'agent') {
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.roundRect(cx, cy - 8, 30, 16, 3);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = '#18181c';
+            ctx.beginPath();
+            ctx.roundRect(cx, cy - 8, 30, 6, [3, 3, 0, 0]);
+            ctx.fill();
+          } else if (item.key === 'capability') {
+            ctx.fillStyle = '#eef2ff';
+            ctx.strokeStyle = '#4f46e5';
+            ctx.beginPath();
+            ctx.roundRect(cx, cy - 8, 30, 16, 8);
+            ctx.fill();
+            ctx.stroke();
+          } else if (item.key === 'approval') {
+            ctx.fillStyle = '#fffbeb';
+            ctx.strokeStyle = '#92400e';
+            ctx.beginPath();
+            ctx.moveTo(cx + 15, cy - 9);
+            ctx.lineTo(cx + 30, cy);
+            ctx.lineTo(cx + 15, cy + 9);
+            ctx.lineTo(cx, cy);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+          } else if (item.key === 'team' || item.key === 'boundary' || item.key === 'guardrail') {
             ctx.setLineDash(item.key === 'team' ? [6, 4] : []);
             if (item.key === 'guardrail') {
               ctx.fillStyle = '#fef2f2';
@@ -365,7 +407,7 @@ export function renderCanvasElement(
             ctx.roundRect(cx, cy - 8, 30, 16, item.key === 'boundary' ? 5 : 3);
             ctx.stroke();
           } else {
-            ctx.setLineDash(item.key === 'approval' ? [7, 5] : item.key === 'uses' ? [2, 4] : []);
+            ctx.setLineDash(item.key === 'uses' ? [2, 4] : []);
             ctx.beginPath();
             ctx.moveTo(cx, cy);
             ctx.lineTo(cx + 30, cy);
@@ -383,7 +425,6 @@ export function renderCanvasElement(
           ctx.setLineDash([]);
           ctx.fillStyle = '#5a5a62';
           ctx.fillText(item.text, cx + 40, cy);
-          cx += 40 + ctx.measureText(item.text).width + 28;
         }
         ctx.restore();
         break;

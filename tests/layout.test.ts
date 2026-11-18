@@ -32,9 +32,15 @@ test('the support board: triggers left, team in the middle, outputs right, nothi
   assertClean(l);
   const team = l.teams.find((t) => t.id === 'support-desk')!;
   assert.equal(team.label, 'HANDOFF · Support desk');
-  for (const id of ['triage', 'order-status', 'refunds', 'policy', 'order-lookup', 'refund-api', 'policy-docs', 'refund-approval']) {
+  for (const id of ['triage', 'order-status', 'refunds', 'policy', 'refund-api', 'refund-approval']) {
     assert.ok(inside(node(l, id), team), `${id} sits inside its team`);
   }
+  // used by one agent only: docked on that agent's card, with no node of its own
+  assert.deepEqual(node(l, 'order-status').chips.map((c) => c.id), ['order-lookup']);
+  assert.deepEqual(node(l, 'policy').chips.map((c) => c.id), ['policy-docs']);
+  assert.ok(!l.nodes.some((n) => n.id === 'order-lookup' || n.id === 'policy-docs'));
+  // gated: keeps its node, so the approval can sit on the path to it
+  assert.deepEqual(node(l, 'refunds').chips, []);
   assert.ok(node(l, 'customer-message').x + 210 < team.x);
   assert.ok(node(l, 'reply-to-customer').x > team.x + team.w);
   const band = l.bands.find((x) => x.id === 'safety')!;
@@ -73,7 +79,7 @@ test('the system boundary holds the system; triggers and outputs sit outside it'
 
 test('the legend names only the styles in use, below the drawing', () => {
   const l = layoutBoard(replay(emptyBoard(), supportChanges));
-  assert.deepEqual(l.legend!.items.map((i) => i.key), ['flow', 'uses', 'approval', 'team', 'guardrail', 'boundary']);
+  assert.deepEqual(l.legend!.items.map((i) => i.key), ['agent', 'capability', 'flow', 'uses', 'approval', 'team', 'guardrail', 'boundary']);
   assert.ok(l.legend!.y > l.boundary!.y + l.boundary!.h);
   const lone = layoutBoard(build([{ op: 'upsert_component', kind: 'trigger', name: 'Inbox' }]));
   assert.equal(lone.legend, null);
@@ -129,16 +135,30 @@ test('an empty board lays out to nothing', () => {
   assert.deepEqual([l.nodes.length, l.teams.length, l.edges.length, l.title], [0, 0, 0, null]);
 });
 
-test('memory sits in the resource lane and is reached by a uses line', () => {
-  const b = build([
+test('memory used by one agent docks on its card; shared memory sits in the lane', () => {
+  const one = layoutBoard(build([
     { op: 'upsert_component', kind: 'memory', name: 'Customer memory' },
     { op: 'upsert_component', kind: 'agent', name: 'Support', memory: ['Customer memory'] },
-  ]);
-  const l = layoutBoard(b);
-  assertClean(l);
-  const mem = node(l, 'customer-memory');
-  assert.equal(mem.role, 'memory');
-  assert.match(mem.subtitle, /Per user · Foundry memory/);
-  assert.ok(mem.y > node(l, 'support').y);
-  assert.ok(l.edges.some((e) => e.kind === 'uses' && e.id.endsWith('support~customer-memory')));
+  ]));
+  assert.deepEqual(node(one, 'support').chips, [{ id: 'customer-memory', title: 'Customer memory', product: 'Memory', kind: 'memory' }]);
+  const shared = layoutBoard(build([
+    { op: 'upsert_component', kind: 'memory', name: 'Customer memory', store: 'cosmos_db' },
+    { op: 'upsert_component', kind: 'agent', name: 'Support', memory: ['Customer memory'] },
+    { op: 'upsert_component', kind: 'agent', name: 'Sales', memory: ['Customer memory'] },
+  ]));
+  assertClean(shared);
+  const mem = node(shared, 'customer-memory');
+  assert.equal(mem.family, 'capability');
+  assert.equal(mem.product, 'Azure Cosmos DB');
+  assert.ok(shared.edges.filter((e) => e.kind === 'uses' && e.id.endsWith('~customer-memory')).length === 2);
+});
+
+test('every node carries its family, product and release status from the building blocks', () => {
+  const l = layoutBoard(replay(emptyBoard(), supportChanges));
+  assert.equal(node(l, 'triage').family, 'agent');
+  assert.equal(node(l, 'triage').product, 'Foundry Agent Service');
+  assert.equal(node(l, 'refund-api').family, 'capability');
+  assert.equal(node(l, 'refund-approval').family, 'governance');
+  assert.equal(node(l, 'customer-message').family, 'io');
+  assert.equal(node(l, 'customer-message').product, '');
 });

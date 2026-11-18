@@ -69,6 +69,7 @@ server/config.ts       Environment configuration and limits
 server/security.ts     Origin and token checks
 server/validation.ts   Tool-call validation
 server/guard/          Guard pipeline: provenance, Prompt Shields, audit trail
+shared/catalog/        Building blocks: every Microsoft component the board can contain (docs/BLOCKS.md)
 server/demo.ts         Recorded session for demo mode
 server/board-tools.ts  The coach's board tools and per-session board
 server/prompts/        Versioned coach prompt

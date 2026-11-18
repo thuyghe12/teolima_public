@@ -34,7 +34,11 @@ export type ShapeKind =
   | 'connector'
   | 'boundary'
   | 'band'
-  | 'legend';
+  | 'legend'
+  | 'agentCard'
+  | 'capsule'
+  | 'gate'
+  | 'block';
 
 export type AgentRoleKind = 
   | 'intake'
@@ -98,8 +102,13 @@ export interface CanvasElement {
   aspectRatio?: '1:1' | '4:3' | '16:9';
   // Board model connectors and containers
   lineStyle?: 'solid' | 'dashed' | 'dotted';
+  /** Board cards: the Microsoft product and building block they show, release status, docked capabilities. */
+  product?: string;
+  blockName?: string;
+  status?: 'ga' | 'preview' | 'design_only';
+  chips?: Array<{ id: string; title: string; product: string; kind: string }>;
   /** For a legend: the styles it names, in order. */
-  legendItems?: Array<{ key: 'flow' | 'uses' | 'approval' | 'team' | 'boundary' | 'guardrail'; text: string }>;
+  legendItems?: Array<{ key: 'agent' | 'capability' | 'flow' | 'uses' | 'approval' | 'team' | 'boundary' | 'guardrail'; text: string; dx: number; dy: number }>;
   arrowHead?: boolean;
   // Animation state for progressive tweening
   animationProgress?: number; // 0 to 1

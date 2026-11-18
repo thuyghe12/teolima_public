@@ -26,11 +26,28 @@
  * The function is pure and deterministic: the same board always gives the same layout.
  */
 import type { Board, Component, OrchestrationPattern, Team } from './schema';
+import { blockFor, type Family, type Status } from '../catalog/blocks';
 
 export type Point = { x: number; y: number };
 export type Box = { x: number; y: number; w: number; h: number };
 
-export type LayoutNode = Box & { id: string; kind: Component['kind']; role: string; title: string; subtitle: string };
+/** A capability docked on an agent card: used by that agent only, so it needs no node or line of its own. */
+export type Chip = { id: string; title: string; product: string; kind: Component['kind'] };
+export type LayoutNode = Box & {
+  id: string;
+  kind: Component['kind'];
+  role: string;
+  title: string;
+  subtitle: string;
+  /** Visual family from the building blocks: agents, capabilities, governance, where work enters and leaves. */
+  family: Family;
+  /** The Microsoft product, shown with its official name. */
+  product: string;
+  /** The building block's own name, e.g. "Azure AI Search" or "OpenAPI 3.0 specified tool". */
+  blockName: string;
+  status: Status;
+  chips: Chip[];
+};
 export type LayoutTeam = Box & { id: string; title: string; pattern: OrchestrationPattern | 'none'; label: string };
 export type LayoutEdge = {
   id: string;
@@ -41,7 +58,8 @@ export type LayoutEdge = {
 };
 /** A guardrail, drawn as a band across the system it protects. */
 export type LayoutBand = Box & { id: string; title: string; subtitle: string };
-export type LegendItem = { key: 'flow' | 'uses' | 'approval' | 'team' | 'boundary' | 'guardrail'; text: string };
+/** A legend entry, with its offset inside the legend box (the legend wraps to the drawing's width). */
+export type LegendItem = { key: 'agent' | 'capability' | 'flow' | 'uses' | 'approval' | 'team' | 'boundary' | 'guardrail'; text: string; dx: number; dy: number };
 export type Layout = {
   title: { text: string; x: number; y: number } | null;
   boundary: (Box & { label: string }) | null;
@@ -127,10 +145,16 @@ function subtitleFor(c: Component, board: Board): string {
 }
 
 function card(c: Component, board: Board, x: number, y: number, role?: string): LayoutNode {
+  const b = blockFor(c);
   return {
     id: c.id,
     kind: c.kind,
     role: role ?? c.kind,
+    family: b.family,
+    product: b.product === 'Teolima' ? '' : b.product,
+    blockName: b.name,
+    status: b.status,
+    chips: [],
     title: fit(c.name, 40),
     subtitle: fit(subtitleFor(c, board), 46),
     x,
@@ -167,7 +191,24 @@ function drop(a: Box, b: Box): Point[] {
   return [s, { x: s.x, y: my }, { x: t.x, y: my }, t];
 }
 
-type TeamBlock = { team: LayoutTeam; nodes: LayoutNode[]; edges: LayoutEdge[] };
+type TeamBlock = { team: LayoutTeam; nodes: LayoutNode[]; edges: LayoutEdge[]; docked: string[] };
+
+/**
+ * Capabilities used by exactly one agent, and not gated by an approval, dock
+ * on that agent's card. Shared or gated ones keep a node in the resource lane,
+ * so the lines show who shares what and where a person must approve.
+ */
+function dockedCapabilities(board: Board): Map<string, string> {
+  const users = new Map<string, string[]>();
+  for (const a of board.components) {
+    if (a.kind !== 'agent') continue;
+    for (const id of [...a.tools, ...a.knowledge, ...a.memory]) users.set(id, [...(users.get(id) ?? []), a.id]);
+  }
+  const gated = new Set(board.components.flatMap((c) => (c.kind === 'approval' ? [c.gates] : [])));
+  const docked = new Map<string, string>();
+  for (const [id, agents] of users) if (agents.length === 1 && !gated.has(id)) docked.set(id, agents[0]);
+  return docked;
+}
 
 /** Places one team (or the agents without a team) with its resource lane, at (x, y). */
 function placeTeam(board: Board, team: Team | null, agents: Component[], x: number, y: number): TeamBlock {
@@ -178,6 +219,7 @@ function placeTeam(board: Board, team: Team | null, agents: Component[], x: numb
   const edges: LayoutEdge[] = [];
   const teamId = team?.id ?? 'no-team';
   const byId = new Map(agents.map((a) => [a.id, a]));
+  const dock = dockedCapabilities(board);
   let innerW = 0;
   let innerH = 0;
 
@@ -242,12 +284,26 @@ function placeTeam(board: Board, team: Team | null, agents: Component[], x: numb
     innerH = agents.length ? CARD.h : 0;
   }
 
-  // Resource lane: tools and knowledge the team's agents use, each approval next to what it gates.
+  // Docked capabilities become chips on their agent's card.
+  const docked: string[] = [];
+  for (const n of nodes) {
+    const a = byId.get(n.id);
+    if (!a || a.kind !== 'agent') continue;
+    for (const id of [...a.tools, ...a.knowledge, ...a.memory]) {
+      if (dock.get(id) !== a.id) continue;
+      const c = board.components.find((x) => x.id === id);
+      if (!c) continue;
+      n.chips.push({ id: c.id, title: fit(c.name, 22), product: blockFor(c).name, kind: c.kind });
+      docked.push(c.id);
+    }
+  }
+
+  // Resource lane: shared or gated capabilities, each approval next to what it gates.
   const agentNodes = new Map(nodes.map((n) => [n.id, n]));
   const resourceIds: string[] = [];
   for (const a of agents) {
     if (a.kind !== 'agent') continue;
-    for (const id of [...a.tools, ...a.knowledge, ...a.memory]) if (!resourceIds.includes(id)) resourceIds.push(id);
+    for (const id of [...a.tools, ...a.knowledge, ...a.memory]) if (!resourceIds.includes(id) && !dock.has(id)) resourceIds.push(id);
   }
   const lane: Component[] = [];
   for (const id of resourceIds) {
@@ -276,7 +332,7 @@ function placeTeam(board: Board, team: Team | null, agents: Component[], x: numb
     for (const a of agents) {
       if (a.kind !== 'agent') continue;
       const from = agentNodes.get(a.id);
-      for (const id of [...a.tools, ...a.knowledge, ...a.memory]) {
+      for (const id of [...a.tools, ...a.knowledge, ...a.memory].filter((x) => !dock.has(x))) {
         // A gated tool is reached through its approval: the gate sits on the path.
         const gate = lane.find((c) => c.kind === 'approval' && c.gates === id);
         const to = laneNodes.get(gate ? gate.id : id);
@@ -310,6 +366,7 @@ function placeTeam(board: Board, team: Team | null, agents: Component[], x: numb
     team: { id: teamId, title, pattern, label: `${PATTERN_LABEL[pattern]} · ${fit(title, 40)}`, x, y, w, h },
     nodes,
     edges,
+    docked,
   };
 }
 
@@ -350,6 +407,7 @@ export function layoutBoard(board: Board): Layout {
     nodes.push(...b.nodes);
     edges.push(...b.edges);
     b.nodes.forEach((n) => placed.add(n.id));
+    b.docked.forEach((id) => placed.add(id));
   }
   guardrails.forEach((g) => placed.add(g.id));
 
@@ -405,16 +463,31 @@ export function layoutBoard(board: Board): Layout {
   const contentBottom = Math.max(ORIGIN.y + CARD.h, ...drawn.map((b) => b.y + b.h), ...edges.flatMap((e) => e.points.map((p) => p.y)));
 
   // The legend names the line and border styles in use, under the drawing.
+  const entries: Array<Pick<LegendItem, 'key' | 'text'>> = [];
+  if (nodes.some((n) => n.family === 'agent')) entries.push({ key: 'agent', text: 'agent, with its own tools' });
+  if (nodes.some((n) => n.family === 'capability')) entries.push({ key: 'capability', text: 'shared or gated tool, knowledge, memory' });
+  if (edges.some((e) => e.kind === 'flow' || e.kind === 'pattern')) entries.push({ key: 'flow', text: 'work flows' });
+  if (edges.some((e) => e.kind === 'uses')) entries.push({ key: 'uses', text: 'uses a tool, knowledge or memory' });
+  if (edges.some((e) => e.kind === 'approval')) entries.push({ key: 'approval', text: 'a person approves first' });
+  if (teams.some((t) => t.pattern !== 'none')) entries.push({ key: 'team', text: 'team, with its pattern' });
+  if (bands.length) entries.push({ key: 'guardrail', text: 'guardrail on the agents it names' });
+  if (boundary) entries.push({ key: 'boundary', text: 'system boundary' });
+  // Wrap to the drawing's width. Text width is estimated from 12px monospace (about 7.3px a character).
+  const drawingRight = Math.max(ORIGIN.x + LEGEND.w, ...drawn.map((b) => b.x + b.w));
+  const rowW = drawingRight - ORIGIN.x;
   const items: LegendItem[] = [];
-  if (edges.some((e) => e.kind === 'flow' || e.kind === 'pattern')) items.push({ key: 'flow', text: 'work flows' });
-  if (edges.some((e) => e.kind === 'uses')) items.push({ key: 'uses', text: 'uses a tool, knowledge or memory' });
-  if (edges.some((e) => e.kind === 'approval')) items.push({ key: 'approval', text: 'needs a person to approve' });
-  if (teams.some((t) => t.pattern !== 'none')) items.push({ key: 'team', text: 'team, with its pattern' });
-  if (bands.length) items.push({ key: 'guardrail', text: 'guardrail on the agents it names' });
-  if (boundary) items.push({ key: 'boundary', text: 'system boundary' });
-  // width estimated from 12px monospace text (about 7.3px a character), so the bounds include it
-  const legendW = items.reduce((w, i) => w + 40 + Math.ceil(i.text.length * 7.3) + 28, 0);
-  const legend = items.length >= 2 ? { items, x: ORIGIN.x, y: contentBottom + LEGEND.gap, w: Math.max(LEGEND.w, legendW), h: LEGEND.h } : null;
+  let dx = 0;
+  let dy = 30;
+  for (const e of entries) {
+    const w = 40 + Math.ceil(e.text.length * 7.3) + 28;
+    if (dx > 0 && dx + w > rowW) {
+      dx = 0;
+      dy += 24;
+    }
+    items.push({ ...e, dx, dy });
+    dx += w;
+  }
+  const legend = items.length >= 2 ? { items, x: ORIGIN.x, y: contentBottom + LEGEND.gap, w: rowW, h: dy + 18 } : null;
 
   const all: Box[] = [...drawn, ...(legend ? [legend] : [])];
   const minX = Math.min(ORIGIN.x, ...all.map((b) => b.x));

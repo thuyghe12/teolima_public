@@ -68,13 +68,18 @@ export function boardElements(layout: Layout): CanvasElement[] {
     });
   }
 
+  const SHAPE = { agent: 'agentCard', capability: 'capsule', governance: 'gate', io: 'block' } as const;
   for (const n of layout.nodes) {
     out.push({
       ...base,
       id: `${BOARD_PREFIX}node:${n.id}`,
       type: 'shape',
-      shapeKind: 'rectangle',
+      shapeKind: SHAPE[n.family],
       agentRole: n.role as AgentRoleKind,
+      product: n.product,
+      blockName: n.blockName,
+      status: n.status,
+      chips: n.chips,
       x: n.x,
       y: n.y,
       width: n.w,

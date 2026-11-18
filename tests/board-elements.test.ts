@@ -21,7 +21,7 @@ test('cards carry their role, connectors their style', () => {
   const els = boardElements(layoutBoard(replay(emptyBoard(), supportChanges)));
   const approval = els.find((e) => e.id === 'board:node:refund-approval')!;
   assert.equal(approval.agentRole, 'approval');
-  const uses = els.find((e) => e.id.includes('~order-lookup'))!;
+  const uses = els.find((e) => e.id.includes('~refund-api'))!;
   assert.equal(uses.lineStyle, 'dotted');
   assert.equal(uses.arrowHead, false);
 });

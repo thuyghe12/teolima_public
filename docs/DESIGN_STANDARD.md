@@ -87,7 +87,9 @@ On the board today (`shared/board/layout.ts`):
 | Explicit system boundary | A solid outline around everything the system contains; triggers and outputs sit outside it |
 | One line style per relationship | Solid arrow: work flows. Dotted line: uses a tool or knowledge. Dashed arrow: needs a person to approve |
 | Guardrails at every intervention point | A band across the system naming its controls and the agents it covers, instead of one more box |
-| Approvals scoped to a tool | The approval sits on the path from the agent to the tool it gates |
-| Legend | Under the drawing, listing only the styles in use |
+| Approvals scoped to a tool | A diamond, the standard shape for a decision gate, on the path from the agent to the tool it gates |
+| Different kinds of thing look different | Four visual families from the building blocks ([BLOCKS.md](BLOCKS.md)): agents, capabilities, governance, where work enters and leaves |
+| Official names for Microsoft services | Every card names its Microsoft product or building block in full; preview features are marked |
+| Legend | Under the drawing, listing only the shapes and styles in use |
 
 The context view and the deployment view, with official Azure service names and icons, come with the compiler (ADR 0003): the deployment view is a drawing of what Compile produces.
