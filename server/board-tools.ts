@@ -7,10 +7,29 @@
  */
 import { Type, type FunctionDeclaration } from '@google/genai';
 import { Board, emptyBoard } from '../shared/board/schema';
-import { applyChange, type Actor, type ApplyResult, type ChangeBody, type Change } from '../shared/board/changes';
+import { applyChange, type Actor, type ApplyResult, type Basis, type ChangeBody, type Change } from '../shared/board/changes';
 
 const reason = { type: Type.STRING, description: 'Why, in one short sentence. Stored with the change.' };
 const names = (description: string) => ({ type: Type.ARRAY, items: { type: Type.STRING }, description });
+
+/**
+ * What a building change rests on. The server checks the quote against the
+ * brief or against what the user actually said in this session
+ * (server/guard/provenance.ts), so an element nobody asked for is refused.
+ */
+const basisSource = {
+  type: Type.STRING,
+  enum: ['brief', 'user'],
+  description: 'brief = it follows from the saved brief; user = the user said it or explicitly agreed to it in this call.',
+};
+const basisQuote = {
+  type: Type.STRING,
+  description: 'The exact words from the brief or from the user that this rests on, a few words long. For an agreed proposal, the user\'s words agreeing to it, naming the thing.',
+};
+const basis = { basis_source: basisSource, basis_quote: basisQuote };
+
+/** Tools that add to the design and so must name their basis. */
+export const GROUNDED_TOOLS = new Set(['set_brief', 'add_component', 'set_team', 'connect']);
 
 export const boardToolDeclarations: FunctionDeclaration[] = [
   {
@@ -24,8 +43,9 @@ export const boardToolDeclarations: FunctionDeclaration[] = [
         audience: { type: Type.STRING, description: 'Who uses it or who it serves.' },
         constraints: names('Limits the user stated: data that must stay in a region, actions that need a person, systems it may or may not touch.'),
         reason,
+        basis_quote: { ...basisQuote, description: 'The user\'s own words stating the goal, a few words long.' },
       },
-      required: ['goal'],
+      required: ['goal', 'basis_quote'],
     },
   },
   {
@@ -55,8 +75,9 @@ export const boardToolDeclarations: FunctionDeclaration[] = [
         condition: { type: Type.STRING, description: 'Approval only: when approval is needed, e.g. "refunds over 100 EUR".' },
         destination: { type: Type.STRING, enum: ['chat', 'api', 'email', 'teams', 'storage'], description: 'Output only.' },
         reason,
+        ...basis,
       },
-      required: ['kind', 'name'],
+      required: ['kind', 'name', 'basis_source', 'basis_quote'],
     },
   },
   {
@@ -78,8 +99,9 @@ export const boardToolDeclarations: FunctionDeclaration[] = [
         start_agent: { type: Type.STRING, description: 'handoff: the agent that receives work first.' },
         purpose: { type: Type.STRING, description: 'One line on what the team achieves.' },
         reason,
+        ...basis,
       },
-      required: ['name', 'pattern', 'members'],
+      required: ['name', 'pattern', 'members', 'basis_source', 'basis_quote'],
     },
   },
   {
@@ -92,8 +114,8 @@ export const boardToolDeclarations: FunctionDeclaration[] = [
     description: 'Show what flows from one element or team to another, e.g. a trigger to the team that handles it.',
     parameters: {
       type: Type.OBJECT,
-      properties: { from: { type: Type.STRING }, to: { type: Type.STRING }, label: { type: Type.STRING, description: 'What flows, in a few words.' }, reason },
-      required: ['from', 'to'],
+      properties: { from: { type: Type.STRING }, to: { type: Type.STRING }, label: { type: Type.STRING, description: 'What flows, in a few words.' }, reason, ...basis },
+      required: ['from', 'to', 'basis_source', 'basis_quote'],
     },
   },
   {
@@ -107,6 +129,15 @@ export const BOARD_TOOLS = new Set(boardToolDeclarations.map((d) => d.name as st
 
 const list = (v: unknown) => (Array.isArray(v) ? v.map(String) : undefined);
 const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
+
+/** The basis a tool call names; set_brief always rests on the user's words. */
+export function basisFrom(name: string, args: Record<string, unknown> = {}): Basis | null {
+  if (!GROUNDED_TOOLS.has(name)) return null;
+  const source = name === 'set_brief' ? 'user' : args.basis_source;
+  const quote = typeof args.basis_quote === 'string' ? args.basis_quote.trim().slice(0, 300) : '';
+  if ((source !== 'brief' && source !== 'user') || !quote) return null;
+  return { source, quote };
+}
 
 /** Maps a tool call onto a change body. The change log does the validation. */
 export function toChangeBody(name: string, args: Record<string, unknown> = {}): ChangeBody | null {
@@ -174,8 +205,8 @@ export class BoardSession {
     return true;
   }
 
-  apply(body: ChangeBody, actor: Actor, why: string): ApplyResult {
-    const change: Change = { body, actor, reason: why.trim() || 'No reason given', at: new Date().toISOString() };
+  apply(body: ChangeBody, actor: Actor, why: string, basis?: Basis): ApplyResult {
+    const change: Change = { body, actor, reason: why.trim() || 'No reason given', ...(basis ? { basis } : {}), at: new Date().toISOString() };
     const result = applyChange(this.board, change);
     if (result.ok) {
       this.board = result.board;

@@ -73,10 +73,18 @@ export const ChangeBody = z.discriminatedUnion('op', [
 ]);
 export type ChangeBody = z.infer<typeof ChangeBody>;
 
+/** What a coach change rests on: the brief, or the user's own words, quoted. */
+export const Basis = z.object({
+  source: z.enum(['brief', 'user']),
+  quote: z.string().trim().min(1).max(300),
+});
+export type Basis = z.infer<typeof Basis>;
+
 export const Change = z.object({
   body: ChangeBody,
   actor: Actor,
   reason: z.string().trim().min(1).max(300),
+  basis: Basis.optional(),
   at: z.string().datetime(),
 });
 export type Change = z.infer<typeof Change>;
