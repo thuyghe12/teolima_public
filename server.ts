@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { config } from './server/config';
+import { DEMO_GOAL, playDemo } from './server/demo';
 import { validateToolCall, wrapUntrustedSearch } from './server/validation';
 import { guardSketchEndpoint, hasValidToken, isAllowedOrigin, tokenFromUpgrade } from './server/security';
 
@@ -589,6 +590,7 @@ wss.on('connection', async (clientWs: WebSocket) => {
   const ai = getGeminiClient();
   let liveSession: any = null;
   let isSessionActive = false;
+  let stopDemo: (() => void) | null = null;
 
   // Hard caps: a session can never outlive SESSION_MAX_MINUTES or sit idle past IDLE_TIMEOUT_SECONDS.
   const closeWith = (reason: string) => {
@@ -604,10 +606,16 @@ wss.on('connection', async (clientWs: WebSocket) => {
 
   async function initLiveSession(voiceName = 'Zephyr') {
     if (!ai) {
+      // No key: replay a recorded session through the same tool-call path.
       clientWs.send(JSON.stringify({
         type: 'status',
-        status: { connected: false, state: 'idle', message: 'Gemini API Key not set. Running in local simulation mode.' }
+        status: { connected: true, state: 'demo', message: 'Demo mode: replaying a recorded session. Add GEMINI_API_KEY for live coaching.' }
       }));
+      clientWs.send(JSON.stringify({ type: 'transcript', transcript: { speaker: 'user', text: DEMO_GOAL } }));
+      stopDemo?.();
+      stopDemo = playDemo((m) => {
+        if (clientWs.readyState === WebSocket.OPEN) clientWs.send(JSON.stringify(m));
+      });
       return;
     }
 
@@ -827,6 +835,8 @@ wss.on('connection', async (clientWs: WebSocket) => {
       if (msg.type === 'start_call') {
         await initLiveSession(msg.voice || 'Zephyr');
       } else if (msg.type === 'stop_call') {
+        stopDemo?.();
+        stopDemo = null;
         if (liveSession && isSessionActive) {
           try {
             liveSession.close();
@@ -845,6 +855,11 @@ wss.on('connection', async (clientWs: WebSocket) => {
             audio: { data: msg.audio, mimeType: 'audio/pcm;rate=16000' }
           });
         }
+      } else if (msg.type === 'text' && !ai) {
+        clientWs.send(JSON.stringify({
+          type: 'transcript',
+          transcript: { speaker: 'ai', text: 'Demo mode replays one recorded session. Add a GEMINI_API_KEY to talk through your own system live.' }
+        }));
       } else if (msg.type === 'text') {
         // Text prompt / question
         if (liveSession && isSessionActive && msg.text) {
@@ -914,6 +929,7 @@ INSTRUCTION: Greet the user with high energy tailored to your selected Coach Arc
     console.log('[WebSocket] Client disconnected');
     clearTimeout(sessionTimer);
     clearTimeout(idleTimer);
+    stopDemo?.();
     if (liveSession && isSessionActive) {
       try {
         liveSession.close();

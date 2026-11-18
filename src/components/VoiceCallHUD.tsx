@@ -112,6 +112,10 @@ export const VoiceCallHUD: React.FC<VoiceCallHUDProps> = ({
                 <span className="text-[#18181c] flex items-center gap-1 bg-[#c8f13a] px-2 py-0.5 rounded-md">
                   <Sparkles className="w-3 h-3 text-[#18181c]" /> Coach Teolima ({settings.voiceName})
                 </span>
+              ) : latestTranscript.speaker === 'system' ? (
+                <span className="text-[#18181c] flex items-center gap-1 bg-[#f0f0f2] px-2 py-0.5 rounded-md">
+                  <Sparkles className="w-3 h-3 text-[#5a5a62]" /> Teolima
+                </span>
               ) : (
                 <span className="text-[#18181c] flex items-center gap-1 bg-[#f0f0f2] px-2 py-0.5 rounded-md">
                   <Mic className="w-3 h-3 text-[#5a5a62]" /> You
@@ -152,7 +156,9 @@ export const VoiceCallHUD: React.FC<VoiceCallHUDProps> = ({
             </div>
             <span className="text-xs font-bold font-mono-code tracking-tight text-[#18181c]">
               {isCallActive
-                ? isAiDrawing
+                ? statusMessage?.startsWith('Demo mode')
+                  ? 'Demo Replay'
+                  : isAiDrawing
                   ? '⚡ Coach Doodling Architecture'
                   : isAiSpeaking
                   ? '⚡ Coach Explaining'
