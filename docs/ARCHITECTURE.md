@@ -45,7 +45,7 @@ flowchart LR
 
 ## Layout model
 
-The layout is computed from the board, never chosen by the model. Left to right: triggers, then a guardrails lane above one container per team, then outputs. Inside a team, agents are placed by orchestration pattern:
+The layout is computed from the board, never chosen by the model, and follows the notation in [DESIGN_STANDARD.md](DESIGN_STANDARD.md#notation). Left to right: triggers, then the system boundary, then outputs. Inside the boundary, each guardrail is a band across the system, above one container per team. Inside a team, agents are placed by orchestration pattern:
 
 | Pattern | Placement |
 |---|---|
@@ -54,7 +54,9 @@ The layout is computed from the board, never chosen by the model. Left to right:
 | Handoff | the start agent on the left, the agents it hands off to on the right |
 | Group chat, Magentic | the manager on top, participants in a row below |
 
-The tools, knowledge and approvals a team uses sit in a lane below its agents, each approval next to what it gates. Connections are routed orthogonally through the gaps between columns. Tests check that no two cards overlap and that no connector crosses a card it does not connect.
+The tools, knowledge and approvals a team uses sit in a lane below its agents. An approval sits on the path to the tool it gates: the agent's line reaches the approval, and the approval leads to the tool. Connections are routed orthogonally through the gaps between columns. A legend under the drawing names the line and border styles in use. Tests check that no two cards overlap, that no connector crosses a card it does not connect, that teams and bands sit inside the boundary with triggers and outputs outside it, and that the legend lists only the styles in use.
+
+The call panel shows how far the board is through the design standard (`readiness()`), with the next step named and every open item explained.
 
 ## Demo mode
 

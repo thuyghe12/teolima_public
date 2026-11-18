@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronDown, ChevronUp, History, Keyboard, Mic, MicOff, Phone, PhoneOff, Send } from 'lucide-react';
 import type { LiveTranscriptItem } from '../types';
+import type { Step } from '../../shared/board/readiness';
 import { BRIEF_LIMITS, BriefDraft, constraintsFromText, normalizeBrief } from '../lib/briefs';
 
 interface CallPanelProps {
@@ -22,7 +23,44 @@ interface CallPanelProps {
   onSendText: (text: string) => void;
   onOpenHistory: () => void;
   savedCount: number;
+  /** Where the board stands against the design standard (shared/board/readiness.ts). */
+  steps?: Step[];
 }
+
+/** The steps of the design standard as a row of segments, with the next one named. */
+const DesignSteps: React.FC<{ steps: Step[] }> = ({ steps }) => {
+  const [open, setOpen] = useState(false);
+  const shown = steps.filter((s) => s.status !== 'later');
+  const done = shown.filter((s) => s.status === 'done').length;
+  const next = shown.find((s) => s.status !== 'done');
+  return (
+    <div>
+      <button onClick={() => setOpen(!open)} className="w-full text-left" aria-expanded={open}>
+        <div className="flex gap-1" aria-hidden>
+          {shown.map((s) => (
+            <span key={s.id} title={s.title} className={`h-1 flex-1 rounded-full ${s.status === 'done' ? 'bg-[#18181c]' : s.status === 'open' ? 'bg-[#a1a0a8]' : 'bg-[#e2e2e6]'}`} />
+          ))}
+        </div>
+        <div className="mt-1.5 flex justify-between text-xs text-[#5a5a62]">
+          <span>{next ? `Next: ${next.title}` : 'Every step done'}</span>
+          <span className="tabular-nums">{done} of {shown.length}</span>
+        </div>
+      </button>
+      {open && (
+        <ol className="mt-2 space-y-1.5">
+          {steps.map((s) => (
+            <li key={s.id} className="text-xs">
+              <span className={`font-medium ${s.status === 'done' ? 'text-[#18181c]' : 'text-[#5a5a62]'}`}>
+                {s.status === 'done' ? '✓' : s.status === 'later' ? '·' : '○'} {s.title}
+              </span>
+              {s.status !== 'done' && <p className="ml-4 text-[#87868e]">{s.detail}</p>}
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+};
 
 const label = 'block text-xs font-medium text-[#5a5a62] mb-1';
 const field =
@@ -164,6 +202,7 @@ export const CallPanel: React.FC<CallPanelProps> = (props) => {
       {!collapsed && (
         <div className="px-4 pb-3 space-y-3">
           {props.statusMessage && <p className="text-xs text-[#5a5a62]">{props.statusMessage}</p>}
+          {props.steps && isCallActive && <DesignSteps steps={props.steps} />}
 
           {!isCallActive && (
             <>

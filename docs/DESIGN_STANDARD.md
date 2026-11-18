@@ -78,4 +78,16 @@ Evaluate with scoring rubrics or model-graded evaluations rather than exact matc
 
 ## Notation
 
-The board follows the diagram guidance (Diagrams): directional arrows only, labels on lines whose meaning is not obvious, one consistent line style per kind of relationship, an explicit system boundary, a legend whenever borders or lines carry meaning, and official names for Microsoft services. The building blocks follow the reference architecture's split between agents, an orchestration layer, knowledge, and an integration layer for tools (Reference architecture). The deployment view follows the baseline Foundry architecture (Baseline). The rendering of these rules is tracked in the roadmap.
+The board follows the diagram guidance (Diagrams): directional arrows only, labels on lines whose meaning is not obvious, one consistent line style per kind of relationship, an explicit system boundary, a legend whenever borders or lines carry meaning, and official names for Microsoft services. The building blocks follow the reference architecture's split between agents, an orchestration layer, knowledge, and an integration layer for tools (Reference architecture). The deployment view follows the baseline Foundry architecture (Baseline).
+
+On the board today (`shared/board/layout.ts`):
+
+| Rule | How it is drawn |
+|---|---|
+| Explicit system boundary | A solid outline around everything the system contains; triggers and outputs sit outside it |
+| One line style per relationship | Solid arrow: work flows. Dotted line: uses a tool or knowledge. Dashed arrow: needs a person to approve |
+| Guardrails at every intervention point | A band across the system naming its controls and the agents it covers, instead of one more box |
+| Approvals scoped to a tool | The approval sits on the path from the agent to the tool it gates |
+| Legend | Under the drawing, listing only the styles in use |
+
+The context view and the deployment view, with official Azure service names and icons, come with the compiler (ADR 0003): the deployment view is a drawing of what Compile produces.

@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Board } from '../shared/board/schema';
+import { readiness } from '../shared/board/readiness';
 import { layoutBoard } from '../shared/board/layout';
 import { boardElements } from './lib/canvas/boardElements';
 import { getAccessToken } from './lib/access';
@@ -66,10 +67,13 @@ export default function App() {
   // Modals
   // The latest board from the server, handed back when a new call starts.
   const lastBoardRef = useRef<Board | null>(null);
+  const [board, setBoard] = useState<Board | null>(null);
+  const steps = React.useMemo(() => (board?.brief.goal ? readiness(board).steps : undefined), [board]);
 
   const clearBoard = () => {
     engine?.clear();
     lastBoardRef.current = null;
+    setBoard(null);
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: 'board_change', body: { op: 'clear' }, reason: 'Cleared from the toolbar' }));
     }
@@ -225,12 +229,16 @@ export default function App() {
             audio.interrupt();
           } else if (data.type === 'board' && data.board && engine) {
             lastBoardRef.current = data.board;
+            setBoard(data.board);
             // The coach may have saved the brief it confirmed with the user.
             if (data.board.brief?.goal) setBrief({ ...data.board.brief, constraints: [...data.board.brief.constraints] });
             // The board model is the source of truth: lay it out and draw what changed.
             const layout = layoutBoard(data.board);
             engine.syncBoardElements(boardElements(layout));
-            engine.ensureVisible({ ...layout.bounds, y: layout.bounds.y - 80, h: layout.bounds.h + 80 });
+            // keep the drawing clear of the call panel on wide screens
+            const panel = document.getElementById('call-panel');
+            const reserved = panel && window.innerWidth > 900 ? panel.offsetWidth + 20 : 0;
+            engine.ensureVisible({ ...layout.bounds, y: layout.bounds.y - 80, h: layout.bounds.h + 80 }, reserved);
           } else if (data.type === 'tool_call' && data.toolCalls) {
             handleToolCalls(data.toolCalls);
           } else if (data.type === 'transcript' && data.transcript) {
@@ -414,6 +422,7 @@ export default function App() {
         onSendText={sendPromptText}
         onOpenHistory={() => setIsHistoryOpen(true)}
         savedCount={savedSessions.length}
+        steps={steps}
       />
 
       {/* Session History & Review Modal */}

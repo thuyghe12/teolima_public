@@ -48,13 +48,15 @@ test('clearing the board resets the shape but keeps the brief', () => {
   assert.ok(b.brief.goal);
 });
 
-test('the support board: every step done except approvals already in place and evaluation later', () => {
+test('the support board: every step done, evaluation later', () => {
+  const r = readiness(replay(emptyBoard(), supportChanges));
+  assert.deepEqual(r.steps.filter((s) => s.status !== 'done').map((s) => s.id), ['evaluation']);
+  assert.equal(r.next, null);
+});
+
+test('a start agent or manager may route without tools of its own', () => {
   const s = status(replay(emptyBoard(), supportChanges));
-  assert.equal(s.brief, 'done');
-  assert.equal(s.shape, 'done');
-  assert.equal(s.pattern, 'done');
-  assert.equal(s.approvals, 'done');
-  assert.equal(s.evaluation, 'later');
+  assert.equal(s.tools, 'done'); // Triage has no tools: it starts the handoff
 });
 
 test('guardrails: an agent without Prompt Shields is missing', () => {
