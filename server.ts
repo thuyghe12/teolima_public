@@ -1,13 +1,10 @@
+import 'dotenv/config';
 import express from 'express';
 import http from 'http';
 import path from 'path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, LiveServerMessage, Modality, Type, FunctionDeclaration } from '@google/genai';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
 import { config } from './server/config';
 import { DEMO_GOAL, playDemo } from './server/demo';
 import { validateToolCall, wrapUntrustedSearch } from './server/validation';
