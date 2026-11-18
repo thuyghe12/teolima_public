@@ -24,9 +24,6 @@ export const config = {
     live: process.env.GEMINI_LIVE_MODEL || 'gemini-3.8-live',
     /** Tried when the primary Live model cannot be reached. */
     liveFallback: process.env.GEMINI_LIVE_FALLBACK_MODEL || 'gemini-3.1-flash-live-preview',
-    text: process.env.GEMINI_TEXT_MODEL || 'gemini-3.7-flash',
-    image: process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image',
-    imageLite: process.env.GEMINI_IMAGE_LITE_MODEL || 'gemini-3.1-flash-lite-image',
   },
   allowedOrigins: (process.env.ALLOWED_ORIGINS || `http://localhost:${port},http://127.0.0.1:${port}`)
     .split(',')
@@ -40,5 +37,4 @@ export const config = {
   idleTimeoutMs: int('IDLE_TIMEOUT_SECONDS', 120) * 1000,
   wsMaxPayloadBytes: 4 * 1024 * 1024,
   httpBodyLimit: '200kb',
-  sketchRateLimit: { windowMs: 60_000, max: int('SKETCH_RATE_LIMIT_PER_MINUTE', 10) },
 } as const;

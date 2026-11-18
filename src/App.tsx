@@ -156,6 +156,10 @@ export default function App() {
     }
   }, [engine]);
 
+  /** The brief the server expects: only what the user typed, nothing derived. */
+  const briefFrom = (g?: UserGoalProject | null) =>
+    g?.goal ? { goal: g.goal, audience: '', constraints: [] as string[] } : undefined;
+
   /**
    * Starts a Speech-to-Speech call session
    */
@@ -192,33 +196,16 @@ export default function App() {
 
       ws.onopen = () => {
         console.log('[App] WebSocket opened, starting Live Coach session...');
+        const goalToUse = initialGoal || currentGoal;
         ws.send(JSON.stringify({
           type: 'start_call',
           voice: settings.voiceName,
           // hand the board back, so a new connection continues the same design
           board: lastBoardRef.current,
+          brief: briefFrom(goalToUse),
+          level: goalToUse?.technicalLevel,
         }));
 
-        // Send goal context if provided
-        const goalToUse = initialGoal || currentGoal;
-        if (goalToUse) {
-          setTimeout(() => {
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({
-                type: 'set_goal_context',
-                goal: goalToUse.goal,
-                domain: goalToUse.domain,
-                coachArchetype: goalToUse.coachArchetype,
-                coachArchetypeDescription: goalToUse.coachArchetypeDescription,
-                technicalLevel: goalToUse.technicalLevel,
-                technicalLevelLabel: goalToUse.technicalLevelLabel,
-                architecturalNotes: goalToUse.architecturalNotes,
-                fileSnippet: goalToUse.fileContext?.textSnippet,
-                fileName: goalToUse.fileContext?.name
-              }));
-            }
-          }, 300);
-        }
 
         // Bridge mic audio chunks to WebSocket
         audio.onAudioData = (base64Pcm16) => {
@@ -396,18 +383,7 @@ export default function App() {
     if (!isCallActive) {
       startCall(goalProject);
     } else if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'set_goal_context',
-        goal: goalProject.goal,
-        domain: goalProject.domain,
-        coachArchetype: goalProject.coachArchetype,
-        coachArchetypeDescription: goalProject.coachArchetypeDescription,
-        technicalLevel: goalProject.technicalLevel,
-        technicalLevelLabel: goalProject.technicalLevelLabel,
-        architecturalNotes: goalProject.architecturalNotes,
-        fileSnippet: goalProject.fileContext?.textSnippet,
-        fileName: goalProject.fileContext?.name
-      }));
+      wsRef.current.send(JSON.stringify({ type: 'set_brief', brief: briefFrom(goalProject) }));
     }
   };
 

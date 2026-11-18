@@ -9,7 +9,7 @@ test('3.1 Flash Live is treated as synchronous only, newer Live models as asynch
 });
 
 test('declarations are marked non-blocking only when the model supports it', () => {
-  const decls = [{ name: 'draw_agent_node' }, { name: 'web_search' }];
+  const decls = [{ name: 'add_component' }, { name: 'search_microsoft_docs' }];
   assert.ok(declareTools(decls, true).every((d) => d.behavior === Behavior.NON_BLOCKING));
   assert.ok(declareTools(decls, false).every((d) => d.behavior === undefined));
 });
@@ -20,9 +20,9 @@ test('drawing results are silent so a finished drawing never starts a new turn',
   assert.deepEqual(r.response, { output: { success: true } });
 });
 
-test('search and sketch results are taken in when the model is idle', () => {
-  assert.equal(toolResponse({ name: 'web_search' }, {}, true).scheduling, FunctionResponseScheduling.WHEN_IDLE);
-  assert.equal(toolResponse({ name: 'generate_sketch_illustration' }, {}, true).scheduling, FunctionResponseScheduling.WHEN_IDLE);
+test('documentation results are taken in when the model is idle', () => {
+  assert.equal(toolResponse({ name: 'search_microsoft_docs' }, {}, true).scheduling, FunctionResponseScheduling.WHEN_IDLE);
+  assert.equal(toolResponse({ name: 'add_component' }, {}, true).scheduling, FunctionResponseScheduling.SILENT);
 });
 
 test('synchronous models get responses without scheduling', () => {

@@ -1,8 +1,8 @@
 # Teolima
 
-A voice-first studio for designing multi-agent systems. You describe the system out loud; a coach on the Gemini Live API talks it through with you and sketches the architecture on a hand-drawn whiteboard as you speak: intake, router, specialist agents, tools, guardrails, memory and human approval gates.
+A voice-first studio for designing multi-agent systems for Microsoft Agent Framework and Azure AI Foundry. You give a short brief and talk the design through with a coach on the Gemini Live API. The coach builds it on a hand-drawn board as you speak: triggers, teams of agents in an orchestration pattern, tools, knowledge, guardrails and human approvals.
 
-![Demo session: a customer support system sketched by the coach](docs/demo.png)
+![Demo session: a customer support system built by the coach](docs/demo.png)
 
 **Where it is going:** one unified git tree as the source of truth, many actors committing to it, two views of the same tree, and one compile target.
 
@@ -33,11 +33,12 @@ speaker 24 kHz  ◀── audio ────── session + idle caps     ◀�
 ```
 
 1. The browser streams microphone audio to the server over a websocket. The API key never leaves the server.
-2. The coach builds the design with tools that edit a typed board model (agents, tools, knowledge, teams with an orchestration pattern, guardrails, approvals, triggers, outputs, connections). It never draws shapes or chooses positions.
-3. Every edit is a change with an actor and a reason, validated by the change log: names map to stable ids, so nothing is created twice, and references are checked by kind. A refused change tells the model why.
-4. After each accepted change the server sends the board to the browser. The layout is computed from the board (`shared/board/layout.ts`): teams laid out by pattern, resources in a lane below, connectors routed around cards.
-5. Before advising on anything specific to Agent Framework, Foundry, guardrails, evaluations or Azure resources, the coach searches Microsoft Learn through Microsoft's official documentation server and bases its advice on the excerpts.
-6. Tools are non-blocking on Live models that support it, so the coach keeps talking while the board updates.
+2. Nothing is built before there is a brief: a goal, who uses the system, and its constraints. You can write it before the call, or the coach asks for it and confirms it back. The server refuses every building change until the goal is saved.
+3. The coach builds the design with tools that edit a typed board model (agents, tools, knowledge, teams with an orchestration pattern, guardrails, approvals, triggers, outputs, connections). It never draws shapes or chooses positions.
+4. Every edit is a change with an actor and a reason, validated by the change log: names map to stable ids, so nothing is created twice, and references are checked by kind. A refused change tells the model why.
+5. After each accepted change the server sends the board to the browser. The layout is computed from the board (`shared/board/layout.ts`): teams laid out by pattern, resources in a lane below, connectors routed around cards.
+6. Before advising on anything specific to Agent Framework, Foundry, guardrails, evaluations or Azure resources, the coach searches Microsoft Learn through Microsoft's official documentation server and bases its advice on the excerpts.
+7. Tools are non-blocking on Live models that support it, so the coach keeps talking while the board updates.
 
 The board model and what each element compiles to: [docs/BOARD_MODEL.md](docs/BOARD_MODEL.md). Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -47,10 +48,10 @@ The board model and what each element compiles to: [docs/BOARD_MODEL.md](docs/BO
 |---|---|
 | Key exposure | Key stays server-side; the browser talks only to this server |
 | Unwanted clients | Origin allowlist on the websocket; optional `ACCESS_TOKEN` for hosted demos |
-| Runaway cost | Connection cap, hard session limit, idle timeout, per-IP rate limit on image generation |
+| Runaway cost | Connection cap, hard session limit, idle timeout |
 | Malformed or hostile tool calls | Server-side validation of every tool call and argument |
-| Prompt injection through search | Search results passed to the model as untrusted reference data |
-| Generated SVG | Rendered onto the canvas as an image, so embedded scripts never run |
+| Invented or ungrounded designs | No building before a brief with a goal (enforced by the change log); every element must trace to the brief or the user; no web search, image generation or free drawing |
+| Prompt injection | The brief and documentation results are passed as the user's words or reference material, never as instructions; the prompt's rules cannot be changed in conversation |
 | Oversized input | 200 KB JSON limit, 4 MB websocket frames, goal and file context truncated |
 
 All limits are configurable in `.env` (see `.env.example`).
@@ -93,8 +94,6 @@ CI runs typecheck, tests and build on every push and pull request.
 | `GEMINI_API_KEY` | none | Live coaching. Without it, demo mode |
 | `GEMINI_LIVE_MODEL` | `gemini-3.8-live` | Speech-to-speech model, with asynchronous tool calls |
 | `GEMINI_LIVE_FALLBACK_MODEL` | `gemini-3.1-flash-live-preview` | Used if the primary model cannot be reached |
-| `GEMINI_TEXT_MODEL` | `gemini-3.7-flash` | Search grounding and SVG sketches |
-| `GEMINI_IMAGE_MODEL` / `GEMINI_IMAGE_LITE_MODEL` | `gemini-3.1-flash-image` / `gemini-3.1-flash-lite-image` | Sketch illustrations |
 | `MICROSOFT_DOCS_MCP_URL` | Microsoft Learn MCP server | Documentation grounding for the coach; `off` disables it |
 | `ALLOWED_ORIGINS` | `http://localhost:PORT` | Browser origins allowed on the websocket |
 | `ACCESS_TOKEN` | none | Required token for hosted demos (`?token=...`) |
