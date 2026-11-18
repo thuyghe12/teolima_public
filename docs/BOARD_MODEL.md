@@ -38,7 +38,7 @@ Orchestrations support human-in-the-loop through tool approval and request info 
 
 Nothing edits the board directly. Every edit is a change (`shared/board/changes.ts`) with:
 
-- **body:** one of `set_title`, `upsert_component`, `remove_component`, `upsert_team`, `remove_team`, `connect`, `disconnect`
+- **body:** one of `set_title`, `clear`, `upsert_component`, `remove_component`, `upsert_team`, `remove_team`, `connect`, `disconnect`
 - **actor:** `coach`, `user`, or a named memory worker (`worker:<name>`)
 - **reason:** why, in a sentence
 - **at:** a timestamp
@@ -55,3 +55,7 @@ Nothing edits the board directly. Every edit is a change (`shared/board/changes.
 - Pattern requirements that can be completed later (a manager, a start agent) are returned as warnings, not refusals, so a design can be built up step by step.
 
 The tests in `tests/board.test.ts` cover each rule; `tests/fixtures/support-board.ts` builds a complete customer support system through changes only.
+
+## Layout
+
+`shared/board/layout.ts` computes positions from the board: triggers on the left, a guardrails lane above one container per team, outputs on the right. Agents are placed by their team's pattern, resources in a lane below them, and connectors are routed orthogonally around the cards. See [ARCHITECTURE.md](ARCHITECTURE.md#layout-model).

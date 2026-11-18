@@ -11,7 +11,7 @@ Today the board lives in the canvas engine as a list of drawn elements, and a se
 | 3. Compiler | Compile turns the board into a reviewed Azure AI Foundry deployment package, with AI Landing Zone defaults and a wizard that only asks about open assumptions | [ADR 0003](adr/0003-compile-to-foundry-package.md) |
 | 4. Memory workers | Narrow, rubric-driven workers commit what they learn to memory branches of the same tree; a conductor resolves duplicates and conflicts | [ADR 0002](adr/0002-memory-workers-on-the-tree.md) |
 
-**Progress:** phase 1 has started. The typed board model and its change log are in `shared/board/` ([BOARD_MODEL.md](BOARD_MODEL.md)); next, the coach switches to tools that edit this model, and the canvas renders it with computed layout.
+**Progress:** phase 1 is in place: the coach edits a typed board through validated changes, and the canvas renders it with a computed layout ([BOARD_MODEL.md](BOARD_MODEL.md)). Committing the change log to a git tree and the code view (phase 2) are next.
 
 Phase 3 comes before phase 4 because the compiler is what turns a design session into something deployable, and it can be built and tested without the voice interface.
 

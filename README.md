@@ -25,20 +25,20 @@ Without a key, press **Start call** and the app replays a recorded design sessio
 ## How it works
 
 ```
-Browser                         Server (Express + ws)               Gemini Live API
-mic PCM 16 kHz  ── /ws/live ──▶ origin + token check  ── audio ──▶  speech in, speech out
-canvas engine   ◀── tool_call ─ validate tool args    ◀── tools ──  draw_agent_node, draw_connection, ...
-speaker 24 kHz  ◀── audio ──── session + idle caps     ◀── audio ──
-                                web_search (grounded, wrapped as untrusted data)
+Browser                          Server (Express + ws)                  Gemini Live API
+mic PCM 16 kHz  ── /ws/live ───▶ origin + token check   ── audio ────▶  speech in, speech out
+                                 board session + change log ◀─ tools ─  add_component, set_team, connect, ...
+canvas engine   ◀── board ────── validated board model
+speaker 24 kHz  ◀── audio ────── session + idle caps     ◀── audio ────
 ```
 
 1. The browser streams microphone audio to the server over a websocket. The API key never leaves the server.
-2. The server holds the Live API session. The model speaks and calls drawing tools: 14 function declarations covering agent nodes, connections, callouts, diagrams, charts, sketches and search.
-3. Every tool call is validated on the server before it reaches the browser (allowlisted tool names, clamped coordinates, parsed colours, capped text and arrays).
-4. The canvas engine animates each call with rough.js. The server keeps a record of what is on the board and returns it inside each tool result, so the model connects to existing components by name and never draws one twice.
-5. Drawing tools are non-blocking on models that support it: the model keeps talking while a component is drawn, and drawing results never start a new turn.
+2. The coach builds the design with tools that edit a typed board model (agents, tools, knowledge, teams with an orchestration pattern, guardrails, approvals, triggers, outputs, connections). It never draws shapes or chooses positions.
+3. Every edit is a change with an actor and a reason, validated by the change log: names map to stable ids, so nothing is created twice, and references are checked by kind. A refused change tells the model why.
+4. After each accepted change the server sends the board to the browser. The layout is computed from the board (`shared/board/layout.ts`): teams laid out by pattern, resources in a lane below, connectors routed around cards.
+5. Tools are non-blocking on Live models that support it, so the coach keeps talking while the board updates.
 
-Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+The board model and what each element compiles to: [docs/BOARD_MODEL.md](docs/BOARD_MODEL.md). Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Security
 
@@ -57,12 +57,14 @@ All limits are configurable in `.env` (see `.env.example`).
 ## Project layout
 
 ```
-server.ts              Express app, websocket bridge, Live API session, tool declarations
+server.ts              Express app, websocket bridge, Live API session
 server/config.ts       Environment configuration and limits
 server/security.ts     Origin and token checks, rate limiter
 server/validation.ts   Tool-call validation
 server/demo.ts         Recorded session for demo mode
-shared/board/          Typed board model and change log (docs/BOARD_MODEL.md)
+server/board-tools.ts  The coach's board tools and per-session board
+server/prompts/        Versioned coach prompt
+shared/board/          Typed board model, change log and layout (docs/BOARD_MODEL.md)
 src/lib/canvas/        Canvas engine and hand-drawn renderer
 src/lib/audio/         Microphone capture and playback
 src/components/        Whiteboard, toolbar, call HUD, goal setup, history
@@ -75,7 +77,7 @@ docs/                  Architecture, roadmap, decision records, verified Azure t
 | Command | What it does |
 |---|---|
 | `npm run dev` | Server with hot reload on port 3000 |
-| `npm test` | Unit tests (validation and demo replay) |
+| `npm test` | Unit tests (board model, layout, tools, validation, demo) |
 | `npm run lint` | TypeScript typecheck |
 | `npm run build` | Production build of client and server into `dist/` |
 | `npm start` | Run the production build |

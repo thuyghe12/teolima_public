@@ -14,6 +14,7 @@ flowchart LR
     SEC[Origin, token, caps]
     VAL[Tool-call validation]
     DEMO[Demo replay]
+    BOARD[Board session + change log]
   end
   LIVE[(Gemini Live API)]
   TXT[(Gemini text + image models)]
@@ -21,43 +22,45 @@ flowchart LR
 
   MIC -- audio --> WS
   WS --> SEC --> LIVE
-  LIVE -- tool calls --> VAL -- tool_call --> ENG
+  LIVE -- board tools --> BOARD -- board --> ENG
+  LIVE -- explain tools --> VAL -- tool_call --> ENG
   LIVE -- audio --> WS -- audio --> MIC
   VAL -- web_search, sketches --> TXT
-  DEMO -- tool_call --> ENG
+  DEMO -- changes --> BOARD
   UI -- saved sessions --> SB
 ```
 
 ## The tool loop
 
 1. On **Start call** the browser opens `/ws/live`. The upgrade is refused unless the origin is allowlisted, the access token matches (when one is configured) and the server is below its connection cap.
-2. The server opens a Live API session with the system instruction and 14 function declarations, and relays microphone audio in and speech out.
-3. When the model calls a tool, the server validates it (`server/validation.ts`). Unknown tools get an error response so the model can correct itself; valid calls are forwarded as `tool_call` messages with clean arguments.
-4. Two tools run on the server: `web_search` (grounded search, returned to the model wrapped as untrusted data) and `generate_sketch_illustration` (image model first, then SVG synthesis, then a procedural fallback, so the board always gets a picture).
-5. The canvas engine animates the drawing and reports the board back (`canvas_state_update`). The server stores it per session (`server/board-tracker.ts`) and returns the list of components inside tool results. It is never sent to the model as a message: that would start a new turn, and the model would answer it by drawing again.
-6. On Live models with asynchronous function calling, every tool is declared non-blocking (`server/live-tools.ts`). Drawing results are returned with SILENT scheduling, so the model keeps narrating; search and sketch results with WHEN_IDLE, so they are used once the current sentence ends. A component or connection already on the board is not drawn again; the model is told it exists.
-7. The session ends on **End call**, at the session limit or after the idle timeout.
+2. The server opens a Live API session with the coach prompt (`server/prompts/coach.ts`, versioned) and its tools, and relays microphone audio in and speech out.
+3. The coach's main tools edit the board model (`server/board-tools.ts`): `set_title`, `add_component`, `remove_component`, `set_team`, `remove_team`, `connect`, `disconnect`, `clear_board`. Each call becomes a change for the session's board (`shared/board/changes.ts`) with actor `coach` and the reason the model gives.
+4. An accepted change updates the board, which is sent to the browser (`board` message). The tool result returns a compact summary of the whole board, so the model always works from the real state. A refused change returns the reason and the board.
+5. The browser lays the board out (`shared/board/layout.ts`), turns the layout into canvas elements with stable ids (`src/lib/canvas/boardElements.ts`) and syncs them (`syncBoardElements`): new elements animate in, changed ones update in place, and the view zooms out only when the board no longer fits.
+6. A few tools explain rather than build: `web_search` (grounded search, returned as untrusted reference data), `draw_callout` (a note attached to a card by name), `highlight_area` and `generate_sketch_illustration` (image model, then SVG synthesis, then a procedural fallback). Their arguments are validated (`server/validation.ts`) before they reach the browser.
+7. On Live models with asynchronous function calling, every tool is declared non-blocking (`server/live-tools.ts`): board and drawing results return SILENT, so the coach keeps narrating; search and sketch results return WHEN_IDLE. Nothing about the board is ever sent to the model as a new message, which would start a new turn.
+8. The session ends on **End call**, at the session limit or after the idle timeout.
 
 ## Layout model
 
-Components are placed on a four-column grid that encodes the architecture itself:
+The layout is computed from the board, never chosen by the model. Left to right: triggers, then a guardrails lane above one container per team, then outputs. Inside a team, agents are placed by orchestration pattern:
 
-| Column | Holds |
+| Pattern | Placement |
 |---|---|
-| 1 | Intake and triggers |
-| 2 | Router, supervisor or orchestrator |
-| 3 | Specialist agents and tools |
-| 4 | Guardrails, memory and human approval |
+| Sequential | a row, in execution order, each passing to the next |
+| Concurrent | a column, fanned out from the team input and back in |
+| Handoff | the start agent on the left, the agents it hands off to on the right |
+| Group chat, Magentic | the manager on top, participants in a row below |
 
-The model can pass a grid slot, explicit coordinates or neither; the engine resolves position by role and avoids collisions. Connections are drawn between component borders using their labels.
+The tools, knowledge and approvals a team uses sit in a lane below its agents, each approval next to what it gates. Connections are routed orthogonally through the gaps between columns. Tests check that no two cards overlap and that no connector crosses a card it does not connect.
 
 ## Demo mode
 
-Without `GEMINI_API_KEY`, starting a call replays `server/demo.ts`: a goal, narration and drawing steps for a customer support system. The replay uses the same message types and the same validator as a live session, so it exercises the real path. The tests check that every step validates, that every connection targets a component already drawn, and that the design contains a guardrail and a human approval gate.
+Without `GEMINI_API_KEY`, starting a call replays `server/demo.ts`: a goal, narration and the board changes for a customer support system. The replay goes through the same board session and change log as a live session, so it exercises the real path. The tests check that every change is accepted, that the design contains a guardrail and an approval, and that the board lays out cleanly.
 
 ## Persistence
 
-Sessions (goal, transcript, board elements) are saved to a Supabase `call_sessions` table when `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are set, and to browser storage otherwise. The roadmap moves the board itself into a versioned tree; see [ROADMAP.md](ROADMAP.md).
+Sessions (goal, transcript, canvas elements) are saved to a Supabase `call_sessions` table when `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are set, and to browser storage otherwise. The roadmap moves the board itself into a versioned tree; see [ROADMAP.md](ROADMAP.md).
 
 ## Security model
 
