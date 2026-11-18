@@ -14,6 +14,21 @@ const names = (description: string) => ({ type: Type.ARRAY, items: { type: Type.
 
 export const boardToolDeclarations: FunctionDeclaration[] = [
   {
+    name: 'set_brief',
+    description:
+      'Save what the system must achieve, who uses it and its constraints, exactly as the user stated them. Confirm it back to the user first. Nothing can be built until a goal is saved.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        goal: { type: Type.STRING, description: 'What the system must achieve, in the user\'s words.' },
+        audience: { type: Type.STRING, description: 'Who uses it or who it serves.' },
+        constraints: names('Limits the user stated: data that must stay in a region, actions that need a person, systems it may or may not touch.'),
+        reason,
+      },
+      required: ['goal'],
+    },
+  },
+  {
     name: 'set_title',
     description: 'Name the system being designed.',
     parameters: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, reason }, required: ['title'] },
@@ -96,6 +111,8 @@ const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
 /** Maps a tool call onto a change body. The change log does the validation. */
 export function toChangeBody(name: string, args: Record<string, unknown> = {}): ChangeBody | null {
   switch (name) {
+    case 'set_brief':
+      return { op: 'set_brief', goal: str(args.goal), audience: str(args.audience), constraints: list(args.constraints) };
     case 'set_title':
       return { op: 'set_title', title: String(args.title ?? '') };
     case 'add_component':
@@ -172,6 +189,7 @@ export class BoardSession {
     const name = (id: string) =>
       this.board.components.find((c) => c.id === id)?.name ?? this.board.teams.find((t) => t.id === id)?.name ?? id;
     return {
+      brief: this.board.brief,
       title: this.board.title,
       components: this.board.components.map((c) => `${c.name} (${c.kind})`),
       teams: this.board.teams.map((t) => `${t.name}: ${t.pattern} [${t.members.map(name).join(', ')}]`),

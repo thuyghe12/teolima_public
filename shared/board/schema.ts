@@ -115,16 +115,36 @@ export const Connection = z.object({
 });
 export type Connection = z.infer<typeof Connection>;
 
+/**
+ * What the system must achieve, for whom, and within which limits. Nothing is
+ * built before the goal is known: every element on the board must trace back
+ * to the brief or to something the user said.
+ */
+export const Brief = z.object({
+  goal: z.string().trim().max(600).default(''),
+  audience: z.string().trim().max(200).default(''),
+  constraints: z.array(z.string().trim().min(1).max(200)).max(12).default([]),
+});
+export type Brief = z.infer<typeof Brief>;
+
 export const Board = z.object({
   version: z.literal(1),
   title: z.string().trim().max(120).default(''),
+  brief: Brief.default({ goal: '', audience: '', constraints: [] }),
   components: z.array(Component).max(60),
   teams: z.array(Team).max(10),
   connections: z.array(Connection).max(150),
 });
 export type Board = z.infer<typeof Board>;
 
-export const emptyBoard = (): Board => ({ version: 1, title: '', components: [], teams: [], connections: [] });
+export const emptyBoard = (): Board => ({
+  version: 1,
+  title: '',
+  brief: { goal: '', audience: '', constraints: [] },
+  components: [],
+  teams: [],
+  connections: [],
+});
 
 /** Turns a display name into a stable id: "Refund Agent" -> "refund-agent". */
 export function slug(name: string): string {
