@@ -37,5 +37,8 @@
     "typescript": "~5.8.2",
     "vite": "^6.2.3"
   },
-  "description": "Voice architecture coach that sketches multi-agent systems on a whiteboard as you talk."
+  "description": "Voice architecture coach that sketches multi-agent systems on a whiteboard as you talk.",
+  "engines": {
+    "node": ">=20"
+  }
 }
