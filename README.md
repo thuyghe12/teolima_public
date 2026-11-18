@@ -36,7 +36,8 @@ speaker 24 kHz  ◀── audio ────── session + idle caps     ◀�
 2. The coach builds the design with tools that edit a typed board model (agents, tools, knowledge, teams with an orchestration pattern, guardrails, approvals, triggers, outputs, connections). It never draws shapes or chooses positions.
 3. Every edit is a change with an actor and a reason, validated by the change log: names map to stable ids, so nothing is created twice, and references are checked by kind. A refused change tells the model why.
 4. After each accepted change the server sends the board to the browser. The layout is computed from the board (`shared/board/layout.ts`): teams laid out by pattern, resources in a lane below, connectors routed around cards.
-5. Tools are non-blocking on Live models that support it, so the coach keeps talking while the board updates.
+5. Before advising on anything specific to Agent Framework, Foundry, guardrails, evaluations or Azure resources, the coach searches Microsoft Learn through Microsoft's official documentation server and bases its advice on the excerpts.
+6. Tools are non-blocking on Live models that support it, so the coach keeps talking while the board updates.
 
 The board model and what each element compiles to: [docs/BOARD_MODEL.md](docs/BOARD_MODEL.md). Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -81,6 +82,7 @@ docs/                  Architecture, roadmap, decision records, verified Azure t
 | `npm run lint` | TypeScript typecheck |
 | `npm run build` | Production build of client and server into `dist/` |
 | `npm start` | Run the production build |
+| `npm run check:docs` | Run one real Microsoft Learn search from this machine |
 
 CI runs typecheck, tests and build on every push and pull request.
 
@@ -93,6 +95,7 @@ CI runs typecheck, tests and build on every push and pull request.
 | `GEMINI_LIVE_FALLBACK_MODEL` | `gemini-3.1-flash-live-preview` | Used if the primary model cannot be reached |
 | `GEMINI_TEXT_MODEL` | `gemini-3.7-flash` | Search grounding and SVG sketches |
 | `GEMINI_IMAGE_MODEL` / `GEMINI_IMAGE_LITE_MODEL` | `gemini-3.1-flash-image` / `gemini-3.1-flash-lite-image` | Sketch illustrations |
+| `MICROSOFT_DOCS_MCP_URL` | Microsoft Learn MCP server | Documentation grounding for the coach; `off` disables it |
 | `ALLOWED_ORIGINS` | `http://localhost:PORT` | Browser origins allowed on the websocket |
 | `ACCESS_TOKEN` | none | Required token for hosted demos (`?token=...`) |
 | `MAX_CONNECTIONS`, `SESSION_MAX_MINUTES`, `IDLE_TIMEOUT_SECONDS` | 20, 15, 120 | Cost and abuse limits |
