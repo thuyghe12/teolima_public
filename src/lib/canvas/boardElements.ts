@@ -16,6 +16,27 @@ const base = { strokeColor: '#18181c', strokeWidth: 2, roughness: 1.1, author: '
 export function boardElements(layout: Layout): CanvasElement[] {
   const out: CanvasElement[] = [];
 
+  if (layout.boundary) {
+    const b = layout.boundary;
+    out.push({ ...base, id: `${BOARD_PREFIX}boundary`, type: 'shape', shapeKind: 'boundary', x: b.x, y: b.y, width: b.w, height: b.h, label: b.label, strokeColor: '#5a5a62' });
+  }
+
+  for (const band of layout.bands) {
+    out.push({
+      ...base,
+      id: `${BOARD_PREFIX}band:${band.id}`,
+      type: 'shape',
+      shapeKind: 'band',
+      agentRole: 'guardrail',
+      x: band.x,
+      y: band.y,
+      width: band.w,
+      height: band.h,
+      label: band.title,
+      subtext: band.subtitle,
+    });
+  }
+
   for (const t of layout.teams) {
     out.push({
       ...base,
@@ -64,6 +85,11 @@ export function boardElements(layout: Layout): CanvasElement[] {
     });
   }
 
+  if (layout.legend) {
+    const l = layout.legend;
+    out.push({ ...base, id: `${BOARD_PREFIX}legend`, type: 'shape', shapeKind: 'legend', x: l.x, y: l.y, width: l.w, height: l.h, legendItems: l.items });
+  }
+
   if (layout.title) {
     out.push({
       ...base,
@@ -79,11 +105,12 @@ export function boardElements(layout: Layout): CanvasElement[] {
   return out;
 }
 
-/** Draw order: team containers at the back, then connectors, then cards, then the title. */
+/** Draw order: the boundary at the back, then teams and bands, connectors, cards, then the title and legend. */
 export function boardLayer(id: string): number {
-  if (!id.startsWith(BOARD_PREFIX)) return 4;
-  if (id.startsWith(`${BOARD_PREFIX}team:`)) return 0;
-  if (id.startsWith(`${BOARD_PREFIX}edge:`)) return 1;
-  if (id.startsWith(`${BOARD_PREFIX}node:`)) return 2;
-  return 3;
+  if (!id.startsWith(BOARD_PREFIX)) return 5;
+  if (id === `${BOARD_PREFIX}boundary`) return 0;
+  if (id.startsWith(`${BOARD_PREFIX}team:`) || id.startsWith(`${BOARD_PREFIX}band:`)) return 1;
+  if (id.startsWith(`${BOARD_PREFIX}edge:`)) return 2;
+  if (id.startsWith(`${BOARD_PREFIX}node:`)) return 3;
+  return 4;
 }
