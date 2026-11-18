@@ -3,7 +3,6 @@ import { CanvasEngine } from '../lib/canvas/canvasEngine';
 import { CanvasLayer, VoiceSettings } from '../types';
 import { ConfirmationModal } from './ConfirmationModal';
 import {
-  Compass,
   Download,
   Eraser,
   Hand,
@@ -28,7 +27,6 @@ interface CanvasToolbarProps {
   onOpenSettings: () => void;
   onToggleLayerPanel: () => void;
   isLayerPanelOpen: boolean;
-  onOpenGoalModal: () => void;
   /** Clears the board through the board model. */
   onClearBoard: () => void;
 }
@@ -65,7 +63,6 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
   onOpenSettings,
   onToggleLayerPanel,
   isLayerPanelOpen,
-  onOpenGoalModal,
   onClearBoard,
 }) => {
   const [tool, setTool] = useState<UserTool>('pan');
@@ -166,14 +163,11 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
 
         {isMenuOpen && (
           <div className="absolute right-0 top-full mt-2 w-56 p-1.5 rounded-2xl bg-white border border-[#e2e2e6] shadow-xl z-50">
-            <button className={menuItem} onClick={() => { setIsMenuOpen(false); onOpenGoalModal(); }}>
-              <Compass className="w-4 h-4 text-[#5a5a62]" /> Goal and context
-            </button>
             <button className={menuItem} onClick={() => { setIsMenuOpen(false); onToggleLayerPanel(); }}>
               <Layers className="w-4 h-4 text-[#5a5a62]" /> {isLayerPanelOpen ? 'Hide layers' : 'Layers'}
             </button>
             <button className={menuItem} onClick={() => { setIsMenuOpen(false); onOpenSettings(); }}>
-              <Settings2 className="w-4 h-4 text-[#5a5a62]" /> Voice and drawing settings
+              <Settings2 className="w-4 h-4 text-[#5a5a62]" /> Settings
             </button>
 
             <div className="px-3 pt-2 pb-1 text-[11px] font-mono-code uppercase tracking-wider text-[#87868e]">Background</div>

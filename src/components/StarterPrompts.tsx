@@ -1,27 +1,31 @@
 import React from 'react';
+import type { BriefDraft } from '../lib/briefs';
 
-/** Ways to start, shown on an empty board and gone once there is a design. */
-export const STARTER_PROMPTS = [
+/**
+ * Example briefs, shown on an empty board. Picking one fills the brief in the
+ * call panel, where the user can change it before the call starts.
+ */
+export const STARTER_BRIEFS: Array<{ label: string; brief: BriefDraft }> = [
   {
     label: 'Customer support',
-    prompt: 'Design a customer support system that answers order questions and handles refunds safely.',
+    brief: { goal: 'Answer order questions and handle refunds safely', audience: 'Customers of a web shop', constraints: [] },
   },
   {
     label: 'Research assistant',
-    prompt: 'Design a research assistant that searches the web and internal documents and writes a sourced summary.',
+    brief: { goal: 'Search internal documents and write a sourced summary', audience: 'Analysts', constraints: [] },
   },
   {
     label: 'Invoice processing',
-    prompt: 'Design a system that reads incoming invoices, checks them against purchase orders and asks a person to approve exceptions.',
+    brief: { goal: 'Check incoming invoices against purchase orders and route exceptions to a person', audience: 'The finance team', constraints: [] },
   },
   {
     label: 'Content review',
-    prompt: 'Design a pipeline where one agent drafts marketing copy, another checks it against brand rules, and a person signs off.',
+    brief: { goal: 'Draft marketing copy, check it against brand rules, and get a person to sign off', audience: 'The marketing team', constraints: [] },
   },
 ];
 
 interface StarterPromptsProps {
-  onSelect: (prompt: string) => void;
+  onSelect: (brief: BriefDraft) => void;
 }
 
 export const StarterPrompts: React.FC<StarterPromptsProps> = ({ onSelect }) => (
@@ -29,13 +33,13 @@ export const StarterPrompts: React.FC<StarterPromptsProps> = ({ onSelect }) => (
     <div className="pointer-events-auto max-w-xl text-center px-6">
       <h1 className="text-2xl font-semibold text-[#18181c] font-body">What should your agents do?</h1>
       <p className="mt-2 text-sm text-[#5a5a62] font-body">
-        Start a call and describe it in your own words, or pick a starting point.
+        Write a brief in the panel, or start from an example.
       </p>
       <div className="mt-5 flex flex-wrap justify-center gap-2">
-        {STARTER_PROMPTS.map((s) => (
+        {STARTER_BRIEFS.map((s) => (
           <button
             key={s.label}
-            onClick={() => onSelect(s.prompt)}
+            onClick={() => onSelect({ ...s.brief })}
             className="px-3.5 py-2 rounded-xl border border-[#e2e2e6] bg-white text-sm text-[#18181c] hover:border-[#18181c] hover:bg-[#fafafa] transition-colors"
           >
             {s.label}

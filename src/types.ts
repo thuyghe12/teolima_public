@@ -172,27 +172,6 @@ export interface LiveTranscriptItem {
   isFinal?: boolean;
 }
 
-export interface UploadedFileContext {
-  name: string;
-  size: number;
-  type: string;
-  textSnippet?: string;
-  summary?: string;
-  uploadedAt: number;
-}
-
-export interface UserGoalProject {
-  goal: string;
-  domain: string;
-  coachArchetype?: string;
-  coachArchetypeDescription?: string;
-  technicalLevel?: number; // 1 (Beginner/Conceptual) to 4 (Staff AI Architect)
-  technicalLevelLabel?: string;
-  targetAudience?: string;
-  fileContext?: UploadedFileContext;
-  architecturalNotes?: string[];
-}
-
 export interface CallSession {
   id: string;
   title: string;
@@ -210,8 +189,12 @@ export interface CallSession {
   thumbnailUrl?: string;
 }
 
+/** How the coach explains: 1 new to AI ... 4 architect (server/prompts/coach.ts). */
+export type CoachLevel = 1 | 2 | 3 | 4;
+
 export interface VoiceSettings {
   voiceName: 'Zephyr' | 'Puck' | 'Charon' | 'Kore' | 'Fenrir';
+  level: CoachLevel;
   systemInstruction?: string;
   animationSpeed: 'slow' | 'normal' | 'fast';
   handDrawnRoughness: number;
@@ -222,10 +205,9 @@ export interface VoiceSettings {
 }
 
 export interface WSClientMessage {
-  type: 'audio' | 'text' | 'canvas_snapshot' | 'start_call' | 'stop_call' | 'set_brief' | 'board_change' | 'ping';
+  type: 'audio' | 'text' | 'start_call' | 'stop_call' | 'set_brief' | 'board_change' | 'ping';
   audio?: string; // base64 16kHz PCM
   text?: string;
-  image?: string; // base64 JPEG
   voice?: string;
   goal?: string;
   domain?: string;

@@ -6,7 +6,7 @@
 flowchart LR
   subgraph Browser
     MIC[Audio manager<br/>mic 16 kHz PCM, speaker 24 kHz]
-    UI[Whiteboard + call HUD]
+    UI[Whiteboard + call panel]
     ENG[Canvas engine<br/>rough.js renderer]
   end
   subgraph Server

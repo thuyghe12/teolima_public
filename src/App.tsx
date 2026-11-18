@@ -1,14 +1,7 @@
 /**
- * Teolima — Visual Multi-Agent Architecture Coach
- * Architecture:
- * - Sub-300ms duplex audio streaming with Gemini Multimodal Live API
- * - Real-time Tool Calling emitting JSON doodle drawing & writing payloads
- * - Rough.js animated progressive tweening loops via requestAnimationFrame
- * - Layer Management System (Visibility, Stacking, Lock, Opacity, AI Target Assignment)
- * - Undo/Redo Engine for AI & User Drawings
- * - Goal & Context Upload for non-tech builders
- * - Brand Design System: Light paper canvas, Ink, Volt accents, Nanum Pen Script doodles
- * - Supabase & local storage for post-call session archiving
+ * Teolima: the whiteboard, the call panel and the websocket to the coach.
+ * The server owns the board model; this app writes the brief, streams audio
+ * and draws whatever board the server sends back.
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -19,11 +12,11 @@ import { getAccessToken } from './lib/access';
 import { Whiteboard } from './components/Whiteboard';
 import { StarterPrompts } from './components/StarterPrompts';
 import { CanvasToolbar } from './components/CanvasToolbar';
-import { VoiceCallHUD } from './components/VoiceCallHUD';
+import { CallPanel } from './components/CallPanel';
 import { SessionHistoryModal } from './components/SessionHistoryModal';
 import { SettingsModal } from './components/SettingsModal';
 import { LayerPanel } from './components/LayerPanel';
-import { GoalContextModal } from './components/GoalContextModal';
+import { BriefDraft, emptyBrief, normalizeBrief, recentBriefs, rememberBrief } from './lib/briefs';
 
 import { CanvasEngine } from './lib/canvas/canvasEngine';
 import { LiveAudioManager } from './lib/audio/audioManager';
@@ -34,7 +27,6 @@ import {
   CanvasLayer,
   DrawingInstruction,
   LiveTranscriptItem,
-  UserGoalProject,
   VoiceSettings,
   WSServerMessage
 } from './types';
@@ -60,11 +52,9 @@ export default function App() {
   const [activeLayerId, setActiveLayerId] = useState<string>('layer-user');
   const [isLayerPanelOpen, setIsLayerPanelOpen] = useState(false);
 
-  // Focus mode
-
-  // Goal & Context project
-  const [currentGoal, setCurrentGoal] = useState<UserGoalProject | null>(null);
-  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
+  // The brief: written in the panel before a call, or saved by the coach during one.
+  const [brief, setBrief] = useState<BriefDraft>(emptyBrief);
+  const [recent, setRecent] = useState<BriefDraft[]>(() => recentBriefs());
 
   // Session & Transcripts
   const [transcripts, setTranscripts] = useState<LiveTranscriptItem[]>([]);
@@ -89,15 +79,15 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Settings
-  const [settings, setSettings] = useState<VoiceSettings>({
-    voiceName: 'Kore',
+  const [settings, setSettings] = useState<VoiceSettings>(() => ({
+    ...loadPreferences(),
     animationSpeed: 'normal',
     handDrawnRoughness: 1.4,
     defaultStrokeWidth: 2,
     soundEffects: true,
     canvasTheme: 'paper-dots',
     aiLayerId: 'layer-ai',
-  });
+  }));
 
   const wsRef = useRef<WebSocket | null>(null);
   const isCallActiveRef = useRef(isCallActive);
@@ -133,6 +123,7 @@ export default function App() {
   const handleUpdateSettings = (newSettings: Partial<VoiceSettings>) => {
     setSettings((prev) => {
       const updated = { ...prev, ...newSettings };
+      savePreferences(updated);
       if (engine) {
         engine.setSettings(updated);
       }
@@ -156,14 +147,10 @@ export default function App() {
     }
   }, [engine]);
 
-  /** The brief the server expects: only what the user typed, nothing derived. */
-  const briefFrom = (g?: UserGoalProject | null) =>
-    g?.goal ? { goal: g.goal, audience: '', constraints: [] as string[] } : undefined;
-
   /**
    * Starts a Speech-to-Speech call session
    */
-  const startCall = async (initialGoal?: UserGoalProject) => {
+  const startCall = async () => {
     if (isCallActive || isConnecting) return;
     setIsConnecting(true);
 
@@ -196,14 +183,16 @@ export default function App() {
 
       ws.onopen = () => {
         console.log('[App] WebSocket opened, starting Live Coach session...');
-        const goalToUse = initialGoal || currentGoal;
+        // Only what the user typed goes to the server; it is saved as the user's change.
+        const typed = normalizeBrief(brief);
+        if (typed.goal) setRecent(rememberBrief(typed));
         ws.send(JSON.stringify({
           type: 'start_call',
           voice: settings.voiceName,
           // hand the board back, so a new connection continues the same design
           board: lastBoardRef.current,
-          brief: briefFrom(goalToUse),
-          level: goalToUse?.technicalLevel,
+          brief: typed.goal ? typed : undefined,
+          level: settings.level,
         }));
 
 
@@ -222,14 +211,7 @@ export default function App() {
         const sessId = 'call-' + Date.now();
         setActiveSessionId(sessId);
         setSessionStartTime(Date.now());
-        setTranscripts([
-          {
-            id: 'sys-start',
-            speaker: 'system',
-            text: `Connected with Coach Teolima (${settings.voiceName}). Ready to architect your multi-agent system!`,
-            timestamp: Date.now(),
-          }
-        ]);
+        setTranscripts([]);
       };
 
       ws.onmessage = (event) => {
@@ -243,6 +225,8 @@ export default function App() {
             audio.interrupt();
           } else if (data.type === 'board' && data.board && engine) {
             lastBoardRef.current = data.board;
+            // The coach may have saved the brief it confirmed with the user.
+            if (data.board.brief?.goal) setBrief({ ...data.board.brief, constraints: [...data.board.brief.constraints] });
             // The board model is the source of truth: lay it out and draw what changed.
             const layout = layoutBoard(data.board);
             engine.syncBoardElements(boardElements(layout));
@@ -319,12 +303,9 @@ export default function App() {
       const durationSeconds = Math.max(1, Math.round((Date.now() - sessionStartTime) / 1000));
       const newSession: CallSession = {
         id: activeSessionId,
-        title: currentGoal?.goal.slice(0, 45) || transcripts.find((t) => t.speaker === 'user')?.text.slice(0, 45) || 'Multi-Agent System Architecture',
-        goal: currentGoal?.goal,
-        domain: currentGoal?.domain,
-        coachArchetype: currentGoal?.coachArchetype,
-        technicalLevel: currentGoal?.technicalLevel,
-        technicalLevelLabel: currentGoal?.technicalLevelLabel,
+        title: lastBoardRef.current?.title || brief.goal.slice(0, 60) || 'Untitled design',
+        goal: brief.goal || undefined,
+        technicalLevel: settings.level,
         startedAt: sessionStartTime,
         endedAt: Date.now(),
         durationSeconds,
@@ -339,14 +320,6 @@ export default function App() {
     }
   };
 
-  const toggleCall = () => {
-    if (isCallActive) {
-      endCall();
-    } else {
-      startCall();
-    }
-  };
-
   const toggleMute = () => {
     if (!audioManager) return;
     const newMuted = !isMuted;
@@ -354,50 +327,12 @@ export default function App() {
     setIsMuted(newMuted);
   };
 
-  /**
-   * Captures snapshot of whiteboard and sends to Gemini Live API vision grounding
-   */
-  const captureVision = () => {
-    if (!engine || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-    const jpegBase64 = engine.captureSnapshot(0.85);
-    wsRef.current.send(JSON.stringify({
-      type: 'canvas_snapshot',
-      image: jpegBase64,
-    }));
-    setTranscripts((prev) => [
-      ...prev,
-      {
-        id: 'vision-' + Date.now(),
-        speaker: 'system',
-        text: '📸 Whiteboard snapshot shared with coach vision.',
-        timestamp: Date.now(),
-      }
-    ]);
-  };
-
-  /**
-   * Handle Starting a session from the Goal modal
-   */
-  const handleStartSessionWithGoal = (goalProject: UserGoalProject) => {
-    setCurrentGoal(goalProject);
-    if (!isCallActive) {
-      startCall(goalProject);
-    } else if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'set_brief', brief: briefFrom(goalProject) }));
-    }
-  };
-
-  /**
-   * Sends prompt from suggestion pills (or triggers simulation if call not started yet)
-   */
-  const handleSelectPrompt = async (promptText: string) => {
-    if (!isCallActive) {
-      await startCall();
-      setTimeout(() => {
-        sendPromptText(promptText);
-      }, 800);
-    } else {
-      sendPromptText(promptText);
+  /** Saves a brief edited during a call. */
+  const saveBrief = (b: BriefDraft) => {
+    setBrief(b);
+    setRecent(rememberBrief(b));
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'set_brief', brief: b }));
     }
   };
 
@@ -423,9 +358,7 @@ export default function App() {
   const handleRestoreSession = (session: CallSession) => {
     if (engine && session.elements) {
       engine.setElements(session.elements);
-      if (session.goal) {
-        setCurrentGoal({ goal: session.goal, domain: 'Restored Architecture' });
-      }
+      if (session.goal) setBrief({ goal: session.goal, audience: '', constraints: [] });
     }
   };
 
@@ -439,7 +372,6 @@ export default function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
         onToggleLayerPanel={() => setIsLayerPanelOpen(!isLayerPanelOpen)}
         isLayerPanelOpen={isLayerPanelOpen}
-        onOpenGoalModal={() => setIsGoalModalOpen(true)}
         onClearBoard={clearBoard}
       />
 
@@ -454,7 +386,7 @@ export default function App() {
 
       {/* Main Interactive Whiteboard with Rough.js & RAF Loop */}
       <Whiteboard
-        emptyState={<StarterPrompts onSelect={handleSelectPrompt} />}
+        emptyState={isCallActive ? undefined : <StarterPrompts onSelect={(b) => setBrief(b)} />}
         onEngineReady={handleEngineReady}
         settings={settings}
         isAiDrawing={isAiDrawing}
@@ -464,34 +396,24 @@ export default function App() {
         }}
       />
 
-      {/* Real-time Voice Call HUD (Audio visualizer, mic mute, snapshot, live subtitles) */}
-      <VoiceCallHUD
+      <CallPanel
         isCallActive={isCallActive}
-        onToggleCall={toggleCall}
+        isConnecting={isConnecting}
         isMuted={isMuted}
-        onToggleMute={toggleMute}
-        inputVolume={inputVolume}
-        outputVolume={outputVolume}
         isAiSpeaking={isAiSpeaking}
         isAiDrawing={isAiDrawing}
+        statusMessage={statusMessage}
         transcripts={transcripts}
-        onCaptureVision={captureVision}
+        brief={brief}
+        onBriefChange={setBrief}
+        recentBriefs={recent}
+        onStartCall={startCall}
+        onEndCall={endCall}
+        onSaveBrief={saveBrief}
+        onToggleMute={toggleMute}
+        onSendText={sendPromptText}
         onOpenHistory={() => setIsHistoryOpen(true)}
         savedCount={savedSessions.length}
-        settings={settings}
-        onUpdateSettings={handleUpdateSettings}
-        statusMessage={statusMessage}
-        isConnecting={isConnecting}
-        onSendTextMessage={sendPromptText}
-        activeGoal={currentGoal?.goal}
-      />
-
-      {/* Goal & Context File Upload Modal */}
-      <GoalContextModal
-        isOpen={isGoalModalOpen}
-        onClose={() => setIsGoalModalOpen(false)}
-        onStartSessionWithGoal={handleStartSessionWithGoal}
-        currentGoal={currentGoal?.goal}
       />
 
       {/* Session History & Review Modal */}
@@ -510,4 +432,29 @@ export default function App() {
       />
     </main>
   );
+}
+
+/** Voice and level are remembered in this browser; everything else uses defaults. */
+const PREFS_KEY = 'teolima.preferences';
+const VOICE_NAMES: VoiceSettings['voiceName'][] = ['Kore', 'Zephyr', 'Charon', 'Puck', 'Fenrir'];
+
+function loadPreferences(): Pick<VoiceSettings, 'voiceName' | 'level'> {
+  const fallback = { voiceName: 'Kore' as const, level: 2 as const };
+  try {
+    const p = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}');
+    return {
+      voiceName: VOICE_NAMES.includes(p.voiceName) ? p.voiceName : fallback.voiceName,
+      level: [1, 2, 3, 4].includes(p.level) ? p.level : fallback.level,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function savePreferences(s: VoiceSettings) {
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ voiceName: s.voiceName, level: s.level }));
+  } catch {
+    // not remembered; the call still uses them
+  }
 }

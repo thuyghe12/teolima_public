@@ -53,6 +53,7 @@ export class CanvasEngine {
   // Settings
   public settings: VoiceSettings = {
     voiceName: 'Kore',
+    level: 2,
     animationSpeed: 'normal',
     handDrawnRoughness: 1.2,
     defaultStrokeWidth: 2,
@@ -1859,13 +1860,6 @@ export class CanvasEngine {
 
   private notifyElementsChange(): void {
     this.onElementsChange?.(this.elements);
-  }
-
-  /**
-   * Captures a snapshot of the whiteboard for Gemini Live vision
-   */
-  public captureSnapshot(quality = 0.8): string {
-    return this.canvas.toDataURL('image/jpeg', quality).replace(/^data:image\/jpeg;base64,/, '');
   }
 
   /**
