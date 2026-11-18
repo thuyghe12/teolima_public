@@ -36,7 +36,7 @@ export class CanvasEngine {
   private panStart = { x: 0, y: 0 };
 
   // Current User Drawing State
-  public userTool: 'select' | 'pencil' | 'highlighter' | 'eraser' | 'shape' | 'text' | 'pan' = 'pencil';
+  public userTool: 'select' | 'pencil' | 'highlighter' | 'eraser' | 'shape' | 'text' | 'pan' = 'pan';
   public userShapeKind: ShapeKind = 'rectangle';
   public userStrokeColor = '#18181c'; // Teolima dark ink default
   public userFillColor = 'rgba(200, 241, 58, 0.2)'; // Volt accent fill
@@ -1404,7 +1404,7 @@ export class CanvasEngine {
         x: worldPoint.x,
         y: worldPoint.y,
         points: [worldPoint],
-        strokeColor: 'rgba(250, 204, 21, 0.45)', // Translucent Neon Yellow
+        strokeColor: 'rgba(200, 241, 58, 0.5)', // brand volt, translucent
         strokeWidth: 16,
         roughness: 0.8,
         author: 'user',
