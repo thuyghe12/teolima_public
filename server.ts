@@ -12,6 +12,7 @@ import { ChangeBody } from './shared/board/changes';
 import { COACH_PROMPT, COACH_PROMPT_VERSION, goalContextPrompt } from './server/prompts/coach';
 import { declareTools, supportsAsyncTools, toolResponse } from './server/live-tools';
 import { validateToolCall, wrapUntrustedSearch } from './server/validation';
+import { microsoftDocsCaller, searchMicrosoftDocs } from './server/microsoft-docs';
 import { guardSketchEndpoint, hasValidToken, isAllowedOrigin, tokenFromUpgrade } from './server/security';
 
 const PORT = config.port;
@@ -47,6 +48,20 @@ const webSearchTool: FunctionDeclaration = {
     required: ['query']
   }
 };
+
+const microsoftDocsTool: FunctionDeclaration = {
+  name: 'search_microsoft_docs',
+  description: 'Search official Microsoft documentation (Microsoft Learn) for Agent Framework, Azure AI Foundry, Foundry Agent Service, guardrails, evaluations, Azure resources and Bicep. Returns excerpts with URLs.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      query: { type: Type.STRING, description: 'What to look up, e.g. "Agent Framework handoff orchestration" or "Foundry guardrails Prompt Shields"' },
+    },
+    required: ['query'],
+  },
+};
+
+const docsCaller = config.microsoftDocsUrl && config.microsoftDocsUrl !== 'off' ? microsoftDocsCaller(config.microsoftDocsUrl) : null;
 
 const highlightAreaTool: FunctionDeclaration = {
   name: 'highlight_area',
@@ -359,6 +374,15 @@ wss.on('connection', async (clientWs: WebSocket) => {
   async function handleToolCall(rawCall: any) {
     if (rawCall?.name === 'web_search') return runWebSearch(rawCall);
 
+    if (rawCall?.name === 'search_microsoft_docs') {
+      if (!docsCaller) return respond(rawCall, { error: 'Microsoft Learn search is disabled on this server.' });
+      const query = String(rawCall.args?.query ?? '');
+      sendClient({ type: 'status', status: { connected: true, state: 'searching', message: `Checking Microsoft Learn for "${query.slice(0, 80)}"...` } });
+      const result = await searchMicrosoftDocs(query, docsCaller);
+      console.log(`[Docs] ${'error' in result ? `failed: ${result.error}` : `searched: ${query}`}`);
+      return respond(rawCall, result as Record<string, unknown>);
+    }
+
     if (BOARD_TOOLS.has(rawCall?.name)) {
       const args = (rawCall.args ?? {}) as Record<string, unknown>;
       const body = toChangeBody(rawCall.name, args);
@@ -461,6 +485,7 @@ wss.on('connection', async (clientWs: WebSocket) => {
             {
               functionDeclarations: declareTools([
                 ...boardToolDeclarations,
+                ...(docsCaller ? [microsoftDocsTool] : []),
                 webSearchTool,
                 drawCalloutTool,
                 highlightAreaTool,

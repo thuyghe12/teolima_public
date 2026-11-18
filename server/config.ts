@@ -33,6 +33,8 @@ export const config = {
     .map((o) => o.trim())
     .filter(Boolean),
   accessToken: process.env.ACCESS_TOKEN || '',
+  /** Microsoft Learn MCP server for documentation grounding. Set to "off" to disable. */
+  microsoftDocsUrl: process.env.MICROSOFT_DOCS_MCP_URL ?? 'https://learn.microsoft.com/api/mcp?maxTokenBudget=3000',
   maxConnections: int('MAX_CONNECTIONS', 20),
   sessionMaxMs: int('SESSION_MAX_MINUTES', 15) * 60_000,
   idleTimeoutMs: int('IDLE_TIMEOUT_SECONDS', 120) * 1000,

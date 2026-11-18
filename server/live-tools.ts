@@ -18,7 +18,7 @@
 import { Behavior, FunctionResponseScheduling, type FunctionDeclaration } from '@google/genai';
 
 /** Tools whose results the model should take in when it next pauses. */
-const WHEN_IDLE_TOOLS = new Set(['web_search', 'generate_sketch_illustration']);
+const WHEN_IDLE_TOOLS = new Set(['web_search', 'search_microsoft_docs', 'generate_sketch_illustration']);
 
 /** Live models documented as supporting synchronous function calling only. */
 const SYNC_ONLY_MODELS = [/gemini-3\.1-flash-live/];
