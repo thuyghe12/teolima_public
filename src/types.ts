@@ -222,7 +222,7 @@ export interface VoiceSettings {
 }
 
 export interface WSClientMessage {
-  type: 'audio' | 'text' | 'canvas_snapshot' | 'start_call' | 'stop_call' | 'set_goal_context' | 'ping';
+  type: 'audio' | 'text' | 'canvas_snapshot' | 'start_call' | 'stop_call' | 'set_brief' | 'board_change' | 'ping';
   audio?: string; // base64 16kHz PCM
   text?: string;
   image?: string; // base64 JPEG

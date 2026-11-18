@@ -9,8 +9,8 @@
  * - drawing tools answer SILENT: the result goes into the context and the
  *   model carries on with what it was saying, so a finished drawing never
  *   starts a new turn
- * - search and sketch generation answer WHEN_IDLE: the model uses the result
- *   once it has finished its current sentence
+ * - documentation search answers WHEN_IDLE: the model uses the result once
+ *   it has finished its current sentence
  *
  * Models without asynchronous function calling get plain blocking
  * declarations and responses without scheduling.
@@ -18,7 +18,7 @@
 import { Behavior, FunctionResponseScheduling, type FunctionDeclaration } from '@google/genai';
 
 /** Tools whose results the model should take in when it next pauses. */
-const WHEN_IDLE_TOOLS = new Set(['web_search', 'search_microsoft_docs', 'generate_sketch_illustration']);
+const WHEN_IDLE_TOOLS = new Set(['search_microsoft_docs']);
 
 /** Live models documented as supporting synchronous function calling only. */
 const SYNC_ONLY_MODELS = [/gemini-3\.1-flash-live/];
