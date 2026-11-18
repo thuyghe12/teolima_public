@@ -45,6 +45,8 @@ interface CanvasToolbarProps {
   isFocusMode?: boolean;
   onToggleFocusMode?: () => void;
   onOpenGoalModal: () => void;
+  /** Clears the board through the board model; falls back to clearing the canvas. */
+  onClearBoard?: () => void;
   activeGoal?: string;
   onSelectPrompt?: (prompt: string) => void;
   isCallActive?: boolean;
@@ -119,6 +121,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
   layers,
   activeLayerId,
   onOpenGoalModal,
+  onClearBoard,
   onSelectPrompt,
   isCallActive = false,
 }) => {
@@ -620,7 +623,8 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         cancelLabel="Keep Drawing"
         variant="danger"
         onConfirm={() => {
-          engine?.clear();
+          if (onClearBoard) onClearBoard();
+          else engine?.clear();
           setIsClearConfirmOpen(false);
         }}
         onClose={() => setIsClearConfirmOpen(false)}

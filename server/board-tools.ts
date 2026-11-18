@@ -6,7 +6,7 @@
  * validates every edit, and the layout is computed from the result.
  */
 import { Type, type FunctionDeclaration } from '@google/genai';
-import { emptyBoard, type Board } from '../shared/board/schema';
+import { Board, emptyBoard } from '../shared/board/schema';
 import { applyChange, type Actor, type ApplyResult, type ChangeBody, type Change } from '../shared/board/changes';
 
 const reason = { type: Type.STRING, description: 'Why, in one short sentence. Stored with the change.' };
@@ -86,11 +86,6 @@ export const boardToolDeclarations: FunctionDeclaration[] = [
     description: 'Remove a connection.',
     parameters: { type: Type.OBJECT, properties: { from: { type: Type.STRING }, to: { type: Type.STRING }, reason }, required: ['from', 'to'] },
   },
-  {
-    name: 'clear_board',
-    description: 'Remove everything to start a new design. Only when the user asks for a fresh start.',
-    parameters: { type: Type.OBJECT, properties: { reason }, required: [] },
-  },
 ];
 
 export const BOARD_TOOLS = new Set(boardToolDeclarations.map((d) => d.name as string));
@@ -139,8 +134,6 @@ export function toChangeBody(name: string, args: Record<string, unknown> = {}): 
       return { op: 'connect', from: String(args.from ?? ''), to: String(args.to ?? ''), label: str(args.label) };
     case 'disconnect':
       return { op: 'disconnect', from: String(args.from ?? ''), to: String(args.to ?? '') };
-    case 'clear_board':
-      return { op: 'clear' };
     default:
       return null;
   }
@@ -150,6 +143,19 @@ export function toChangeBody(name: string, args: Record<string, unknown> = {}): 
 export class BoardSession {
   board: Board = emptyBoard();
   readonly changes: Change[] = [];
+
+  /**
+   * Restores a board the browser kept from an earlier connection, so ending a
+   * call or reconnecting never wipes the design. Only an empty session accepts
+   * one, and only a board that passes validation.
+   */
+  restore(candidate: unknown): boolean {
+    if (this.board.components.length || this.board.teams.length) return false;
+    const parsed = Board.safeParse(candidate);
+    if (!parsed.success) return false;
+    this.board = parsed.data;
+    return true;
+  }
 
   apply(body: ChangeBody, actor: Actor, why: string): ApplyResult {
     const change: Change = { body, actor, reason: why.trim() || 'No reason given', at: new Date().toISOString() };

@@ -12,6 +12,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import type { Board } from '../shared/board/schema';
 import { layoutBoard } from '../shared/board/layout';
 import { boardElements } from './lib/canvas/boardElements';
 import { getAccessToken } from './lib/access';
@@ -73,6 +74,17 @@ export default function App() {
   const [statusMessage, setStatusMessage] = useState<string>('');
 
   // Modals
+  // The latest board from the server, handed back when a new call starts.
+  const lastBoardRef = useRef<Board | null>(null);
+
+  const clearBoard = () => {
+    engine?.clear();
+    lastBoardRef.current = null;
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'board_change', body: { op: 'clear' }, reason: 'Cleared from the toolbar' }));
+    }
+  };
+
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -183,6 +195,8 @@ export default function App() {
         ws.send(JSON.stringify({
           type: 'start_call',
           voice: settings.voiceName,
+          // hand the board back, so a new connection continues the same design
+          board: lastBoardRef.current,
         }));
 
         // Send goal context if provided
@@ -241,6 +255,7 @@ export default function App() {
             console.log('[App] Interruption signal received, stopping audio playback');
             audio.interrupt();
           } else if (data.type === 'board' && data.board && engine) {
+            lastBoardRef.current = data.board;
             // The board model is the source of truth: lay it out and draw what changed.
             const layout = layoutBoard(data.board);
             engine.syncBoardElements(boardElements(layout));
@@ -453,6 +468,7 @@ export default function App() {
         isFocusMode={isFocusMode}
         onToggleFocusMode={() => setIsFocusMode(!isFocusMode)}
         onOpenGoalModal={() => setIsGoalModalOpen(true)}
+        onClearBoard={clearBoard}
         activeGoal={currentGoal?.goal}
         onSelectPrompt={handleSelectPrompt}
         isCallActive={isCallActive}
