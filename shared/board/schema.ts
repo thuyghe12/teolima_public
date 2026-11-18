@@ -127,10 +127,33 @@ export const Brief = z.object({
 });
 export type Brief = z.infer<typeof Brief>;
 
+/**
+ * Single agent or several. Microsoft's guidance defaults to one agent with
+ * tools and names the reasons that justify more (docs/DESIGN_STANDARD.md):
+ * crossing a security or compliance boundary, several teams owning parts,
+ * expected growth, or a single agent failing on prompt complexity or tool
+ * overload. A second agent cannot be added without one of them.
+ */
+export const ShapeReason = z.enum([
+  'security_or_compliance_boundary',
+  'multiple_teams',
+  'future_growth',
+  'prompt_complexity',
+  'tool_overload',
+]);
+export type ShapeReason = z.infer<typeof ShapeReason>;
+
+export const Shape = z.object({
+  kind: z.enum(['undecided', 'single', 'multi']).default('undecided'),
+  reasons: z.array(ShapeReason).max(5).default([]),
+});
+export type Shape = z.infer<typeof Shape>;
+
 export const Board = z.object({
   version: z.literal(1),
   title: z.string().trim().max(120).default(''),
   brief: Brief.default({ goal: '', audience: '', constraints: [] }),
+  shape: Shape.default({ kind: 'undecided', reasons: [] }),
   components: z.array(Component).max(60),
   teams: z.array(Team).max(10),
   connections: z.array(Connection).max(150),
@@ -141,6 +164,7 @@ export const emptyBoard = (): Board => ({
   version: 1,
   title: '',
   brief: { goal: '', audience: '', constraints: [] },
+  shape: { kind: 'undecided', reasons: [] },
   components: [],
   teams: [],
   connections: [],

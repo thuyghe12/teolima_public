@@ -31,6 +31,11 @@ export const DEMO_SCRIPT: DemoStep[] = [
   add({ kind: 'tool', name: 'Order lookup', toolType: 'openapi', description: 'Reads the order system' }, 'Order data'),
   add({ kind: 'tool', name: 'Refund API', toolType: 'openapi', description: 'Issues refunds' }, 'Refunds'),
   add({ kind: 'knowledge', name: 'Policy docs', source: 'ai_search', description: 'Terms, FAQ and policies' }, 'Grounding for policy answers'),
+  { say: 'One agent with tools is the default. Here only the refund agent may move money, which is a security boundary, so we split the work across agents.' },
+  {
+    change: { op: 'set_shape', shape: 'multi', reasons: ['security_or_compliance_boundary'] },
+    reason: 'Only the refund agent may move money',
+  },
   { say: 'Now the agents. A triage agent reads each message and passes it to the specialist who can help.' },
   add({ kind: 'agent', name: 'Triage', description: 'Reads intent, hands off', instructions: 'Classify the request and hand it to the right specialist.' }, 'Routes requests'),
   add({ kind: 'agent', name: 'Order Status', description: 'Answers order questions', tools: ['Order lookup'] }, 'Order questions'),

@@ -9,11 +9,13 @@ const c = (body: ChangeBody, reason: string): Change => ({ body, actor: 'coach',
 export const briefedBoard = (): Board => ({
   ...emptyBoard(),
   brief: { goal: 'Test system', audience: '', constraints: [] },
+  shape: { kind: 'multi', reasons: ['security_or_compliance_boundary'] },
 });
 
 export const supportChanges: Change[] = [
   c({ op: 'set_brief', goal: 'Answer order questions and handle refunds safely', audience: 'Customers of a web shop', constraints: ['Refunds over 100 EUR need a person'] }, 'Brief from the user'),
   c({ op: 'set_title', title: 'Customer support' }, 'Name the system'),
+  c({ op: 'set_shape', shape: 'multi', reasons: ['security_or_compliance_boundary'] }, 'Only the refund agent may move money'),
   c({ op: 'upsert_component', kind: 'trigger', name: 'Customer message', source: 'chat' }, 'Where work enters'),
   c({ op: 'upsert_component', kind: 'tool', name: 'Order lookup', toolType: 'openapi' }, 'Order data'),
   c({ op: 'upsert_component', kind: 'tool', name: 'Refund API', toolType: 'openapi' }, 'Issues refunds'),
