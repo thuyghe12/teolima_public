@@ -50,6 +50,10 @@ export const ChangeBody = z.discriminatedUnion('op', [
     model: z.string().optional(),
     tools: Refs.optional(),
     knowledge: Refs.optional(),
+    memory: Refs.optional(),
+    history: z.enum(['service', 'client']).optional(),
+    scope: z.string().optional(),
+    store: z.string().optional(),
     toolType: z.string().optional(),
     endpoint: z.string().optional(),
     source: z.string().optional(),
@@ -141,6 +145,11 @@ function upsertComponent(board: Board, body: Extract<ChangeBody, { op: 'upsert_c
     if ('missing' in r) return fail(`Knowledge source "${r.missing}" is not on the board. Add it first.`);
     refs.knowledge = r.ids;
   }
+  if (body.memory) {
+    const r = resolveAll(board, body.memory, ['memory']);
+    if ('missing' in r) return fail(`Memory "${r.missing}" is not on the board. Add it first.`);
+    refs.memory = r.ids;
+  }
   if (body.appliesTo) {
     const r = resolveAll(board, body.appliesTo, ['agent']);
     if ('missing' in r) return fail(`Agent "${r.missing}" is not on the board.`);
@@ -174,7 +183,9 @@ function removeComponent(board: Board, ref: string): ApplyResult {
     // an approval without its gated component means nothing
     .filter((c) => c.id !== id && !(c.kind === 'approval' && c.gates === id))
     .map((c) => {
-      if (c.kind === 'agent') return { ...c, tools: c.tools.filter((t) => t !== id), knowledge: c.knowledge.filter((k) => k !== id) };
+      if (c.kind === 'agent') {
+        return { ...c, tools: c.tools.filter((t) => t !== id), knowledge: c.knowledge.filter((k) => k !== id), memory: c.memory.filter((m) => m !== id) };
+      }
       if (c.kind === 'guardrail') return { ...c, appliesTo: c.appliesTo.filter((a) => a !== id) };
       return c;
     });

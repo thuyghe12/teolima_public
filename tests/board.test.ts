@@ -148,3 +148,33 @@ test('a brief needs a goal, and later edits keep what they do not change', () =>
   b = apply(b, { op: 'set_brief', audience: 'Support staff' }).board;
   assert.deepEqual(b.brief, { goal: 'Route tickets', audience: 'Support staff', constraints: ['EU data only'] });
 });
+
+test('memory: agents reference it, defaults are explicit, removal cascades', () => {
+  let b = apply(briefedBoard(), { op: 'upsert_component', kind: 'memory', name: 'Customer memory', scope: 'user', store: 'cosmos_db' }).board;
+  b = apply(b, { op: 'upsert_component', kind: 'agent', name: 'Support', memory: ['Customer memory'], history: 'client' }).board;
+  const agent = b.components.find((c) => c.id === 'support');
+  assert.ok(agent?.kind === 'agent');
+  if (agent?.kind !== 'agent') return;
+  assert.deepEqual(agent.memory, ['customer-memory']);
+  assert.equal(agent.history, 'client');
+  const mem = b.components.find((c) => c.id === 'customer-memory');
+  assert.ok(mem?.kind === 'memory' && mem.scope === 'user' && mem.store === 'cosmos_db');
+  b = apply(b, { op: 'remove_component', ref: 'Customer memory' }).board;
+  const after = b.components.find((c) => c.id === 'support');
+  assert.ok(after?.kind === 'agent' && after.memory.length === 0);
+});
+
+test('memory refs must point at memory, and stores and scopes are fixed lists', () => {
+  const b = apply(briefedBoard(), { op: 'upsert_component', kind: 'tool', name: 'Search' }).board;
+  assert.equal(applyChange(b, ch({ op: 'upsert_component', kind: 'agent', name: 'A', memory: ['Search'] })).ok, false);
+  assert.equal(applyChange(b, ch({ op: 'upsert_component', kind: 'memory', name: 'M', store: 'postgres' })).ok, false);
+  assert.equal(applyChange(b, ch({ op: 'upsert_component', kind: 'memory', name: 'M', scope: 'forever' })).ok, false);
+});
+
+test('an agent keeps its history in the service unless stated; A2A is a tool type', () => {
+  let b = apply(briefedBoard(), { op: 'upsert_component', kind: 'agent', name: 'Plain' }).board;
+  b = apply(b, { op: 'upsert_component', kind: 'tool', name: 'Billing agent', toolType: 'a2a' }).board;
+  const plain = b.components.find((c) => c.id === 'plain');
+  assert.ok(plain?.kind === 'agent' && plain.history === 'service' && plain.memory.length === 0);
+  assert.ok(b.components.some((c) => c.kind === 'tool' && c.toolType === 'a2a'));
+});
