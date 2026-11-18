@@ -9,6 +9,8 @@ test('the prompt keeps its core rules', () => {
     /Every element you add must come from the brief or from something the user said or explicitly agreed to/,
     /Anything else is a proposal/,
     /Each building call names its basis/,
+    /Follow the design standard in order/,
+    /One agent with tools is the default/,
     /refuses the change if it is not there/,
     /Never invent systems, data sources, APIs, numbers, thresholds or names/,
     /call search_microsoft_docs/,
