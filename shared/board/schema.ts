@@ -53,11 +53,19 @@ export const Agent = Base.extend({
   model: z.string().trim().max(80).default(''),
   tools: z.array(Id).max(20).default([]),
   knowledge: z.array(Id).max(10).default([]),
+  /** Long-term memory the agent reads before and writes after each run. */
+  memory: z.array(Id).max(5).default([]),
+  /**
+   * Where the conversation history lives: `service` keeps it in Foundry
+   * (conversations); `client` keeps it in the application through an Agent
+   * Framework chat history provider. See docs/BOARD_MODEL.md.
+   */
+  history: z.enum(['service', 'client']).default('service'),
 });
 
 export const Tool = Base.extend({
   kind: z.literal('tool'),
-  toolType: z.enum(['function', 'mcp', 'openapi', 'web_search', 'code_interpreter', 'file_search']).default('function'),
+  toolType: z.enum(['function', 'mcp', 'openapi', 'web_search', 'code_interpreter', 'file_search', 'a2a']).default('function'),
   /** Endpoint for MCP and OpenAPI tools. Left empty, the compile wizard asks. */
   endpoint: z.string().trim().max(300).default(''),
 });
@@ -65,6 +73,18 @@ export const Tool = Base.extend({
 export const Knowledge = Base.extend({
   kind: z.literal('knowledge'),
   source: z.enum(['ai_search', 'file_search', 'web']).default('ai_search'),
+});
+
+/**
+ * Long-term memory, kept across conversations. `user` memory is scoped to one
+ * user and recalled in their later conversations; `session` memory lasts for
+ * one conversation. The store is Foundry Agent Service memory (preview) or
+ * Azure Cosmos DB through an Agent Framework context provider.
+ */
+export const Memory = Base.extend({
+  kind: z.literal('memory'),
+  scope: z.enum(['user', 'session']).default('user'),
+  store: z.enum(['foundry_memory', 'cosmos_db']).default('foundry_memory'),
 });
 
 export const Guardrail = Base.extend({
@@ -87,10 +107,10 @@ export const Output = Base.extend({
   destination: z.enum(['chat', 'api', 'email', 'teams', 'storage']).default('chat'),
 });
 
-export const Component = z.discriminatedUnion('kind', [Trigger, Agent, Tool, Knowledge, Guardrail, Approval, Output]);
+export const Component = z.discriminatedUnion('kind', [Trigger, Agent, Tool, Knowledge, Memory, Guardrail, Approval, Output]);
 export type Component = z.infer<typeof Component>;
 export type ComponentKind = Component['kind'];
-export const COMPONENT_KINDS = ['trigger', 'agent', 'tool', 'knowledge', 'guardrail', 'approval', 'output'] as const;
+export const COMPONENT_KINDS = ['trigger', 'agent', 'tool', 'knowledge', 'memory', 'guardrail', 'approval', 'output'] as const;
 
 export const Team = z.object({
   id: Id,

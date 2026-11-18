@@ -128,3 +128,17 @@ test('an empty board lays out to nothing', () => {
   const l = layoutBoard(emptyBoard());
   assert.deepEqual([l.nodes.length, l.teams.length, l.edges.length, l.title], [0, 0, 0, null]);
 });
+
+test('memory sits in the resource lane and is reached by a uses line', () => {
+  const b = build([
+    { op: 'upsert_component', kind: 'memory', name: 'Customer memory' },
+    { op: 'upsert_component', kind: 'agent', name: 'Support', memory: ['Customer memory'] },
+  ]);
+  const l = layoutBoard(b);
+  assertClean(l);
+  const mem = node(l, 'customer-memory');
+  assert.equal(mem.role, 'memory');
+  assert.match(mem.subtitle, /Per user · Foundry memory/);
+  assert.ok(mem.y > node(l, 'support').y);
+  assert.ok(l.edges.some((e) => e.kind === 'uses' && e.id.endsWith('support~customer-memory')));
+});

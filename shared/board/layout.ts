@@ -78,7 +78,9 @@ const TOOL_LABEL: Record<string, string> = {
   web_search: 'Web search',
   code_interpreter: 'Code interpreter',
   file_search: 'File search',
+  a2a: 'Agent-to-agent (A2A)',
 };
+const STORE_LABEL: Record<string, string> = { foundry_memory: 'Foundry memory', cosmos_db: 'Azure Cosmos DB' };
 const SOURCE_LABEL: Record<string, string> = { ai_search: 'AI Search', file_search: 'File search', web: 'Web' };
 const CONTROL_LABEL: Record<string, string> = {
   prompt_shields: 'Prompt Shields',
@@ -106,6 +108,8 @@ function subtitleFor(c: Component, board: Board): string {
       return c.description || TOOL_LABEL[c.toolType] || '';
     case 'knowledge':
       return c.description || SOURCE_LABEL[c.source] || '';
+    case 'memory':
+      return c.description || `${c.scope === 'user' ? 'Per user' : 'Per conversation'} · ${STORE_LABEL[c.store]}`;
     case 'guardrail': {
       const controls = c.controls.map((k) => CONTROL_LABEL[k] ?? k).join(', ');
       const scope = c.appliesTo.length
@@ -243,7 +247,7 @@ function placeTeam(board: Board, team: Team | null, agents: Component[], x: numb
   const resourceIds: string[] = [];
   for (const a of agents) {
     if (a.kind !== 'agent') continue;
-    for (const id of [...a.tools, ...a.knowledge]) if (!resourceIds.includes(id)) resourceIds.push(id);
+    for (const id of [...a.tools, ...a.knowledge, ...a.memory]) if (!resourceIds.includes(id)) resourceIds.push(id);
   }
   const lane: Component[] = [];
   for (const id of resourceIds) {
@@ -272,7 +276,7 @@ function placeTeam(board: Board, team: Team | null, agents: Component[], x: numb
     for (const a of agents) {
       if (a.kind !== 'agent') continue;
       const from = agentNodes.get(a.id);
-      for (const id of [...a.tools, ...a.knowledge]) {
+      for (const id of [...a.tools, ...a.knowledge, ...a.memory]) {
         // A gated tool is reached through its approval: the gate sits on the path.
         const gate = lane.find((c) => c.kind === 'approval' && c.gates === id);
         const to = laneNodes.get(gate ? gate.id : id);
@@ -349,7 +353,7 @@ export function layoutBoard(board: Board): Layout {
   }
   guardrails.forEach((g) => placed.add(g.id));
 
-  const unplaced = board.components.filter((c) => !placed.has(c.id) && (c.kind === 'tool' || c.kind === 'knowledge' || c.kind === 'approval'));
+  const unplaced = board.components.filter((c) => !placed.has(c.id) && (c.kind === 'tool' || c.kind === 'knowledge' || c.kind === 'memory' || c.kind === 'approval'));
   unplaced.forEach((c, i) => nodes.push(card(c, board, colTeams + i * (CARD.w + GAP.row), y)));
   const teamsBottom = unplaced.length ? y + CARD.h : Math.max(y - GAP.lane, guardrails.length ? bandY + guardrails.length * (BAND.h + BAND.gap) - BAND.gap : y);
 
@@ -403,7 +407,7 @@ export function layoutBoard(board: Board): Layout {
   // The legend names the line and border styles in use, under the drawing.
   const items: LegendItem[] = [];
   if (edges.some((e) => e.kind === 'flow' || e.kind === 'pattern')) items.push({ key: 'flow', text: 'work flows' });
-  if (edges.some((e) => e.kind === 'uses')) items.push({ key: 'uses', text: 'uses a tool or knowledge' });
+  if (edges.some((e) => e.kind === 'uses')) items.push({ key: 'uses', text: 'uses a tool, knowledge or memory' });
   if (edges.some((e) => e.kind === 'approval')) items.push({ key: 'approval', text: 'needs a person to approve' });
   if (teams.some((t) => t.pattern !== 'none')) items.push({ key: 'team', text: 'team, with its pattern' });
   if (bands.length) items.push({ key: 'guardrail', text: 'guardrail on the agents it names' });
