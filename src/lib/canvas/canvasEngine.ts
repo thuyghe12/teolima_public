@@ -1,6 +1,7 @@
 import rough from 'roughjs';
 import type React from 'react';
 import { CanvasElement, CanvasLayer, DrawingInstruction, Point, ShapeKind, VoiceSettings } from '../../types';
+import { BOARD_PREFIX, boardLayer } from './boardElements';
 import { renderCanvasElement, renderCanvasBackground, renderDrawingCursor } from './roughRenderer';
 
 export class CanvasEngine {
@@ -1788,6 +1789,66 @@ export class CanvasEngine {
 
   public getElements(): CanvasElement[] {
     return this.elements;
+  }
+
+  /**
+   * Brings the board model's elements on the canvas in line with `next`.
+   * New elements are drawn with animation, existing ones are updated in place,
+   * removed ones disappear. Everything the user drew by hand is left alone.
+   */
+  public syncBoardElements(next: CanvasElement[]): void {
+    const isBoard = (el: CanvasElement) => el.id.startsWith(BOARD_PREFIX);
+    const previous = new Map(this.elements.filter(isBoard).map((el) => [el.id, el]));
+    const keep = new Set(next.map((el) => el.id));
+
+    this.elements = this.elements.filter((el) => !isBoard(el) || keep.has(el.id));
+    this.animationQueue = this.animationQueue.filter((task) => !isBoard(task.element) || keep.has(task.element.id));
+
+    const speed = this.settings.animationSpeed === 'fast' ? 0.6 : this.settings.animationSpeed === 'slow' ? 1.5 : 1;
+    for (const el of next) {
+      const existing = previous.get(el.id);
+      if (existing) {
+        const { isAnimating, animationProgress, isQueued } = existing;
+        Object.assign(existing, el, { isAnimating, animationProgress, isQueued });
+        continue;
+      }
+      const fresh: CanvasElement = { ...el, timestamp: Date.now(), isAnimating: true, animationProgress: 0, isQueued: this.animationQueue.length > 0 };
+      this.elements.push(fresh);
+      const ms = el.shapeKind === 'connector' ? 450 : el.shapeKind === 'container' ? 300 : 380;
+      this.animationQueue.push({ element: fresh, durationMs: ms * speed, startTime: 0 });
+    }
+
+    // stable sort keeps the user's own drawings in their order, on top
+    this.elements = this.elements
+      .map((el, i) => ({ el, i }))
+      .sort((a, b) => boardLayer(a.el.id) - boardLayer(b.el.id) || a.i - b.i)
+      .map(({ el }) => el);
+    this.notifyElementsChange();
+  }
+
+  /**
+   * Fits `box` (world coordinates) into the view, but only when part of it is
+   * off screen, so the view does not jump on every small change.
+   */
+  public ensureVisible(box: { x: number; y: number; w: number; h: number }): void {
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = this.canvas.width / dpr;
+    const cssH = this.canvas.height / dpr;
+    const pad = { top: 110, right: 40, bottom: 150, left: 40 };
+    const t = this.transform;
+    const sx = box.x * t.scale + t.x;
+    const sy = box.y * t.scale + t.y;
+    const ex = (box.x + box.w) * t.scale + t.x;
+    const ey = (box.y + box.h) * t.scale + t.y;
+    if (sx >= pad.left && sy >= pad.top && ex <= cssW - pad.right && ey <= cssH - pad.bottom) return;
+    const availW = cssW - pad.left - pad.right;
+    const availH = cssH - pad.top - pad.bottom;
+    const scale = Math.max(0.35, Math.min(1, availW / box.w, availH / box.h));
+    this.transform = {
+      scale,
+      x: pad.left + (availW - box.w * scale) / 2 - box.x * scale,
+      y: pad.top - box.y * scale,
+    };
   }
 
   public setElements(elements: CanvasElement[]): void {

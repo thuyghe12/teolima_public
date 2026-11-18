@@ -29,7 +29,9 @@ export type ShapeKind =
   | 'cloud'
   | 'diamond'
   | 'sticky'
-  | 'badge';
+  | 'badge'
+  | 'container'
+  | 'connector';
 
 export type AgentRoleKind = 
   | 'intake'
@@ -38,7 +40,13 @@ export type AgentRoleKind =
   | 'tool'
   | 'memory'
   | 'guardrail'
-  | 'human_approval';
+  | 'human_approval'
+  // board model roles
+  | 'trigger'
+  | 'knowledge'
+  | 'approval'
+  | 'output'
+  | 'manager';
 
 export type FillStyle = 'hachure' | 'solid' | 'zigzag' | 'cross-hatch' | 'dots' | 'dashed' | 'none';
 
@@ -85,6 +93,9 @@ export interface CanvasElement {
   imageCaption?: string;
   imagePrompt?: string;
   aspectRatio?: '1:1' | '4:3' | '16:9';
+  // Board model connectors and containers
+  lineStyle?: 'solid' | 'dashed' | 'dotted';
+  arrowHead?: boolean;
   // Animation state for progressive tweening
   animationProgress?: number; // 0 to 1
   isAnimating?: boolean;
@@ -236,8 +247,11 @@ export interface WSClientMessage {
 }
 
 export interface WSServerMessage {
-  type: 'connected' | 'audio' | 'tool_call' | 'interrupted' | 'transcript' | 'status' | 'error';
+  type: 'connected' | 'audio' | 'tool_call' | 'interrupted' | 'transcript' | 'status' | 'error' | 'board';
   audio?: string; // base64 24kHz PCM
+  /** The board model, sent after every accepted change. */
+  board?: import('../shared/board/schema').Board;
+  summary?: string;
   toolCalls?: Array<{
     id: string;
     name: string;

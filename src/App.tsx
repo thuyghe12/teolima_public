@@ -12,6 +12,8 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { layoutBoard } from '../shared/board/layout';
+import { boardElements } from './lib/canvas/boardElements';
 import { getAccessToken } from './lib/access';
 import { Whiteboard } from './components/Whiteboard';
 import { CanvasToolbar } from './components/CanvasToolbar';
@@ -140,19 +142,6 @@ export default function App() {
       };
       engine.executeAIInstruction(instruction);
     }
-
-    // Synchronize current whiteboard spatial layout back to Gemini session for spatial awareness
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      setTimeout(() => {
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && engine) {
-          const summary = engine.getElementsSummary();
-          wsRef.current.send(JSON.stringify({
-            type: 'canvas_state_update',
-            elements: summary,
-          }));
-        }
-      }, 500);
-    }
   }, [engine]);
 
   /**
@@ -251,6 +240,11 @@ export default function App() {
           } else if (data.type === 'interrupted') {
             console.log('[App] Interruption signal received, stopping audio playback');
             audio.interrupt();
+          } else if (data.type === 'board' && data.board && engine) {
+            // The board model is the source of truth: lay it out and draw what changed.
+            const layout = layoutBoard(data.board);
+            engine.syncBoardElements(boardElements(layout));
+            engine.ensureVisible({ ...layout.bounds, y: layout.bounds.y - 80, h: layout.bounds.h + 80 });
           } else if (data.type === 'tool_call' && data.toolCalls) {
             handleToolCalls(data.toolCalls);
           } else if (data.type === 'transcript' && data.transcript) {
@@ -432,120 +426,7 @@ export default function App() {
         type: 'text',
         text,
       }));
-    } else {
-      // Offline / Simulation generator demo for multi-agent systems
-      simulateMultiAgentArchitectResponse(text);
     }
-  };
-
-  /**
-   * Offline interactive simulation for multi-agent architectures
-   */
-  const simulateMultiAgentArchitectResponse = (promptText: string) => {
-    if (!engine) return;
-
-    setIsAiSpeaking(true);
-    setTimeout(() => {
-      if (promptText.toLowerCase().includes('router') || promptText.toLowerCase().includes('swarm')) {
-        engine.executeAIInstruction({
-          tool: 'draw_doodle_writing',
-          params: { text: 'Orchestrator Router Pattern', x: 260, y: 90, fontSize: 24, strokeColor: '#18181c', doodleStyle: 'highlight' }
-        });
-        engine.executeAIInstruction({
-          tool: 'draw_agent_node',
-          params: { id: 'user_in', label: 'User Request Intake', role: 'intake', x: 180, y: 220, tools: ['Chat UI', 'File Upload'] }
-        });
-        engine.executeAIInstruction({
-          tool: 'draw_agent_node',
-          params: { id: 'router', label: 'Triage Router Agent', role: 'orchestrator', x: 380, y: 220, subLabel: 'Classifies Intent', tools: ['Semantic Classifier'] }
-        });
-        engine.executeAIInstruction({
-          tool: 'draw_agent_node',
-          params: { id: 'worker_a', label: 'Research Specialist', role: 'worker', x: 600, y: 140, tools: ['Google Search', 'ArXiv API'] }
-        });
-        engine.executeAIInstruction({
-          tool: 'draw_agent_node',
-          params: { id: 'worker_b', label: 'Billing & Refund Bot', role: 'worker', x: 600, y: 300, tools: ['Stripe API', 'CRM Database'] }
-        });
-        engine.executeAIInstruction({
-          tool: 'draw_agent_node',
-          params: { id: 'human_gate', label: 'Human Manager Sign-off', role: 'human_in_loop', x: 820, y: 300, subLabel: 'Refund > $100' }
-        });
-        engine.executeAIInstruction({
-          tool: 'draw_arrow',
-          params: { fromX: 280, fromY: 220, toX: 380, toY: 220, label: 'Prompt' }
-        });
-        engine.executeAIInstruction({
-          tool: 'draw_arrow',
-          params: { fromX: 480, fromY: 200, toX: 600, toY: 150, label: 'Research' }
-        });
-        engine.executeAIInstruction({
-          tool: 'draw_arrow',
-          params: { fromX: 480, fromY: 240, toX: 600, toY: 290, label: 'Finance' }
-        });
-        engine.executeAIInstruction({
-          tool: 'draw_arrow',
-          params: { fromX: 700, fromY: 300, toX: 820, toY: 300, label: 'Review' }
-        });
-        engine.executeAIInstruction({
-          tool: 'draw_callout',
-          params: { text: 'Key choice: Single point of routing avoids token bloat!', x: 420, y: 380, width: 220, pointerDirection: 'up' }
-        });
-      } else if (promptText.toLowerCase().includes('memory') || promptText.toLowerCase().includes('vector')) {
-        engine.executeAIInstruction({
-          tool: 'draw_doodle_writing',
-          params: { text: 'Short-Term vs Vector Memory Pipeline', x: 260, y: 90, fontSize: 24, strokeColor: '#18181c', doodleStyle: 'sparkle' }
-        });
-        engine.executeAIInstruction({
-          tool: 'draw_agent_node',
-          params: { id: 'agent_core', label: 'Synthesizer Agent', role: 'worker', x: 300, y: 220, tools: ['LLM Context'] }
-        });
-        engine.executeAIInstruction({
-          tool: 'draw_agent_node',
-          params: { id: 'vector_db', label: 'Pinecone / Vector DB', role: 'database', x: 560, y: 160, subLabel: 'Long-Term Embeddings' }
-        });
-        engine.executeAIInstruction({
-          tool: 'draw_agent_node',
-          params: { id: 'chat_history', label: 'Session State (Redis)', role: 'memory', x: 560, y: 280, subLabel: 'Last 10 turns' }
-        });
-        engine.executeAIInstruction({
-          tool: 'draw_arrow',
-          params: { fromX: 400, fromY: 200, toX: 560, toY: 170, label: 'Top-K Retrieval' }
-        });
-        engine.executeAIInstruction({
-          tool: 'draw_arrow',
-          params: { fromX: 400, fromY: 240, toX: 560, toY: 280, label: 'Save Turn' }
-        });
-      } else {
-        engine.executeAIInstruction({
-          tool: 'draw_doodle_writing',
-          params: { text: promptText.slice(0, 35), x: 280, y: 120, fontSize: 22, strokeColor: '#18181c', doodleStyle: 'underline' }
-        });
-        engine.executeAIInstruction({
-          tool: 'draw_agent_node',
-          params: { id: 'demo_worker', label: 'Autonomous Worker', role: 'worker', x: 380, y: 240, tools: ['Tool Dispatcher'] }
-        });
-        engine.executeAIInstruction({
-          tool: 'draw_agent_node',
-          params: { id: 'demo_guard', label: 'Policy Guardrail', role: 'guardrail', x: 620, y: 240, subLabel: 'Zero Hallucinations' }
-        });
-        engine.executeAIInstruction({
-          tool: 'draw_arrow',
-          params: { fromX: 480, fromY: 240, toX: 620, toY: 240, label: 'Validate' }
-        });
-      }
-
-      setTranscripts((prev) => [
-        ...prev,
-        {
-          id: 'ai-sim-' + Date.now(),
-          speaker: 'ai',
-          text: `I have sketched out this architectural pattern for you. Notice the separation of responsibilities between your workers and safety guardrails!`,
-          timestamp: Date.now(),
-        }
-      ]);
-      setIsAiSpeaking(false);
-    }, 500);
   };
 
   const handleRestoreSession = (session: CallSession) => {

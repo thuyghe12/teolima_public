@@ -246,6 +246,111 @@ export function renderCanvasElement(
     }
   } else if (type === 'shape') {
     switch (shapeKind) {
+      case 'container': {
+        // A team: dashed outline and the pattern label in its header. Drawn under its cards.
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, clampedProgress * 1.5);
+        ctx.setLineDash([10, 7]);
+        ctx.strokeStyle = strokeColor || '#87868e';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(x, y, width, height, 14);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        if (label) {
+          const [pattern, ...rest] = label.split(' · ');
+          ctx.font = `600 11px 'IBM Plex Mono', monospace`;
+          const pw = ctx.measureText(pattern).width + 14;
+          ctx.fillStyle = pattern === 'NO TEAM YET' ? '#f0f0f2' : '#c8f13a';
+          ctx.strokeStyle = '#18181c';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.roundRect(x + 16, y + 13, pw, 20, 4);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = '#18181c';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(pattern, x + 23, y + 23);
+          if (rest.length) {
+            ctx.font = `600 14px 'Karla', sans-serif`;
+            ctx.fillText(rest.join(' · '), x + 16 + pw + 10, y + 23);
+          }
+        }
+        ctx.restore();
+        break;
+      }
+
+      case 'connector': {
+        // An orthogonal route, drawn progressively along its length.
+        if (points.length < 2) break;
+        const segs: number[] = [];
+        let total = 0;
+        for (let i = 1; i < points.length; i++) {
+          const d = Math.abs(points[i].x - points[i - 1].x) + Math.abs(points[i].y - points[i - 1].y);
+          segs.push(d);
+          total += d;
+        }
+        let remaining = total * clampedProgress;
+        const dash = element.lineStyle === 'dashed' ? [9, 6] : element.lineStyle === 'dotted' ? [2, 5] : [];
+        ctx.save();
+        ctx.strokeStyle = strokeColor || '#18181c';
+        ctx.lineWidth = element.lineStyle === 'dotted' ? 1.6 : 1.8;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.setLineDash(dash);
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        let tip = points[0];
+        let prev = points[0];
+        for (let i = 1; i < points.length && remaining > 0; i++) {
+          const step = Math.min(segs[i - 1], remaining);
+          const f = segs[i - 1] ? step / segs[i - 1] : 1;
+          tip = { x: points[i - 1].x + (points[i].x - points[i - 1].x) * f, y: points[i - 1].y + (points[i].y - points[i - 1].y) * f };
+          prev = points[i - 1];
+          ctx.lineTo(tip.x, tip.y);
+          remaining -= step;
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+        currentTip = tip;
+
+        if (element.arrowHead && clampedProgress > 0.9) {
+          const angle = Math.atan2(tip.y - prev.y, tip.x - prev.x);
+          const head = 10;
+          ctx.beginPath();
+          ctx.moveTo(tip.x, tip.y);
+          ctx.lineTo(tip.x - head * Math.cos(angle - Math.PI / 7), tip.y - head * Math.sin(angle - Math.PI / 7));
+          ctx.moveTo(tip.x, tip.y);
+          ctx.lineTo(tip.x - head * Math.cos(angle + Math.PI / 7), tip.y - head * Math.sin(angle + Math.PI / 7));
+          ctx.stroke();
+        }
+
+        if (label && clampedProgress > 0.7) {
+          // the label sits on the longest segment
+          let best = 1;
+          for (let i = 2; i < points.length; i++) if (segs[i - 1] > segs[best - 1]) best = i;
+          const mx = (points[best - 1].x + points[best].x) / 2;
+          const my = (points[best - 1].y + points[best].y) / 2;
+          ctx.font = `500 12px 'IBM Plex Mono', monospace`;
+          const tw = ctx.measureText(label).width;
+          ctx.fillStyle = '#fafafa';
+          ctx.strokeStyle = '#e2e2e6';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.roundRect(mx - tw / 2 - 6, my - 10, tw + 12, 20, 4);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = '#5a5a62';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(label, mx, my);
+        }
+        ctx.restore();
+        break;
+      }
+
+
       case 'rectangle': {
         // --- SMART AUTO-SIZING & TEXT WRAPPING FOR AGENT CARDS ---
         const rawLabel = label || text || '';
@@ -296,12 +401,14 @@ export function renderCanvasElement(
         ctx.fillRect(renderX, renderY, renderWidth, renderHeight);
 
         // 2. Render rough card outline with fill tint
-        const cardFill = agentRole === 'router'
+        const cardFill = agentRole === 'router' || agentRole === 'manager'
           ? 'rgba(200, 241, 58, 0.25)'
           : agentRole === 'guardrail'
           ? 'rgba(254, 226, 226, 0.4)'
-          : agentRole === 'memory'
+          : agentRole === 'memory' || agentRole === 'knowledge'
           ? 'rgba(224, 231, 255, 0.45)'
+          : agentRole === 'approval' || agentRole === 'human_approval'
+          ? 'rgba(254, 243, 199, 0.5)'
           : fillColor || 'rgba(244, 244, 247, 0.85)';
 
         const cardOptions = {
@@ -931,8 +1038,17 @@ function drawRoleBadge(ctx: CanvasRenderingContext2D, badgeX: number, badgeY: nu
   let textCol = '#ffffff';
   let label = role.toUpperCase();
 
-  if (role === 'router') {
+  if (role === 'router' || role === 'manager') {
     bg = '#c8f13a';
+    textCol = '#18181c';
+  } else if (role === 'knowledge') {
+    bg = '#e0e7ff';
+    textCol = '#3730a3';
+  } else if (role === 'approval') {
+    bg = '#fef3c7';
+    textCol = '#92400e';
+  } else if (role === 'output') {
+    bg = '#ffffff';
     textCol = '#18181c';
   } else if (role === 'tool') {
     bg = '#e2e2e6';
