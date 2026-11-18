@@ -64,7 +64,9 @@ export function readiness(board: Board): Readiness {
     step('pattern', 'Orchestration pattern', 'done', 'Not needed for a single agent.');
   }
 
-  const bare = agents.filter((a) => a.tools.length === 0 && a.knowledge.length === 0).map((a) => a.name);
+  // A team's start agent or manager routes work to others, so it may need no tools of its own.
+  const routers = new Set(board.teams.flatMap((t) => [t.startAgent, t.manager].filter(Boolean) as string[]));
+  const bare = agents.filter((a) => !routers.has(a.id) && a.tools.length === 0 && a.knowledge.length === 0).map((a) => a.name);
   const used = new Set(agents.flatMap((a) => [...a.tools, ...a.knowledge]));
   const unused = [...tools, ...knowledge].filter((c) => !used.has(c.id)).map((c) => c.name);
   if (agents.length === 0) {
