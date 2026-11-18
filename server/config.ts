@@ -1,7 +1,13 @@
 /**
  * Runtime configuration, read once from the environment.
  * Every limit has a safe default so a fresh clone runs without extra setup.
+ *
+ * `.env` is loaded here, before anything is read. ES module imports are
+ * evaluated before the importing module's own code runs, so loading it in
+ * server.ts after the imports would leave this module reading an empty
+ * environment.
  */
+import 'dotenv/config';
 
 function int(name: string, fallback: number): number {
   const raw = process.env[name];
