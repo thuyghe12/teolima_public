@@ -34,11 +34,12 @@ speaker 24 kHz  ◀── audio ────── session + idle caps     ◀�
 
 1. The browser streams microphone audio to the server over a websocket. The API key never leaves the server.
 2. Nothing is built before there is a brief: a goal, who uses the system, and its constraints. You can write it in the call panel before the call (recent briefs are one click away), or the coach asks for it and confirms it back. The server refuses every building change until the goal is saved.
-3. The coach builds the design with tools that edit a typed board model (agents, tools, knowledge, teams with an orchestration pattern, guardrails, approvals, triggers, outputs, connections). It never draws shapes or chooses positions.
-4. Every edit is a change with an actor and a reason, validated by the change log: names map to stable ids, so nothing is created twice, and references are checked by kind. A refused change tells the model why.
-5. After each accepted change the server sends the board to the browser. The layout is computed from the board (`shared/board/layout.ts`): teams laid out by pattern, resources in a lane below, connectors routed around cards.
-6. Before advising on anything specific to Agent Framework, Foundry, guardrails, evaluations or Azure resources, the coach searches Microsoft Learn through Microsoft's official documentation server and bases its advice on the excerpts.
-7. Tools are non-blocking on Live models that support it, so the coach keeps talking while the board updates.
+3. The coach follows a written design standard anchored in Microsoft's guidance ([docs/DESIGN_STANDARD.md](docs/DESIGN_STANDARD.md)): brief, one agent or several, orchestration pattern, tools and knowledge, guardrails, human approvals, where work enters and leaves. One agent with tools is the default; the server refuses a second agent until a reason from the guidance is recorded.
+4. The coach builds the design with tools that edit a typed board model (agents, tools, knowledge, teams with an orchestration pattern, guardrails, approvals, triggers, outputs, connections). It never draws shapes or chooses positions.
+5. Every edit is a change with an actor and a reason, validated by the change log: names map to stable ids, so nothing is created twice, and references are checked by kind. A refused change tells the model why.
+6. After each accepted change the server sends the board to the browser. The layout is computed from the board (`shared/board/layout.ts`): teams laid out by pattern, resources in a lane below, connectors routed around cards.
+7. Before advising on anything specific to Agent Framework, Foundry, guardrails, evaluations or Azure resources, the coach searches Microsoft Learn through Microsoft's official documentation server and bases its advice on the excerpts.
+8. Tools are non-blocking on Live models that support it, so the coach keeps talking while the board updates.
 
 The board model and what each element compiles to: [docs/BOARD_MODEL.md](docs/BOARD_MODEL.md). Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -76,7 +77,7 @@ src/lib/canvas/        Canvas engine and hand-drawn renderer
 src/lib/audio/         Microphone capture and playback
 src/components/        Whiteboard, toolbar, call panel with the brief, settings, history
 tests/                 node:test suites
-docs/                  Architecture, roadmap, decision records, verified Azure targets
+docs/                  Architecture, design standard, roadmap, decision records, verified Azure targets
 ```
 
 ## Scripts

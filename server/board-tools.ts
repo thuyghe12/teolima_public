@@ -6,7 +6,8 @@
  * validates every edit, and the layout is computed from the result.
  */
 import { Type, type FunctionDeclaration } from '@google/genai';
-import { Board, emptyBoard } from '../shared/board/schema';
+import { Board, emptyBoard, ShapeReason } from '../shared/board/schema';
+import { readiness } from '../shared/board/readiness';
 import { applyChange, type Actor, type ApplyResult, type Basis, type ChangeBody, type Change } from '../shared/board/changes';
 
 const reason = { type: Type.STRING, description: 'Why, in one short sentence. Stored with the change.' };
@@ -29,7 +30,7 @@ const basisQuote = {
 const basis = { basis_source: basisSource, basis_quote: basisQuote };
 
 /** Tools that add to the design and so must name their basis. */
-export const GROUNDED_TOOLS = new Set(['set_brief', 'add_component', 'set_team', 'connect']);
+export const GROUNDED_TOOLS = new Set(['set_brief', 'set_shape', 'add_component', 'set_team', 'connect']);
 
 export const boardToolDeclarations: FunctionDeclaration[] = [
   {
@@ -46,6 +47,21 @@ export const boardToolDeclarations: FunctionDeclaration[] = [
         basis_quote: { ...basisQuote, description: 'The user\'s own words stating the goal, a few words long.' },
       },
       required: ['goal', 'basis_quote'],
+    },
+  },
+  {
+    name: 'set_shape',
+    description:
+      'Decide, with the user, between one agent with tools (the default) and several agents. Several agents need at least one reason that applies: security_or_compliance_boundary (parts of the work need different access or rules), multiple_teams (different teams own parts), future_growth (the user expects the system to grow into more areas), prompt_complexity or tool_overload (one agent cannot handle it reliably). A second agent or a team is refused until this is set to multi.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        shape: { type: Type.STRING, enum: ['single', 'multi'] },
+        reasons: { type: Type.ARRAY, items: { type: Type.STRING, enum: [...ShapeReason.options] }, description: 'multi only: the reasons that apply.' },
+        reason,
+        ...basis,
+      },
+      required: ['shape', 'basis_source', 'basis_quote'],
     },
   },
   {
@@ -144,6 +160,8 @@ export function toChangeBody(name: string, args: Record<string, unknown> = {}): 
   switch (name) {
     case 'set_brief':
       return { op: 'set_brief', goal: str(args.goal), audience: str(args.audience), constraints: list(args.constraints) };
+    case 'set_shape':
+      return { op: 'set_shape', shape: args.shape as never, reasons: list(args.reasons) as never };
     case 'set_title':
       return { op: 'set_title', title: String(args.title ?? '') };
     case 'add_component':
@@ -219,8 +237,11 @@ export class BoardSession {
   summary() {
     const name = (id: string) =>
       this.board.components.find((c) => c.id === id)?.name ?? this.board.teams.find((t) => t.id === id)?.name ?? id;
+    const ready = readiness(this.board);
     return {
       brief: this.board.brief,
+      shape: this.board.shape,
+      next_step: ready.next ? `${ready.next.title}: ${ready.next.detail}` : 'Every step of the design standard is done.',
       title: this.board.title,
       components: this.board.components.map((c) => `${c.name} (${c.kind})`),
       teams: this.board.teams.map((t) => `${t.name}: ${t.pattern} [${t.members.map(name).join(', ')}]`),

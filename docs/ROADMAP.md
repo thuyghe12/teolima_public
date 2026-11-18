@@ -7,11 +7,12 @@ Today the board lives in the canvas engine as a list of drawn elements, and a se
 | Phase | Outcome | Decision record |
 |---|---|---|
 | 1. Board schema and change log | The board is a typed document; the canvas is a view of it; every change is a patch with actor, reason and time | [ADR 0001](adr/0001-board-as-versioned-tree.md) |
+| 1b. Design standard and views | Designs follow a written standard anchored in Microsoft's guidance, checked in code; the board renders it as standard views: context, agents with a boundary and legend, deployment | [ADR 0004](adr/0004-design-standard.md) |
 | 2. Git tree and code view | Patches are committed to a git tree per board; a toggle switches between whiteboard and code view with changes coloured by actor | [ADR 0001](adr/0001-board-as-versioned-tree.md) |
 | 3. Compiler | Compile turns the board into a reviewed Azure AI Foundry deployment package, with AI Landing Zone defaults and a wizard that only asks about open assumptions | [ADR 0003](adr/0003-compile-to-foundry-package.md) |
 | 4. Memory workers | Narrow, rubric-driven workers commit what they learn to memory branches of the same tree; a conductor resolves duplicates and conflicts | [ADR 0002](adr/0002-memory-workers-on-the-tree.md) |
 
-**Progress:** phase 1 is in place: the coach edits a typed board through validated changes, and the canvas renders it with a computed layout ([BOARD_MODEL.md](BOARD_MODEL.md)). Committing the change log to a git tree and the code view (phase 2) are next.
+**Progress:** phase 1 is in place: the coach edits a typed board through validated changes, and the canvas renders it with a computed layout ([BOARD_MODEL.md](BOARD_MODEL.md)). The design standard's procedure and checks are in place ([DESIGN_STANDARD.md](DESIGN_STANDARD.md)); its standard views come next, then the git tree and code view (phase 2).
 
 Phase 3 comes before phase 4 because the compiler is what turns a design session into something deployable, and it can be built and tested without the voice interface.
 
