@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+:root {
+  --paper: #fafafa;
+  --paper-raised: #f0f0f2;
+  --paper-edge: #e2e2e6;
+  --ink: #18181c;
+  --ink-soft: #5a5a62;
+  --ink-faint: #87868e;
+  --volt: #c8f13a;
+  --volt-dim: rgba(200, 241, 58, 0.25);
+  --line: rgba(24, 24, 28, 0.12);
+  --focus: #18181c;
+}
+
+body {
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: 'Karla', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--volt);
+  color: var(--ink);
+}
+
+.font-hand {
+  font-family: 'Nanum Pen Script', cursive, sans-serif;
+}
+
+.font-mono-code {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+.font-body {
+  font-family: 'Karla', ui-sans-serif, system-ui, sans-serif;
+}
+
+.eyebrow {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/* Custom scrollbar for light theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--paper-edge);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-faint);
+}
+
