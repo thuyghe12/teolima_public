@@ -4,6 +4,8 @@ import { CanvasElement, CanvasLayer, VoiceSettings } from '../types';
 import { ZoomIn, ZoomOut, Maximize2, Sparkles } from 'lucide-react';
 
 interface WhiteboardProps {
+  /** Shown over the canvas while it has no elements. */
+  emptyState?: React.ReactNode;
   onEngineReady: (engine: CanvasEngine) => void;
   settings: VoiceSettings;
   isAiDrawing: boolean;
@@ -24,6 +26,7 @@ interface InlineTextEditorState {
 }
 
 export const Whiteboard: React.FC<WhiteboardProps> = ({
+  emptyState,
   onEngineReady,
   settings,
   isAiDrawing,
@@ -286,6 +289,8 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({
         onDoubleClick={handleCanvasDoubleClick}
         onWheel={(e) => engineRef.current?.handleWheel(e)}
       />
+
+      {elementCount === 0 && emptyState}
 
       {/* Natural Whiteboard Direct Text Box */}
       {inlineEditor && (

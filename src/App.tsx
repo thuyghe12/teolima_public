@@ -17,6 +17,7 @@ import { layoutBoard } from '../shared/board/layout';
 import { boardElements } from './lib/canvas/boardElements';
 import { getAccessToken } from './lib/access';
 import { Whiteboard } from './components/Whiteboard';
+import { StarterPrompts } from './components/StarterPrompts';
 import { CanvasToolbar } from './components/CanvasToolbar';
 import { VoiceCallHUD } from './components/VoiceCallHUD';
 import { SessionHistoryModal } from './components/SessionHistoryModal';
@@ -60,7 +61,6 @@ export default function App() {
   const [isLayerPanelOpen, setIsLayerPanelOpen] = useState(false);
 
   // Focus mode
-  const [isFocusMode, setIsFocusMode] = useState(false);
 
   // Goal & Context project
   const [currentGoal, setCurrentGoal] = useState<UserGoalProject | null>(null);
@@ -463,15 +463,8 @@ export default function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
         onToggleLayerPanel={() => setIsLayerPanelOpen(!isLayerPanelOpen)}
         isLayerPanelOpen={isLayerPanelOpen}
-        layers={layers}
-        activeLayerId={activeLayerId}
-        isFocusMode={isFocusMode}
-        onToggleFocusMode={() => setIsFocusMode(!isFocusMode)}
         onOpenGoalModal={() => setIsGoalModalOpen(true)}
         onClearBoard={clearBoard}
-        activeGoal={currentGoal?.goal}
-        onSelectPrompt={handleSelectPrompt}
-        isCallActive={isCallActive}
       />
 
       {/* Layer Management Modal / Popover */}
@@ -485,6 +478,7 @@ export default function App() {
 
       {/* Main Interactive Whiteboard with Rough.js & RAF Loop */}
       <Whiteboard
+        emptyState={<StarterPrompts onSelect={handleSelectPrompt} />}
         onEngineReady={handleEngineReady}
         settings={settings}
         isAiDrawing={isAiDrawing}
