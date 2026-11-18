@@ -62,6 +62,7 @@ server/config.ts       Environment configuration and limits
 server/security.ts     Origin and token checks, rate limiter
 server/validation.ts   Tool-call validation
 server/demo.ts         Recorded session for demo mode
+shared/board/          Typed board model and change log (docs/BOARD_MODEL.md)
 src/lib/canvas/        Canvas engine and hand-drawn renderer
 src/lib/audio/         Microphone capture and playback
 src/components/        Whiteboard, toolbar, call HUD, goal setup, history
