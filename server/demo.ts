@@ -22,7 +22,12 @@ const add = (change: Omit<Extract<ChangeBody, { op: 'upsert_component' }>, 'op'>
 export const DEMO_SCRIPT: DemoStep[] = [
   { say: "Let's design your customer support system. I'll build it as we talk, starting with where messages come in." },
   {
-    change: { op: 'set_brief', goal: DEMO_GOAL, audience: 'Customers of a web shop', constraints: ['Refunds over 100 EUR need a person'] },
+    change: {
+      op: 'set_brief',
+      goal: DEMO_GOAL,
+      audience: 'Customers of a web shop',
+      constraints: ['Refunds over 100 EUR need a person', 'Returning customers should not have to repeat themselves'],
+    },
     reason: 'The brief the user gave',
   },
   { change: { op: 'set_title', title: 'Customer support' }, reason: 'Name the system' },
@@ -31,13 +36,15 @@ export const DEMO_SCRIPT: DemoStep[] = [
   add({ kind: 'tool', name: 'Order lookup', toolType: 'openapi', description: 'Reads the order system' }, 'Order data'),
   add({ kind: 'tool', name: 'Refund API', toolType: 'openapi', description: 'Issues refunds' }, 'Refunds'),
   add({ kind: 'knowledge', name: 'Policy docs', source: 'ai_search', description: 'Terms, FAQ and policies' }, 'Grounding for policy answers'),
+  { say: 'Returning customers should not repeat themselves, so the system keeps a memory per customer, in Foundry memory.' },
+  add({ kind: 'memory', name: 'Customer memory', scope: 'user', store: 'foundry_memory' }, 'Returning customers should not repeat themselves'),
   { say: 'One agent with tools is the default. Here only the refund agent may move money, which is a security boundary, so we split the work across agents.' },
   {
     change: { op: 'set_shape', shape: 'multi', reasons: ['security_or_compliance_boundary'] },
     reason: 'Only the refund agent may move money',
   },
   { say: 'Now the agents. A triage agent reads each message and passes it to the specialist who can help.' },
-  add({ kind: 'agent', name: 'Triage', description: 'Reads intent, hands off', instructions: 'Classify the request and hand it to the right specialist.' }, 'Routes requests'),
+  add({ kind: 'agent', name: 'Triage', description: 'Reads intent, hands off', instructions: 'Classify the request and hand it to the right specialist.', memory: ['Customer memory'] }, 'Routes requests'),
   add({ kind: 'agent', name: 'Order Status', description: 'Answers order questions', tools: ['Order lookup'] }, 'Order questions'),
   add({ kind: 'agent', name: 'Refunds', description: 'Prepares refunds', tools: ['Refund API'] }, 'Refund requests'),
   add({ kind: 'agent', name: 'Policy', description: 'Answers policy questions', knowledge: ['Policy docs'] }, 'Policy questions'),
