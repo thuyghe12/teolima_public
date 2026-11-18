@@ -8,12 +8,26 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const PORT = 3000;
+import { config } from './server/config';
+import { guardSketchEndpoint, hasValidToken, isAllowedOrigin, tokenFromUpgrade } from './server/security';
+
+const PORT = config.port;
 const app = express();
-app.use(express.json({ limit: '10mb' }));
+app.set('trust proxy', 1);
+app.use(express.json({ limit: config.httpBodyLimit }));
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server, path: '/ws/live' });
+const wss = new WebSocketServer({
+  server,
+  path: '/ws/live',
+  maxPayload: config.wsMaxPayloadBytes,
+  verifyClient: ({ origin, req }, done) => {
+    if (!isAllowedOrigin(origin)) return done(false, 403, 'Origin not allowed');
+    if (!hasValidToken(tokenFromUpgrade(req))) return done(false, 401, 'Missing or invalid access token');
+    if (wss.clients.size >= config.maxConnections) return done(false, 503, 'Server is at capacity');
+    done(true);
+  },
+});
 
 // Function declarations for Gemini Live Drawing Agent & Solutions Architect
 const webSearchTool: FunctionDeclaration = {
@@ -386,7 +400,7 @@ Tone: Enthusiastic, brilliant, clear, concise, and deeply empowering.
 
 // Helper to initialize Gemini SDK
 function getGeminiClient(): GoogleGenAI | null {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = config.geminiApiKey;
   if (!apiKey) {
     console.warn('GEMINI_API_KEY environment variable is not set.');
     return null;
@@ -466,14 +480,14 @@ async function generateBrandSketchImage(prompt: string, caption?: string, aspect
   if (ai) {
     // 1. Try Gemini 3.1 Flash Image (Nano Banana 2) or Lite Image for true on-brand sketch generation
     try {
-      console.log('[ImageGen] Generating brand sketch image with gemini-3.1-flash-lite-image / flash-image for prompt:', prompt);
+      console.log('[ImageGen] Generating brand sketch image for prompt:', prompt);
       const BRAND_SKETCH_PROMPT = `Minimalist architectural hand-drawn line art sketch illustration on clean off-white parchment paper, crisp black ink contour lines with subtle rough sketch hatching, delicate lime-volt green (#c8f13a) and charcoal (#18181c) watercolor accents, clean vector-like precision, iconic technical diagram whiteboard illustration of: ${cleanPrompt}`;
 
       const ratio = aspectRatio === '1:1' ? '1:1' : aspectRatio === '16:9' ? '16:9' : '4:3';
       let imgResp: any = null;
       try {
         imgResp = await ai.models.generateContent({
-          model: 'gemini-3.1-flash-lite-image',
+          model: config.models.imageLite,
           contents: {
             parts: [
               {
@@ -488,9 +502,9 @@ async function generateBrandSketchImage(prompt: string, caption?: string, aspect
           },
         });
       } catch (liteErr) {
-        // Retry with gemini-3.1-flash-image
+        // Retry with the full image model
         imgResp = await ai.models.generateContent({
-          model: 'gemini-3.1-flash-image',
+          model: config.models.image,
           contents: {
             parts: [
               {
@@ -515,12 +529,12 @@ async function generateBrandSketchImage(prompt: string, caption?: string, aspect
         }
       }
     } catch (imgErr: any) {
-      console.warn('[ImageGen] Gemini image model generation error, trying gemini-3.7-flash SVG synthesis:', imgErr?.message || imgErr);
+      console.warn('[ImageGen] Gemini image model generation error, trying SVG synthesis:', imgErr?.message || imgErr);
     }
 
     // 2. Synthesize custom bespoke architectural SVG drawing using Gemini 3.7 Flash
     try {
-      console.log('[ImageGen] Synthesizing bespoke brand sketch SVG with gemini-3.7-flash for prompt:', prompt);
+      console.log('[ImageGen] Synthesizing brand sketch SVG for prompt:', prompt);
       const systemInstruction = `You are a world-class architectural vector illustrator for Teolima.
 Your task is to generate a single valid, self-contained SVG illustration (viewBox="0 0 600 450", width="600", height="450") depicting the requested concept/metaphor strictly in Teolima's iconic architectural sketch style.
 
@@ -535,7 +549,7 @@ BRAND DESIGN CONSTRAINTS:
 - Output ONLY valid raw <svg ...>...</svg> without any markdown fences, without backticks, and without any explanatory text.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.7-flash',
+        model: config.models.text,
         contents: [
           {
             role: 'user',
@@ -575,6 +589,18 @@ wss.on('connection', async (clientWs: WebSocket) => {
   let liveSession: any = null;
   let isSessionActive = false;
 
+  // Hard caps: a session can never outlive SESSION_MAX_MINUTES or sit idle past IDLE_TIMEOUT_SECONDS.
+  const closeWith = (reason: string) => {
+    clientWs.send(JSON.stringify({ type: 'status', status: { connected: false, state: 'idle', message: reason } }));
+    clientWs.close(1000, reason);
+  };
+  const sessionTimer = setTimeout(() => closeWith('Session time limit reached'), config.sessionMaxMs);
+  let idleTimer = setTimeout(() => closeWith('Session closed after inactivity'), config.idleTimeoutMs);
+  const touch = () => {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => closeWith('Session closed after inactivity'), config.idleTimeoutMs);
+  };
+
   async function initLiveSession(voiceName = 'Zephyr') {
     if (!ai) {
       clientWs.send(JSON.stringify({
@@ -587,7 +613,7 @@ wss.on('connection', async (clientWs: WebSocket) => {
     try {
       console.log('[LiveAPI] Connecting session with voice:', voiceName);
       liveSession = await ai.live.connect({
-        model: 'gemini-3.1-flash-live-preview',
+        model: config.models.live,
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: {
@@ -669,7 +695,7 @@ wss.on('connection', async (clientWs: WebSocket) => {
                         const searchAi = getGeminiClient();
                         if (searchAi && query) {
                           const searchResp = await searchAi.models.generateContent({
-                            model: 'gemini-3.7-flash',
+                            model: config.models.text,
                             contents: `You are an expert multi-agent systems solutions architect search grounding assistant. Search and summarize the most up-to-date documentation, schemas, API specifications, and design patterns for:\n${query}\n\nProvide key architectural components, best practices, and recommended flow.`,
                             config: {
                               tools: [{ googleSearch: {} }]
@@ -773,6 +799,7 @@ wss.on('connection', async (clientWs: WebSocket) => {
   }
 
   clientWs.on('message', async (data: any) => {
+    touch();
     try {
       const msg = JSON.parse(data.toString());
 
@@ -807,13 +834,13 @@ wss.on('connection', async (clientWs: WebSocket) => {
       } else if (msg.type === 'set_goal_context') {
         // Goal context set by user (goal text + coach archetype + technical level + file context)
         if (liveSession && isSessionActive) {
-          const goal = msg.goal || msg.goalContext?.goal || '';
+          const goal = String(msg.goal || msg.goalContext?.goal || '').slice(0, 2000);
           const coachArchetype = msg.coachArchetype || msg.goalContext?.coachArchetype || 'Practical Systems Builder';
           const coachDesc = msg.coachArchetypeDescription || msg.goalContext?.coachArchetypeDescription || '';
           const techLevel = msg.technicalLevel ?? msg.goalContext?.technicalLevel ?? 2;
           const techLabel = msg.technicalLevelLabel || msg.goalContext?.technicalLevelLabel || 'Level 2: Systems & Product Thinker';
-          const fileName = msg.fileName || msg.goalContext?.fileName;
-          const fileSnippet = msg.fileSnippet || msg.goalContext?.fileContent;
+          const fileName = msg.fileName || msg.goalContext?.fileName ? String(msg.fileName || msg.goalContext?.fileName).slice(0, 120) : undefined;
+          const fileSnippet = String(msg.fileSnippet || msg.goalContext?.fileContent || '').slice(0, 8000);
 
           let techDepthRule = '';
           if (techLevel === 1) {
@@ -864,6 +891,8 @@ INSTRUCTION: Greet the user with high energy tailored to your selected Coach Arc
 
   clientWs.on('close', () => {
     console.log('[WebSocket] Client disconnected');
+    clearTimeout(sessionTimer);
+    clearTimeout(idleTimer);
     if (liveSession && isSessionActive) {
       try {
         liveSession.close();
@@ -877,12 +906,12 @@ INSTRUCTION: Greet the user with high energy tailored to your selected Coach Arc
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
-    hasApiKey: !!process.env.GEMINI_API_KEY,
+    hasApiKey: !!config.geminiApiKey,
     timestamp: Date.now()
   });
 });
 
-app.post('/api/generate-sketch', async (req, res) => {
+app.post('/api/generate-sketch', guardSketchEndpoint, async (req, res) => {
   try {
     const { prompt, caption, aspectRatio = '4:3' } = req.body || {};
     if (!prompt) {
@@ -920,7 +949,7 @@ async function startServer() {
   }
 
   server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Live Canvas AI server running on http://localhost:${PORT}`);
+    console.log(`Teolima running on http://localhost:${PORT}`);
   });
 }
 

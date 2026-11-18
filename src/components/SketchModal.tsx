@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getAccessToken } from '../lib/access';
 import { Sparkles, X, Image as ImageIcon, Wand2, Loader2, Check } from 'lucide-react';
 import { CanvasEngine } from '../lib/canvas/canvasEngine';
 
@@ -60,7 +61,7 @@ export const SketchModal: React.FC<SketchModalProps> = ({ isOpen, onClose, engin
     try {
       const response = await fetch('/api/generate-sketch', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-access-token': getAccessToken() },
         body: JSON.stringify({
           prompt: prompt.trim(),
           caption: caption.trim() || prompt.trim().slice(0, 36),

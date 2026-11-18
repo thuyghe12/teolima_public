@@ -12,6 +12,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { getAccessToken } from './lib/access';
 import { Whiteboard } from './components/Whiteboard';
 import { CanvasToolbar } from './components/CanvasToolbar';
 import { VoiceCallHUD } from './components/VoiceCallHUD';
@@ -183,7 +184,8 @@ export default function App() {
 
       // 2. Connect WebSocket
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws/live`;
+      const token = getAccessToken();
+      const wsUrl = `${protocol}//${window.location.host}/ws/live${token ? `?token=${encodeURIComponent(token)}` : ''}`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
