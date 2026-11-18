@@ -56,3 +56,23 @@ test('connection summaries name teams as well as components', () => {
   ] as const) s.apply(toChangeBody(name, args)!, 'coach', 'test');
   assert.deepEqual(s.summary().connections, ['Team -> Out (result)']);
 });
+
+test('the coach cannot clear the board; only the user can', () => {
+  assert.ok(!BOARD_TOOLS.has('clear_board'));
+  const s = new BoardSession();
+  s.apply(toChangeBody('add_component', { kind: 'agent', name: 'A' })!, 'coach', 'test');
+  const r = s.apply({ op: 'clear' }, 'user', 'Cleared from the toolbar');
+  assert.ok(!('error' in r));
+  assert.equal(s.board.components.length, 0);
+  assert.equal(s.changes.at(-1)?.actor, 'user');
+});
+
+test('a new session restores the board the browser kept, once and only if valid', () => {
+  const first = new BoardSession();
+  first.apply(toChangeBody('add_component', { kind: 'agent', name: 'Keeper' })!, 'coach', 'test');
+  const second = new BoardSession();
+  assert.equal(second.restore({ nonsense: true }), false);
+  assert.equal(second.restore(first.board), true);
+  assert.deepEqual(second.board, first.board);
+  assert.equal(second.restore({ version: 1, title: '', components: [], teams: [], connections: [] }), false, 'a non-empty board is never overwritten');
+});

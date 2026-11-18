@@ -8,6 +8,7 @@ import { GoogleGenAI, LiveServerMessage, Modality, Type, FunctionDeclaration } f
 import { config } from './server/config';
 import { DEMO_GOAL, playDemo } from './server/demo';
 import { BOARD_TOOLS, BoardSession, boardToolDeclarations, toChangeBody } from './server/board-tools';
+import { ChangeBody } from './shared/board/changes';
 import { COACH_PROMPT, COACH_PROMPT_VERSION, goalContextPrompt } from './server/prompts/coach';
 import { declareTools, supportsAsyncTools, toolResponse } from './server/live-tools';
 import { validateToolCall, wrapUntrustedSearch } from './server/validation';
@@ -367,6 +368,7 @@ wss.on('connection', async (clientWs: WebSocket) => {
         console.warn(`[Board] Refused ${rawCall.name}: ${result.error}`);
         return respond(rawCall, { ok: false, error: result.error, board: session.summary() });
       }
+      console.log(`[Board] coach: ${result.summary} (${String(args.reason ?? 'no reason given')})`);
       sendBoard(result.summary);
       return respond(rawCall, { ok: true, summary: result.summary, warnings: result.warnings, board: session.summary() });
     }
@@ -551,6 +553,9 @@ wss.on('connection', async (clientWs: WebSocket) => {
       const msg = JSON.parse(data.toString());
 
       if (msg.type === 'start_call') {
+        if (msg.board && session.restore(msg.board)) {
+          console.log(`[Board] Restored the board from the browser (${session.board.components.length} components)`);
+        }
         await initLiveSession(typeof msg.voice === 'string' && /^[A-Za-z]{2,20}$/.test(msg.voice) ? msg.voice : 'Kore');
       } else if (msg.type === 'stop_call') {
         stopDemo?.();
@@ -566,6 +571,14 @@ wss.on('connection', async (clientWs: WebSocket) => {
           type: 'status',
           status: { connected: false, state: 'idle', message: 'Call ended' }
         }));
+      } else if (msg.type === 'board_change') {
+        // A change the user made in the app, e.g. clearing the board. Validated like any other.
+        const parsed = ChangeBody.safeParse(msg.body);
+        if (!parsed.success) return;
+        const result = session.apply(parsed.data, 'user', String(msg.reason ?? 'Changed in the app').slice(0, 300));
+        if ('error' in result) return console.warn(`[Board] Refused user change: ${result.error}`);
+        console.log(`[Board] user: ${result.summary}`);
+        sendBoard(result.summary);
       } else if (msg.type === 'audio') {
         // Stream user microphone PCM16 16kHz
         if (liveSession && isSessionActive && msg.audio) {
