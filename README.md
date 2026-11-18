@@ -35,7 +35,8 @@ speaker 24 kHz  ◀── audio ──── session + idle caps     ◀── a
 1. The browser streams microphone audio to the server over a websocket. The API key never leaves the server.
 2. The server holds the Live API session. The model speaks and calls drawing tools: 14 function declarations covering agent nodes, connections, callouts, diagrams, charts, sketches and search.
 3. Every tool call is validated on the server before it reaches the browser (allowlisted tool names, clamped coordinates, parsed colours, capped text and arrays).
-4. The canvas engine animates each call with rough.js and sends a compact layout summary back, so the model knows where everything sits and connects components by name.
+4. The canvas engine animates each call with rough.js. The server keeps a record of what is on the board and returns it inside each tool result, so the model connects to existing components by name and never draws one twice.
+5. Drawing tools are non-blocking on models that support it: the model keeps talking while a component is drawn, and drawing results never start a new turn.
 
 Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -85,7 +86,8 @@ CI runs typecheck, tests and build on every push and pull request.
 | Variable | Default | Purpose |
 |---|---|---|
 | `GEMINI_API_KEY` | none | Live coaching. Without it, demo mode |
-| `GEMINI_LIVE_MODEL` | `gemini-3.1-flash-live-preview` | Speech-to-speech model |
+| `GEMINI_LIVE_MODEL` | `gemini-3.8-live` | Speech-to-speech model, with asynchronous tool calls |
+| `GEMINI_LIVE_FALLBACK_MODEL` | `gemini-3.1-flash-live-preview` | Used if the primary model cannot be reached |
 | `GEMINI_TEXT_MODEL` | `gemini-3.7-flash` | Search grounding and SVG sketches |
 | `GEMINI_IMAGE_MODEL` / `GEMINI_IMAGE_LITE_MODEL` | `gemini-3.1-flash-image` / `gemini-3.1-flash-lite-image` | Sketch illustrations |
 | `ALLOWED_ORIGINS` | `http://localhost:PORT` | Browser origins allowed on the websocket |

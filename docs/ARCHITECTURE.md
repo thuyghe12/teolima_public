@@ -34,8 +34,9 @@ flowchart LR
 2. The server opens a Live API session with the system instruction and 14 function declarations, and relays microphone audio in and speech out.
 3. When the model calls a tool, the server validates it (`server/validation.ts`). Unknown tools get an error response so the model can correct itself; valid calls are forwarded as `tool_call` messages with clean arguments.
 4. Two tools run on the server: `web_search` (grounded search, returned to the model wrapped as untrusted data) and `generate_sketch_illustration` (image model first, then SVG synthesis, then a procedural fallback, so the board always gets a picture).
-5. The canvas engine animates the drawing and sends a layout summary (`canvas_state_update`) so the model places new components without overlap and connects them by label.
-6. The session ends on **End call**, at the session limit or after the idle timeout.
+5. The canvas engine animates the drawing and reports the board back (`canvas_state_update`). The server stores it per session (`server/board-tracker.ts`) and returns the list of components inside tool results. It is never sent to the model as a message: that would start a new turn, and the model would answer it by drawing again.
+6. On Live models with asynchronous function calling, every tool is declared non-blocking (`server/live-tools.ts`). Drawing results are returned with SILENT scheduling, so the model keeps narrating; search and sketch results with WHEN_IDLE, so they are used once the current sentence ends. A component or connection already on the board is not drawn again; the model is told it exists.
+7. The session ends on **End call**, at the session limit or after the idle timeout.
 
 ## Layout model
 

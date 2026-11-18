@@ -21,7 +21,9 @@ export const config = {
   port,
   geminiApiKey: process.env.GEMINI_API_KEY || '',
   models: {
-    live: process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview',
+    live: process.env.GEMINI_LIVE_MODEL || 'gemini-3.8-live',
+    /** Tried when the primary Live model cannot be reached. */
+    liveFallback: process.env.GEMINI_LIVE_FALLBACK_MODEL || 'gemini-3.1-flash-live-preview',
     text: process.env.GEMINI_TEXT_MODEL || 'gemini-3.7-flash',
     image: process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image',
     imageLite: process.env.GEMINI_IMAGE_LITE_MODEL || 'gemini-3.1-flash-lite-image',
