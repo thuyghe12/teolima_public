@@ -74,6 +74,7 @@ Rules in the prompt are a request; the guard (`server/guard/`) enforces them in 
 
 | Hop | Check | On failure |
 |---|---|---|
+| Model | Gemini's own safety filters (jailbreak, dangerous content, harassment, hate speech, sexually explicit) set to block medium and above; they are off unless set | Blocked by the model provider |
 | Input: the brief | Prompt Shields user prompt analysis | Not saved; the user is told why |
 | Input: typed message | Prompt Shields, before the model sees it | Not sent to the model |
 | Input: speech | Live API input transcription, each finished turn screened | Notice to the model and the user; screened after the model heard it |
