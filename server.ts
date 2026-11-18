@@ -7,6 +7,8 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, LiveServerMessage, Modality, Type, FunctionDeclaration } from '@google/genai';
 import { config } from './server/config';
 import { DEMO_GOAL, playDemo } from './server/demo';
+import { BoardTracker } from './server/board-tracker';
+import { declareTools, supportsAsyncTools, toolResponse } from './server/live-tools';
 import { validateToolCall, wrapUntrustedSearch } from './server/validation';
 import { guardSketchEndpoint, hasValidToken, isAllowedOrigin, tokenFromUpgrade } from './server/security';
 
@@ -395,6 +397,14 @@ CRITICAL RELATIVE POSITIONING & WHITEBOARD SPATIAL AWARENESS:
    ❌ Spoken voice is for conversational coaching. Visual drawings on canvas are EXCLUSIVELY for clean, production-ready system architecture components and iconic sketches.
 
 Tone: Enthusiastic, brilliant, clear, concise, and deeply empowering.
+
+NARRATION AND BOARD DISCIPLINE (these rules override anything above):
+1. Talk and draw at the same time. Say one short sentence about a component, call the tool for it, and keep talking while it is drawn. Never draw a whole system in silence and explain it afterwards.
+2. One component per tool call. Build the system up step by step, in the order you explain it.
+3. Never draw a component that is already on the board. Every tool result lists what is on the board under "onBoard". Connect to existing components by their exact label.
+4. A result with "skipped" means the component or connection already exists. Do not retry it.
+5. When the user is silent, wait. Do not redraw, extend or re-explain the board on your own.
+6. Draw only what the user asked for, at most about 12 components unless they ask for more.
 `;
 
 // Helper to initialize Gemini SDK
@@ -601,7 +611,76 @@ wss.on('connection', async (clientWs: WebSocket) => {
     idleTimer = setTimeout(() => closeWith('Session closed after inactivity'), config.idleTimeoutMs);
   };
 
-  async function initLiveSession(voiceName = 'Zephyr') {
+  const tracker = new BoardTracker();
+  let asyncTools = false;
+
+  const sendClient = (m: unknown) => {
+    if (clientWs.readyState === WebSocket.OPEN) clientWs.send(JSON.stringify(m));
+  };
+
+  const respond = (call: { id?: string; name?: string }, output: Record<string, unknown>) => {
+    if (!liveSession || !isSessionActive) return;
+    try {
+      liveSession.sendToolResponse({ functionResponses: [toolResponse(call, output, asyncTools)] });
+    } catch (err) {
+      console.error('[LiveAPI] Failed to send tool response:', err);
+    }
+  };
+
+  async function runWebSearch(rawCall: any) {
+    const query = String(rawCall.args?.query || '').slice(0, 300);
+    if (!query || !ai) return respond(rawCall, { error: 'Web search unavailable or empty query.' });
+    sendClient({ type: 'status', status: { connected: true, state: 'searching', message: `Searching the web for "${query}"...` } });
+    try {
+      const searchResp = await ai.models.generateContent({
+        model: config.models.text,
+        contents: `You are a search grounding assistant for a multi-agent systems architect. Search and summarize the most up-to-date documentation, schemas, API specifications, and design patterns for:\n${query}\n\nProvide key architectural components, best practices, and recommended flow.`,
+        config: { tools: [{ googleSearch: {} }] },
+      });
+      respond(rawCall, wrapUntrustedSearch(query, searchResp.text || 'No additional technical details found.'));
+    } catch (err) {
+      console.error('[LiveAPI] Web search error:', err);
+      respond(rawCall, { error: 'Web search temporarily unavailable.' });
+    }
+  }
+
+  async function handleToolCall(rawCall: any) {
+    if (rawCall?.name === 'web_search') return runWebSearch(rawCall);
+
+    const checked = validateToolCall(rawCall);
+    if (!checked.ok || !checked.call) {
+      console.warn('[LiveAPI] Rejected tool call:', checked.error);
+      return respond(rawCall ?? {}, { success: false, error: checked.error });
+    }
+    if (checked.dropped.length > 0) {
+      console.warn('[LiveAPI] Dropped invalid arguments:', checked.dropped.join(', '));
+    }
+    const fc = checked.call;
+    const args = (fc.args ?? {}) as Record<string, any>;
+
+    const duplicate = tracker.duplicateReason(fc.name, args);
+    if (duplicate) {
+      return respond(fc, { success: false, skipped: true, reason: duplicate, onBoard: tracker.labels() });
+    }
+
+    if (fc.name === 'generate_sketch_illustration') {
+      const prompt = args.prompt || 'System Architecture Metaphor';
+      const caption = args.caption || args.label || 'Workflow Sketch';
+      const imageUrl = await generateBrandSketchImage(prompt, caption, args.aspectRatio || '4:3');
+      sendClient({
+        type: 'tool_call',
+        toolCalls: [{ ...fc, args: { ...args, imageUrl, imageCaption: caption, imagePrompt: prompt } }],
+      });
+      // The image itself stays out of the model's context; it only needs to know it was placed.
+      return respond(fc, { success: true, placed: true, caption });
+    }
+
+    tracker.record(fc.name, args);
+    sendClient({ type: 'tool_call', toolCalls: [fc] });
+    respond(fc, { success: true, onBoard: tracker.labels() });
+  }
+
+  async function initLiveSession(voiceName = 'Kore') {
     if (!ai) {
       // No key: replay a recorded session through the same tool-call path.
       clientWs.send(JSON.stringify({
@@ -616,21 +695,43 @@ wss.on('connection', async (clientWs: WebSocket) => {
       return;
     }
 
-    try {
-      console.log('[LiveAPI] Connecting session with voice:', voiceName);
-      liveSession = await ai.live.connect({
-        model: config.models.live,
+    // A session counts as connected only once the Live API confirms setup
+    // (setupComplete). A bad key or an unavailable model closes the socket after
+    // it opens, so resolving on open alone would hide the failure and skip the fallback.
+    const connect = (model: string) => new Promise<any>((resolve, reject) => {
+      asyncTools = supportsAsyncTools(model);
+      let session: any = null;
+      let setupDone = false;
+      let settled = false;
+      let connected = false;
+      const timer = setTimeout(() => fail('timed out waiting for the session to start'), 10_000);
+      const fail = (why: string) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        try { session?.close(); } catch {}
+        reject(new Error(why));
+      };
+      const maybeResolve = () => {
+        if (settled || !session || !setupDone) return;
+        settled = true;
+        connected = true;
+        clearTimeout(timer);
+        resolve(session);
+      };
+      ai.live.connect({
+        model,
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: {
             voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: (voiceName as any) || 'Zephyr' },
+              prebuiltVoiceConfig: { voiceName },
             },
           },
           systemInstruction: SYSTEM_INSTRUCTION,
           tools: [
             {
-              functionDeclarations: [
+              functionDeclarations: declareTools([
                 webSearchTool,
                 drawConnectionTool,
                 drawShapeTool,
@@ -645,12 +746,16 @@ wss.on('connection', async (clientWs: WebSocket) => {
                 clearCanvasTool,
                 highlightAreaTool,
                 undoDrawingTool
-              ]
+              ], asyncTools)
             }
           ]
         },
         callbacks: {
           onmessage: async (message: LiveServerMessage) => {
+            if (!settled && message.setupComplete) {
+              setupDone = true;
+              maybeResolve();
+            }
             try {
               // 1. Audio stream chunks (24kHz PCM)
               const parts = message.serverContent?.modelTurn?.parts;
@@ -677,151 +782,49 @@ wss.on('connection', async (clientWs: WebSocket) => {
                 clientWs.send(JSON.stringify({ type: 'interrupted' }));
               }
 
-              // 3. Tool Calls (Emitted drawing, image generation or search instructions)
-              const toolCall = message.toolCall;
-              if (toolCall && toolCall.functionCalls && toolCall.functionCalls.length > 0) {
-                console.log('[LiveAPI] Tool calls received:', toolCall.functionCalls.length);
-                
-                // Process each function call (image generation, web search, drawing)
-                const functionResponses = await Promise.all(
-                  toolCall.functionCalls.map(async (rawCall: any) => {
-                    if (rawCall?.name === 'web_search') {
-                      const fc = { ...rawCall, args: { query: String(rawCall.args?.query || '').slice(0, 300) } };
-                      const query = fc.args?.query || '';
-                      console.log('[LiveAPI] Live Web Search requested for query:', query);
-                      clientWs.send(JSON.stringify({
-                        type: 'status',
-                        status: {
-                          connected: true,
-                          state: 'searching',
-                          message: `Searching live web for "${query}"...`
-                        }
-                      }));
-
-                      try {
-                        const searchAi = getGeminiClient();
-                        if (searchAi && query) {
-                          const searchResp = await searchAi.models.generateContent({
-                            model: config.models.text,
-                            contents: `You are an expert multi-agent systems solutions architect search grounding assistant. Search and summarize the most up-to-date documentation, schemas, API specifications, and design patterns for:\n${query}\n\nProvide key architectural components, best practices, and recommended flow.`,
-                            config: {
-                              tools: [{ googleSearch: {} }]
-                            }
-                          });
-                          const searchSummary = searchResp.text || 'No additional technical details found.';
-                          return {
-                            response: { output: wrapUntrustedSearch(query, searchSummary) },
-                            id: fc.id,
-                            name: fc.name
-                          };
-                        }
-                      } catch (searchErr) {
-                        console.error('[LiveAPI] Web search error:', searchErr);
-                        return {
-                          response: { output: { error: 'Web search temporarily unavailable.' } },
-                          id: fc.id,
-                          name: fc.name
-                        };
-                      }
-                      return {
-                        response: { output: { error: 'Web search unavailable or empty query.' } },
-                        id: fc.id,
-                        name: fc.name
-                      };
-                    }
-
-                    const checked = validateToolCall(rawCall);
-                    if (!checked.ok) {
-                      console.warn('[LiveAPI] Rejected tool call:', checked.error);
-                      return {
-                        response: { output: { success: false, error: checked.error } },
-                        id: rawCall?.id,
-                        name: rawCall?.name,
-                      };
-                    }
-                    if (checked.dropped.length > 0) {
-                      console.warn('[LiveAPI] Dropped invalid arguments:', checked.dropped.join(', '));
-                    }
-                    const fc: any = checked.call;
-
-                    if (fc.name === 'generate_sketch_illustration') {
-                      const prompt = fc.args?.prompt || 'System Architecture Metaphor';
-                      const caption = fc.args?.caption || fc.args?.label || 'Workflow Sketch';
-                      const aspectRatio = fc.args?.aspectRatio || '4:3';
-                      console.log('[LiveAPI] Generating sketch illustration:', prompt);
-
-                      const imageUrl = await generateBrandSketchImage(prompt, caption, aspectRatio);
-
-                      // Forward to client canvas with generated image payload
-                      clientWs.send(JSON.stringify({
-                        type: 'tool_call',
-                        toolCalls: [
-                          {
-                            id: fc.id,
-                            name: 'generate_sketch_illustration',
-                            args: {
-                              ...fc.args,
-                              imageUrl,
-                              imageCaption: caption,
-                              imagePrompt: prompt,
-                            }
-                          }
-                        ]
-                      }));
-
-                      return {
-                        response: { output: { success: true, imageUrl, caption, rendered: true } },
-                        id: fc.id,
-                        name: fc.name
-                      };
-                    }
-
-                    // Forward standard drawing tool calls to client for real-time canvas animation
-                    clientWs.send(JSON.stringify({
-                      type: 'tool_call',
-                      toolCalls: [fc]
-                    }));
-
-                    // Default response for visual drawing tools
-                    return {
-                      response: { output: { success: true, rendered: true } },
-                      id: fc.id,
-                      name: fc.name
-                    };
-                  })
-                );
-
-                if (liveSession && isSessionActive) {
-                  liveSession.sendToolResponse({ functionResponses });
-                }
+              // 3. Tool calls: each one is answered on its own as soon as it is handled,
+              // so a slow search or sketch never holds up the drawing calls around it.
+              for (const rawCall of message.toolCall?.functionCalls ?? []) {
+                void handleToolCall(rawCall);
               }
             } catch (err) {
               console.error('[LiveAPI] Error processing message:', err);
             }
           },
           onerror: (err: any) => {
+            if (!settled) return fail(String(err?.message || err?.error?.message || 'connection error'));
+            if (!connected) return;
             console.error('[LiveAPI] Error event:', err);
             clientWs.send(JSON.stringify({ type: 'error', error: String(err) }));
           },
-          onclose: () => {
-            console.log('[LiveAPI] Session closed');
+          onclose: (event: any) => {
+            const reason = event?.reason ? String(event.reason).slice(0, 200) : '';
+            if (!settled) return fail(reason || 'closed before the session started');
+            if (!connected) return;
+            console.log('[LiveAPI] Session closed', reason);
             isSessionActive = false;
+            sendClient({ type: 'status', status: { connected: false, state: 'idle', message: reason ? `Live session closed: ${reason}` : 'Live session closed' } });
           }
         }
-      });
+      }).then((s) => {
+        session = s;
+        maybeResolve();
+      }).catch((err) => fail(err?.message || String(err)));
+    });
 
-      isSessionActive = true;
-      clientWs.send(JSON.stringify({
-        type: 'status',
-        status: { connected: true, state: 'listening', message: 'Gemini Live Session Active' }
-      }));
-    } catch (err: any) {
-      console.error('[LiveAPI] Connection failed:', err);
-      clientWs.send(JSON.stringify({
-        type: 'status',
-        status: { connected: false, state: 'error', message: err.message || 'Failed to connect Live API' }
-      }));
+    const models = [...new Set([config.models.live, config.models.liveFallback])];
+    for (const model of models) {
+      try {
+        console.log(`[LiveAPI] Connecting: model=${model} voice=${voiceName} asyncTools=${supportsAsyncTools(model)}`);
+        liveSession = await connect(model);
+        isSessionActive = true;
+        sendClient({ type: 'status', status: { connected: true, state: 'listening', message: `Live session active (${model}, voice ${voiceName})` } });
+        return;
+      } catch (err: any) {
+        console.error(`[LiveAPI] Connection failed for ${model}:`, err?.message || err);
+      }
     }
+    sendClient({ type: 'status', status: { connected: false, state: 'error', message: 'Could not connect to the Live API. Check GEMINI_API_KEY and GEMINI_LIVE_MODEL.' } });
   }
 
   clientWs.on('message', async (data: any) => {
@@ -830,7 +833,7 @@ wss.on('connection', async (clientWs: WebSocket) => {
       const msg = JSON.parse(data.toString());
 
       if (msg.type === 'start_call') {
-        await initLiveSession(msg.voice || 'Zephyr');
+        await initLiveSession(typeof msg.voice === 'string' && /^[A-Za-z]{2,20}$/.test(msg.voice) ? msg.voice : 'Kore');
       } else if (msg.type === 'stop_call') {
         stopDemo?.();
         stopDemo = null;
@@ -907,15 +910,9 @@ INSTRUCTION: Greet the user with high energy tailored to your selected Coach Arc
           });
         }
       } else if (msg.type === 'canvas_state_update') {
-        // Whiteboard spatial element synchronization
-        if (liveSession && isSessionActive && Array.isArray(msg.elements) && msg.elements.length > 0) {
-          const summaryList = msg.elements
-            .map((el: any) => `• [${el.type.toUpperCase()}] "${el.label || el.role || el.id}" at (x: ${el.x}, y: ${el.y}, w: ${el.width}, h: ${el.height})`)
-            .join('\n');
-          liveSession.sendRealtimeInput({
-            text: `[WHITEBOARD SPATIAL STATE SYNCHRONIZATION]:\nActive elements currently placed on canvas:\n${summaryList}\n\nMaintain spatial awareness: do NOT place new elements overlapping these exact bounding boxes. Connect to them using their exact names.`
-          });
-        }
+        // The board as the browser sees it. Kept server-side and returned inside tool
+        // results; sending it to the model as text would start a new turn and loop.
+        if (Array.isArray(msg.elements)) tracker.syncFromCanvas(msg.elements.slice(0, 200));
       }
     } catch (e) {
       console.error('[WebSocket] Failed to handle client message:', e);
