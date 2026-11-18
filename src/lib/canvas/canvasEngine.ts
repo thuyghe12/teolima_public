@@ -51,7 +51,7 @@ export class CanvasEngine {
 
   // Settings
   public settings: VoiceSettings = {
-    voiceName: 'Zephyr',
+    voiceName: 'Kore',
     animationSpeed: 'normal',
     handDrawnRoughness: 1.2,
     defaultStrokeWidth: 2,

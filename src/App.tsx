@@ -76,7 +76,7 @@ export default function App() {
 
   // Settings
   const [settings, setSettings] = useState<VoiceSettings>({
-    voiceName: 'Zephyr',
+    voiceName: 'Kore',
     animationSpeed: 'normal',
     handDrawnRoughness: 1.4,
     defaultStrokeWidth: 2,

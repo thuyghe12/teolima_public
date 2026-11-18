@@ -11,11 +11,11 @@ interface SettingsModalProps {
 }
 
 const VOICES: Array<{ id: 'Zephyr' | 'Puck' | 'Charon' | 'Kore' | 'Fenrir'; label: string; desc: string }> = [
-  { id: 'Zephyr', label: 'Zephyr', desc: 'Warm, articulate, balanced architect' },
-  { id: 'Puck', label: 'Puck', desc: 'Energetic, cheerful, lively coach' },
-  { id: 'Charon', label: 'Charon', desc: 'Deep, calm, measured mentor' },
-  { id: 'Kore', label: 'Kore', desc: 'Bright, friendly, clear instructor' },
-  { id: 'Fenrir', label: 'Fenrir', desc: 'Authoritative, resonant advisor' },
+  { id: 'Kore', label: 'Kore', desc: 'Female, firm and clear' },
+  { id: 'Zephyr', label: 'Zephyr', desc: 'Female, bright' },
+  { id: 'Puck', label: 'Puck', desc: 'Male, upbeat' },
+  { id: 'Charon', label: 'Charon', desc: 'Male, informative' },
+  { id: 'Fenrir', label: 'Fenrir', desc: 'Male, excitable' },
 ];
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
