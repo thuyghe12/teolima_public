@@ -32,6 +32,7 @@ const Refs = z.array(Ref).max(20);
 
 export const ChangeBody = z.discriminatedUnion('op', [
   z.object({ op: z.literal('set_title'), title: z.string().trim().max(120) }),
+  z.object({ op: z.literal('clear') }),
   z.object({
     op: z.literal('upsert_component'),
     kind: z.enum(COMPONENT_KINDS),
@@ -249,6 +250,9 @@ export function applyChange(board: Board, change: Change): ApplyResult {
   switch (body.op) {
     case 'set_title':
       result = { ok: true, board: { ...board, title: body.title }, summary: `Titled the board "${body.title}"`, warnings: [] };
+      break;
+    case 'clear':
+      result = { ok: true, board: { ...board, components: [], teams: [], connections: [] }, summary: 'Cleared the board', warnings: [] };
       break;
     case 'upsert_component':
       result = upsertComponent(board, body);

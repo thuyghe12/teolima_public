@@ -127,3 +127,8 @@ test('replay is deterministic and a refused change leaves the board unchanged', 
   const refused = applyChange(a, ch({ op: 'remove_component', ref: 'Nothing' }));
   assert.equal(refused.ok, false);
 });
+
+test('clear empties the board but keeps its title', () => {
+  const b = apply(replay(emptyBoard(), supportChanges), { op: 'clear' }).board;
+  assert.deepEqual([b.components.length, b.teams.length, b.connections.length, b.title], [0, 0, 0, 'Customer support']);
+});
