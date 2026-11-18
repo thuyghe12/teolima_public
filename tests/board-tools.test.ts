@@ -5,6 +5,7 @@ import { BOARD_TOOLS, BoardSession, boardToolDeclarations, toChangeBody } from '
 const briefed = () => {
   const s = new BoardSession();
   s.apply(toChangeBody('set_brief', { goal: 'Test system' })!, 'user', 'test');
+  s.apply({ op: 'set_shape', shape: 'multi', reasons: ['multiple_teams'] }, 'user', 'test');
   return s;
 };
 
@@ -29,15 +30,15 @@ test('a session builds a board from tool calls, using snake_case arguments', () 
   run('add_component', { kind: 'guardrail', name: 'Safety', controls: ['prompt_shields'], applies_to: ['Triage'] });
   const summary = s.summary();
   assert.deepEqual(summary.teams, ['Desk: handoff [Triage, Refunds]']);
-  assert.equal(s.changes.length, 7);
-  assert.ok(s.changes.slice(1).every((c) => c.actor === 'coach'));
+  assert.equal(s.changes.length, 8);
+  assert.ok(s.changes.slice(2).every((c) => c.actor === 'coach'));
 });
 
 test('a refused change leaves the session untouched and explains why', () => {
   const s = briefed();
   const r = s.apply(toChangeBody('set_team', { name: 'T', pattern: 'sequential', members: ['Ghost'] })!, 'coach', 'test');
   assert.ok('error' in r && /not on the board/.test(r.error));
-  assert.equal(s.changes.length, 1);
+  assert.equal(s.changes.length, 2);
 });
 
 test('an invalid enum from the model is refused, not stored', () => {

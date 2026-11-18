@@ -18,6 +18,7 @@ import {
   COMPONENT_KINDS,
   GuardrailControl,
   OrchestrationPattern,
+  ShapeReason,
   slug,
   type Id,
   type Team,
@@ -33,6 +34,7 @@ const Refs = z.array(Ref).max(20);
 export const ChangeBody = z.discriminatedUnion('op', [
   z.object({ op: z.literal('set_title'), title: z.string().trim().max(120) }),
   z.object({ op: z.literal('clear') }),
+  z.object({ op: z.literal('set_shape'), shape: z.enum(['single', 'multi']), reasons: z.array(ShapeReason).max(5).optional() }),
   z.object({
     op: z.literal('set_brief'),
     goal: z.string().trim().max(600).optional(),
@@ -254,6 +256,28 @@ function connect(board: Board, body: Extract<ChangeBody, { op: 'connect' }>): Ap
   return { ok: true, board: { ...board, connections }, summary: `${exists ? 'Relabelled' : 'Connected'} "${from.name}" to "${to.name}"`, warnings: [] };
 }
 
+const agentCount = (board: Board) => board.components.filter((c) => c.kind === 'agent').length;
+
+/** Single agent or several, with the reason that justifies several. */
+function setShape(board: Board, kind: 'single' | 'multi', reasons: ShapeReason[]): ApplyResult {
+  if (kind === 'multi' && reasons.length === 0) {
+    return fail('A multi-agent design needs a reason: a security or compliance boundary, several teams, expected growth, prompt complexity or tool overload. Without one, use a single agent with tools.');
+  }
+  if (kind === 'single' && (agentCount(board) > 1 || board.teams.length > 0)) {
+    return fail('The board has several agents or a team. Remove them before choosing a single agent.');
+  }
+  const unique = [...new Set(reasons)];
+  return {
+    ok: true,
+    board: { ...board, shape: { kind, reasons: kind === 'multi' ? unique : [] } },
+    summary: kind === 'multi' ? `Chose a multi-agent design (${unique.join(', ')})` : 'Chose a single agent with tools',
+    warnings: [],
+  };
+}
+
+const NEEDS_MULTI =
+  'One agent with tools is the default. A second agent or a team needs a multi-agent decision: agree a reason with the user (security or compliance boundary, several teams, expected growth, prompt complexity, tool overload), then call set_shape.';
+
 /** Applies one change. Never throws; a refused change leaves the board unchanged. */
 export function applyChange(board: Board, change: Change): ApplyResult {
   const checked = Change.safeParse(change);
@@ -264,6 +288,15 @@ export function applyChange(board: Board, change: Change): ApplyResult {
   const needsGoal = !['set_brief', 'set_title', 'clear', 'remove_component', 'remove_team', 'disconnect'].includes(body.op);
   if (needsGoal && !board.brief.goal) {
     return fail('No goal yet. Ask the user what the system must achieve, who uses it and its constraints, confirm it back, then save it with set_brief.');
+  }
+
+  // A second agent or a team needs a reason (docs/DESIGN_STANDARD.md, step 2).
+  if (board.shape.kind !== 'multi') {
+    if (body.op === 'upsert_team') return fail(NEEDS_MULTI);
+    if (body.op === 'upsert_component' && body.kind === 'agent' && agentCount(board) >= 1) {
+      const id = slug(body.name);
+      if (!board.components.some((c) => c.id === id)) return fail(NEEDS_MULTI);
+    }
   }
 
   let result: ApplyResult;
@@ -282,7 +315,15 @@ export function applyChange(board: Board, change: Change): ApplyResult {
       result = { ok: true, board: { ...board, title: body.title }, summary: `Titled the board "${body.title}"`, warnings: [] };
       break;
     case 'clear':
-      result = { ok: true, board: { ...board, components: [], teams: [], connections: [] }, summary: 'Cleared the board', warnings: [] };
+      result = {
+        ok: true,
+        board: { ...board, shape: { kind: 'undecided', reasons: [] }, components: [], teams: [], connections: [] },
+        summary: 'Cleared the board',
+        warnings: [],
+      };
+      break;
+    case 'set_shape':
+      result = setShape(board, body.shape, body.reasons ?? []);
       break;
     case 'upsert_component':
       result = upsertComponent(board, body);
