@@ -11,6 +11,7 @@ test('the prompt keeps its core rules', () => {
     /Each building call names its basis/,
     /Follow the design standard in order/,
     /One agent with tools is the default/,
+    /Memory: what an agent remembers across conversations/,
     /refuses the change if it is not there/,
     /Never invent systems, data sources, APIs, numbers, thresholds or names/,
     /call search_microsoft_docs/,

@@ -12,17 +12,24 @@ Every board records whether the design is one agent with tools or several agents
 
 ## Elements
 
+Every element has one compile meaning: the file it lands in and the exact construct it becomes in Agent Framework, Foundry or Azure. The board stays at system level; the meaning below is what makes it unambiguous. ADR 0005 records this rule.
+
 | Board element | Fields | Compiled to |
 |---|---|---|
-| **Team** | name, pattern, members (ordered), manager, start agent, purpose | An Agent Framework orchestration |
-| **Agent** | name, instructions, model, tools, knowledge | An Agent Framework agent, deployed as a hosted agent |
-| **Tool** | name, type (function, MCP, OpenAPI, web search, code interpreter, file search), endpoint | A tool on the agents that use it |
-| **Knowledge** | name, source (AI Search, file search, web) | A grounding source and its project connection |
-| **Guardrail** | name, controls, agents covered (empty = all) | A Foundry guardrail on those agents |
-| **Approval** | name, gated tool or agent, condition | A human approval step before the gated action |
-| **Trigger** | name, source (chat, API, schedule, event) | Where work enters the system |
+| **Agent** | name, description, instructions, model, tools, knowledge, memory, history | `agents/<name>.yaml`: a declarative agent (`kind: Prompt` with `name`, `description`, `instructions`, `model`) ([declarative agents](https://learn.microsoft.com/agent-framework/agents/declarative)), plus an `azure.ai.agent` service in `azure.yaml` ([azure.yaml reference](https://learn.microsoft.com/azure/foundry/agents/concepts/azure-yaml-reference)) |
+| **Model** (agent field) | deployment name | A model deployment owned by the `azure.ai.project` service in `azure.yaml`; left empty, the compile wizard asks |
+| **History** (agent field) | `service` or `client` | `service`: Foundry keeps the conversation (Foundry conversations). `client`: an Agent Framework chat history provider in the application; the In-Memory provider is released, the Cosmos DB and Redis providers are in preview ([integrations](https://learn.microsoft.com/agent-framework/integrations/)) |
+| **Memory** | name, scope (`user` or `session`), store (`foundry_memory` or `cosmos_db`) | `foundry_memory`: Foundry Agent Service memory, in preview ([agent memory](https://learn.microsoft.com/azure/ai-foundry/agents/concepts/agent-memory)). `cosmos_db`: an Agent Framework context provider over Azure Cosmos DB ([Cosmos DB agent memory](https://devblogs.microsoft.com/cosmosdb/native-agent-memory-for-microsoft-agent-framework-powered-by-azure-cosmos-db/)), with the Cosmos DB account in Bicep |
+| **Tool** | name, type, endpoint | A tool on each agent that uses it, typed by the Foundry tool catalog: function, MCP, OpenAPI, web search, code interpreter, file search, agent-to-agent (A2A) ([tool catalog](https://learn.microsoft.com/azure/foundry/agents/concepts/tool-catalog)) |
+| **Knowledge** | name, source (AI Search, file search, web) | The Azure AI Search, file search or web search tool on each agent that uses it; for AI Search, the search service and its project connection in Bicep |
+| **Team** | name, pattern, members (ordered), manager, start agent, purpose | `workflows/<team>.yaml`: an Agent Framework workflow using the orchestration for its pattern. Workflows connect executors through edges and conditions ([workflows](https://learn.microsoft.com/agent-framework/concepts/workflows/)); declarative workflows load the same graph from YAML ([declarative workflows](https://learn.microsoft.com/agent-framework/workflows/declarative)), and Foundry's workflow designer opens it ([Foundry workflows](https://learn.microsoft.com/azure/foundry/agents/concepts/workflow)) |
+| **Guardrail** | name, controls, agents covered (empty = all) | A Foundry guardrail (an RAI policy, an ARM resource) in Bicep, attached to those agents |
+| **Approval** | name, gated tool or agent, condition | Tool approval on the gated tool, or a human-in-the-loop step before the gated agent |
+| **Trigger** | name, source (chat, API, schedule, event) | Where work enters: the agent or workflow endpoint for chat and API; the host for schedules and events |
 | **Output** | name, destination (chat, API, email, Teams, storage) | Where results go |
-| **Connection** | from, to, label | Data flow between components or teams |
+| **Connection** | from, to, label | Data flow between components or teams; inside a team, the workflow's edges |
+
+The exact YAML for tools and approvals is fixed in the compiler change and checked by loading every compiled package with Microsoft's own declarative loader in CI.
 
 ### Orchestration patterns
 
