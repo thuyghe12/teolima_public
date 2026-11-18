@@ -37,20 +37,47 @@ test('the support board: triggers left, team in the middle, outputs right, nothi
   }
   assert.ok(node(l, 'customer-message').x + 210 < team.x);
   assert.ok(node(l, 'reply-to-customer').x > team.x + team.w);
-  assert.ok(node(l, 'safety').y + 120 <= team.y, 'guardrails sit above the team');
+  const band = l.bands.find((x) => x.id === 'safety')!;
+  assert.ok(band.y + band.h <= team.y, 'the guardrail band sits above the team');
+  assert.ok(!l.nodes.some((n) => n.id === 'safety'), 'a guardrail is a band, not a card');
   const flow = l.edges.find((e) => e.id === 'customer-message--triage')!;
   assert.ok(onBorder(flow.points[0], node(l, 'customer-message')));
   assert.ok(onBorder(flow.points.at(-1)!, node(l, 'triage')));
   assert.equal(l.title?.text, 'Customer support');
 });
 
-test('the approval sits next to the tool it gates', () => {
+test('the approval sits on the path to the tool it gates', () => {
   const l = layoutBoard(replay(emptyBoard(), supportChanges));
   const approval = node(l, 'refund-approval');
   const tool = node(l, 'refund-api');
   assert.equal(approval.y, tool.y);
   assert.ok(approval.x < tool.x);
   assert.ok(l.edges.some((e) => e.kind === 'approval' && e.id.endsWith('refund-approval!refund-api')));
+  // the agent's line reaches the approval, not the tool directly
+  const uses = l.edges.find((e) => e.id.endsWith('refunds~refund-api'))!;
+  assert.ok(onBorder(uses.points.at(-1)!, approval));
+});
+
+test('the system boundary holds the system; triggers and outputs sit outside it', () => {
+  const l = layoutBoard(replay(emptyBoard(), supportChanges));
+  const sys = l.boundary!;
+  for (const t of l.teams) assert.ok(inside(t, sys), `${t.id} inside the boundary`);
+  for (const b of l.bands) assert.ok(inside(b, sys), `${b.id} inside the boundary`);
+  assert.ok(node(l, 'customer-message').x + 210 < sys.x);
+  assert.ok(node(l, 'reply-to-customer').x > sys.x + sys.w);
+  // the bands span the system
+  const team = l.teams[0];
+  assert.equal(l.bands[0].x, team.x);
+  assert.ok(l.bands[0].w >= team.w);
+});
+
+test('the legend names only the styles in use, below the drawing', () => {
+  const l = layoutBoard(replay(emptyBoard(), supportChanges));
+  assert.deepEqual(l.legend!.items.map((i) => i.key), ['flow', 'uses', 'approval', 'team', 'guardrail', 'boundary']);
+  assert.ok(l.legend!.y > l.boundary!.y + l.boundary!.h);
+  const lone = layoutBoard(build([{ op: 'upsert_component', kind: 'trigger', name: 'Inbox' }]));
+  assert.equal(lone.legend, null);
+  assert.equal(lone.boundary, null);
 });
 
 test('sequential agents sit in a row in execution order', () => {

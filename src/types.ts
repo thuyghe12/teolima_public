@@ -31,7 +31,10 @@ export type ShapeKind =
   | 'sticky'
   | 'badge'
   | 'container'
-  | 'connector';
+  | 'connector'
+  | 'boundary'
+  | 'band'
+  | 'legend';
 
 export type AgentRoleKind = 
   | 'intake'
@@ -95,6 +98,8 @@ export interface CanvasElement {
   aspectRatio?: '1:1' | '4:3' | '16:9';
   // Board model connectors and containers
   lineStyle?: 'solid' | 'dashed' | 'dotted';
+  /** For a legend: the styles it names, in order. */
+  legendItems?: Array<{ key: 'flow' | 'uses' | 'approval' | 'team' | 'boundary' | 'guardrail'; text: string }>;
   arrowHead?: boolean;
   // Animation state for progressive tweening
   animationProgress?: number; // 0 to 1

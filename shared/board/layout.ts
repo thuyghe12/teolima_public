@@ -3,7 +3,13 @@
  *
  * The model never chooses coordinates. Reading left to right:
  *
- *   triggers | guardrails lane on top, then one container per team | outputs
+ *   triggers | system boundary: guardrail bands on top, then one container per team | outputs
+ *
+ * The notation follows docs/DESIGN_STANDARD.md: an explicit system boundary
+ * with triggers and outputs outside it, guardrails drawn as policy bands
+ * across the whole system rather than as one more box, approvals placed on
+ * the path to the tool they gate, directional arrows only, one line style per
+ * kind of relationship, and a legend that names those styles.
  *
  * Inside a team container, agents are placed by orchestration pattern, and the
  * tools, knowledge sources and approvals the team uses sit in a lane below them:
@@ -33,11 +39,17 @@ export type LayoutEdge = {
   style: 'solid' | 'dashed' | 'dotted';
   kind: 'flow' | 'pattern' | 'uses' | 'approval';
 };
+/** A guardrail, drawn as a band across the system it protects. */
+export type LayoutBand = Box & { id: string; title: string; subtitle: string };
+export type LegendItem = { key: 'flow' | 'uses' | 'approval' | 'team' | 'boundary' | 'guardrail'; text: string };
 export type Layout = {
   title: { text: string; x: number; y: number } | null;
+  boundary: (Box & { label: string }) | null;
+  bands: LayoutBand[];
   nodes: LayoutNode[];
   teams: LayoutTeam[];
   edges: LayoutEdge[];
+  legend: (Box & { items: LegendItem[] }) | null;
   bounds: Box;
 };
 
@@ -45,6 +57,9 @@ export const CARD = { w: 210, h: 120 } as const;
 const GAP = { col: 110, row: 40, inner: 80, lane: 56 } as const;
 const TEAM_PAD = 28;
 const TEAM_HEADER = 44;
+const BAND = { h: 40, gap: 12 } as const;
+const BOUNDARY = { pad: 28, header: 40 } as const;
+const LEGEND = { w: 640, h: 56, gap: 48 } as const;
 const ORIGIN = { x: 80, y: 150 } as const;
 
 const PATTERN_LABEL: Record<OrchestrationPattern | 'none', string> = {
@@ -258,7 +273,9 @@ function placeTeam(board: Board, team: Team | null, agents: Component[], x: numb
       if (a.kind !== 'agent') continue;
       const from = agentNodes.get(a.id);
       for (const id of [...a.tools, ...a.knowledge]) {
-        const to = laneNodes.get(id);
+        // A gated tool is reached through its approval: the gate sits on the path.
+        const gate = lane.find((c) => c.kind === 'approval' && c.gates === id);
+        const to = laneNodes.get(gate ? gate.id : id);
         if (!from || !to) continue;
         const s = right(from);
         const gx = s.x + 16;
@@ -300,12 +317,13 @@ export function layoutBoard(board: Board): Layout {
   const of = <K extends Component['kind']>(kind: K) => board.components.filter((c) => c.kind === kind) as Extract<Component, { kind: K }>[];
 
   const colTeams = ORIGIN.x + CARD.w + GAP.col;
-  let y = ORIGIN.y;
+  const hasSystem = board.components.some((c) => c.kind !== 'trigger' && c.kind !== 'output') || board.teams.length > 0;
+  let y = ORIGIN.y + (hasSystem ? BOUNDARY.header : 0);
 
-  // Guardrails lane above the teams.
+  // Guardrail bands across the top of the system; their width is set once the teams are placed.
   const guardrails = of('guardrail');
-  guardrails.forEach((g, i) => nodes.push(card(g, board, colTeams + i * (CARD.w + GAP.row), y)));
-  if (guardrails.length) y += CARD.h + GAP.lane;
+  const bandY = y;
+  if (guardrails.length) y += guardrails.length * (BAND.h + BAND.gap) + GAP.lane - BAND.gap;
 
   // Teams, then agents without a team, then anything used by nobody.
   const placed = new Set<string>();
@@ -333,13 +351,28 @@ export function layoutBoard(board: Board): Layout {
 
   const unplaced = board.components.filter((c) => !placed.has(c.id) && (c.kind === 'tool' || c.kind === 'knowledge' || c.kind === 'approval'));
   unplaced.forEach((c, i) => nodes.push(card(c, board, colTeams + i * (CARD.w + GAP.row), y)));
-  const teamsBottom = unplaced.length ? y + CARD.h : y - GAP.lane;
+  const teamsBottom = unplaced.length ? y + CARD.h : Math.max(y - GAP.lane, guardrails.length ? bandY + guardrails.length * (BAND.h + BAND.gap) - BAND.gap : y);
 
   const teamsRight = Math.max(
     colTeams + CARD.w,
     ...teams.map((t) => t.x + t.w),
     ...nodes.filter((n) => n.x >= colTeams).map((n) => n.x + n.w),
   );
+
+  const bands: LayoutBand[] = guardrails.map((g, i) => {
+    const controls = g.controls.map((k) => CONTROL_LABEL[k] ?? k).join(', ');
+    const scope = g.appliesTo.length ? g.appliesTo.map((id) => board.components.find((x) => x.id === id)?.name ?? id).join(', ') : 'all agents';
+    return { id: g.id, title: fit(g.name, 40), subtitle: fit(`${controls} · ${scope}`, 90), x: colTeams, y: bandY + i * (BAND.h + BAND.gap), w: teamsRight - colTeams, h: BAND.h };
+  });
+  const boundary = hasSystem
+    ? {
+        label: 'SYSTEM BOUNDARY',
+        x: colTeams - BOUNDARY.pad,
+        y: ORIGIN.y,
+        w: teamsRight - colTeams + 2 * BOUNDARY.pad,
+        h: teamsBottom - ORIGIN.y + BOUNDARY.pad,
+      }
+    : null;
   const middleY = ORIGIN.y + Math.max(0, (teamsBottom - ORIGIN.y - CARD.h) / 2);
 
   // Triggers on the left, outputs on the right, centred on the middle column.
@@ -364,17 +397,35 @@ export function layoutBoard(board: Board): Layout {
     edges.push({ id: c.id, points: elbow(a, b, channel), label: c.label, style: 'solid', kind: 'flow' });
   }
 
-  const all: Box[] = [...nodes, ...teams];
+  const drawn: Box[] = [...nodes, ...teams, ...bands, ...(boundary ? [boundary] : [])];
+  const contentBottom = Math.max(ORIGIN.y + CARD.h, ...drawn.map((b) => b.y + b.h), ...edges.flatMap((e) => e.points.map((p) => p.y)));
+
+  // The legend names the line and border styles in use, under the drawing.
+  const items: LegendItem[] = [];
+  if (edges.some((e) => e.kind === 'flow' || e.kind === 'pattern')) items.push({ key: 'flow', text: 'work flows' });
+  if (edges.some((e) => e.kind === 'uses')) items.push({ key: 'uses', text: 'uses a tool or knowledge' });
+  if (edges.some((e) => e.kind === 'approval')) items.push({ key: 'approval', text: 'needs a person to approve' });
+  if (teams.some((t) => t.pattern !== 'none')) items.push({ key: 'team', text: 'team, with its pattern' });
+  if (bands.length) items.push({ key: 'guardrail', text: 'guardrail on the agents it names' });
+  if (boundary) items.push({ key: 'boundary', text: 'system boundary' });
+  // width estimated from 12px monospace text (about 7.3px a character), so the bounds include it
+  const legendW = items.reduce((w, i) => w + 40 + Math.ceil(i.text.length * 7.3) + 28, 0);
+  const legend = items.length >= 2 ? { items, x: ORIGIN.x, y: contentBottom + LEGEND.gap, w: Math.max(LEGEND.w, legendW), h: LEGEND.h } : null;
+
+  const all: Box[] = [...drawn, ...(legend ? [legend] : [])];
   const minX = Math.min(ORIGIN.x, ...all.map((b) => b.x));
   const minY = Math.min(ORIGIN.y, ...all.map((b) => b.y));
   const maxX = Math.max(ORIGIN.x + CARD.w, ...all.map((b) => b.x + b.w));
-  const maxY = Math.max(ORIGIN.y + CARD.h, ...all.map((b) => b.y + b.h), ...edges.flatMap((e) => e.points.map((p) => p.y)));
+  const maxY = Math.max(contentBottom, ...all.map((b) => b.y + b.h));
 
   return {
     title: board.title ? { text: board.title, x: ORIGIN.x, y: ORIGIN.y - 56 } : null,
+    boundary,
+    bands,
     nodes,
     teams,
     edges,
+    legend,
     bounds: { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
   };
 }

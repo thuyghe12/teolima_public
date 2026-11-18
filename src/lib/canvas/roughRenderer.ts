@@ -281,6 +281,114 @@ export function renderCanvasElement(
         break;
       }
 
+      case 'boundary': {
+        // The system boundary: a solid outline with a small label, drawn behind everything.
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, clampedProgress * 1.5);
+        ctx.strokeStyle = strokeColor || '#5a5a62';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(x, y, width, height, 18);
+        ctx.stroke();
+        if (label) {
+          ctx.font = `600 11px 'IBM Plex Mono', monospace`;
+          ctx.fillStyle = '#5a5a62';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(label, x + 18, y + 20);
+        }
+        ctx.restore();
+        break;
+      }
+
+      case 'band': {
+        // A guardrail across the system: a tinted strip with its controls and scope on one line.
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, clampedProgress * 1.5);
+        ctx.fillStyle = '#fef2f2';
+        ctx.strokeStyle = '#991b1b';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(x, y, width, height, 8);
+        ctx.fill();
+        ctx.stroke();
+        ctx.font = `600 11px 'IBM Plex Mono', monospace`;
+        const tag = 'GUARDRAIL';
+        const tw = ctx.measureText(tag).width + 14;
+        ctx.fillStyle = '#fee2e2';
+        ctx.beginPath();
+        ctx.roundRect(x + 12, y + (height - 20) / 2, tw, 20, 4);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#991b1b';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(tag, x + 19, y + height / 2);
+        ctx.fillStyle = '#18181c';
+        ctx.font = `600 14px 'Karla', sans-serif`;
+        const name = label || '';
+        ctx.fillText(name, x + 12 + tw + 12, y + height / 2);
+        if (subtext) {
+          const nw = ctx.measureText(name).width;
+          ctx.font = `400 12px 'IBM Plex Mono', monospace`;
+          ctx.fillStyle = '#5a5a62';
+          ctx.fillText(subtext, x + 12 + tw + 12 + nw + 14, y + height / 2);
+        }
+        ctx.restore();
+        break;
+      }
+
+      case 'legend': {
+        // Names the line and border styles in use, left to right.
+        const items = element.legendItems || [];
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, clampedProgress * 1.5);
+        ctx.font = `400 12px 'IBM Plex Mono', monospace`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#87868e';
+        ctx.fillText('LEGEND', x, y + 10);
+        let cx = x;
+        const cy = y + 38;
+        for (const item of items) {
+          ctx.strokeStyle = item.key === 'uses' ? '#87868e' : item.key === 'guardrail' ? '#991b1b' : item.key === 'team' ? '#87868e' : '#18181c';
+          ctx.lineWidth = 1.5;
+          if (item.key === 'team' || item.key === 'boundary' || item.key === 'guardrail') {
+            ctx.setLineDash(item.key === 'team' ? [6, 4] : []);
+            if (item.key === 'guardrail') {
+              ctx.fillStyle = '#fef2f2';
+              ctx.beginPath();
+              ctx.roundRect(cx, cy - 8, 30, 16, 3);
+              ctx.fill();
+            }
+            ctx.beginPath();
+            ctx.roundRect(cx, cy - 8, 30, 16, item.key === 'boundary' ? 5 : 3);
+            ctx.stroke();
+          } else {
+            ctx.setLineDash(item.key === 'approval' ? [7, 5] : item.key === 'uses' ? [2, 4] : []);
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + 30, cy);
+            ctx.stroke();
+            if (item.key !== 'uses') {
+              ctx.setLineDash([]);
+              ctx.beginPath();
+              ctx.moveTo(cx + 30, cy);
+              ctx.lineTo(cx + 23, cy - 4);
+              ctx.moveTo(cx + 30, cy);
+              ctx.lineTo(cx + 23, cy + 4);
+              ctx.stroke();
+            }
+          }
+          ctx.setLineDash([]);
+          ctx.fillStyle = '#5a5a62';
+          ctx.fillText(item.text, cx + 40, cy);
+          cx += 40 + ctx.measureText(item.text).width + 28;
+        }
+        ctx.restore();
+        break;
+      }
+
       case 'connector': {
         // An orthogonal route, drawn progressively along its length.
         if (points.length < 2) break;
