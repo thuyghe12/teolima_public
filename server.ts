@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { config } from './server/config';
+import { validateToolCall, wrapUntrustedSearch } from './server/validation';
 import { guardSketchEndpoint, hasValidToken, isAllowedOrigin, tokenFromUpgrade } from './server/security';
 
 const PORT = config.port;
@@ -678,8 +679,9 @@ wss.on('connection', async (clientWs: WebSocket) => {
                 
                 // Process each function call (image generation, web search, drawing)
                 const functionResponses = await Promise.all(
-                  toolCall.functionCalls.map(async (fc: any) => {
-                    if (fc.name === 'web_search') {
+                  toolCall.functionCalls.map(async (rawCall: any) => {
+                    if (rawCall?.name === 'web_search') {
+                      const fc = { ...rawCall, args: { query: String(rawCall.args?.query || '').slice(0, 300) } };
                       const query = fc.args?.query || '';
                       console.log('[LiveAPI] Live Web Search requested for query:', query);
                       clientWs.send(JSON.stringify({
@@ -703,7 +705,7 @@ wss.on('connection', async (clientWs: WebSocket) => {
                           });
                           const searchSummary = searchResp.text || 'No additional technical details found.';
                           return {
-                            response: { output: { query, results: searchSummary } },
+                            response: { output: wrapUntrustedSearch(query, searchSummary) },
                             id: fc.id,
                             name: fc.name
                           };
@@ -716,7 +718,26 @@ wss.on('connection', async (clientWs: WebSocket) => {
                           name: fc.name
                         };
                       }
+                      return {
+                        response: { output: { error: 'Web search unavailable or empty query.' } },
+                        id: fc.id,
+                        name: fc.name
+                      };
                     }
+
+                    const checked = validateToolCall(rawCall);
+                    if (!checked.ok) {
+                      console.warn('[LiveAPI] Rejected tool call:', checked.error);
+                      return {
+                        response: { output: { success: false, error: checked.error } },
+                        id: rawCall?.id,
+                        name: rawCall?.name,
+                      };
+                    }
+                    if (checked.dropped.length > 0) {
+                      console.warn('[LiveAPI] Dropped invalid arguments:', checked.dropped.join(', '));
+                    }
+                    const fc: any = checked.call;
 
                     if (fc.name === 'generate_sketch_illustration') {
                       const prompt = fc.args?.prompt || 'System Architecture Metaphor';
