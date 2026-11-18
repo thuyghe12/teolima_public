@@ -7,7 +7,8 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, LiveServerMessage, Modality, Type, FunctionDeclaration } from '@google/genai';
 import { config } from './server/config';
 import { DEMO_GOAL, playDemo } from './server/demo';
-import { BoardTracker } from './server/board-tracker';
+import { BOARD_TOOLS, BoardSession, boardToolDeclarations, toChangeBody } from './server/board-tools';
+import { COACH_PROMPT, COACH_PROMPT_VERSION, goalContextPrompt } from './server/prompts/coach';
 import { declareTools, supportsAsyncTools, toolResponse } from './server/live-tools';
 import { validateToolCall, wrapUntrustedSearch } from './server/validation';
 import { guardSketchEndpoint, hasValidToken, isAllowedOrigin, tokenFromUpgrade } from './server/security';
@@ -46,166 +47,6 @@ const webSearchTool: FunctionDeclaration = {
   }
 };
 
-const drawConnectionTool: FunctionDeclaration = {
-  name: 'draw_connection',
-  description: 'Draw a precise connecting flow arrow between two architectural components (e.g. from "Query Classifier" to "Web Search API"). Automatically snaps arrow endpoints directly to the component border anchors with an informative label.',
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      fromNode: { type: Type.STRING, description: 'Source component title or role (e.g. "User Intake", "Query Classifier", "Router", "Injury Risk Model")' },
-      toNode: { type: Type.STRING, description: 'Destination component title or role (e.g. "Web Search API", "Internal SQL DB", "Guardrail Validator", "Human Approval Gate")' },
-      label: { type: Type.STRING, description: 'Technical data flow or decision condition along the arrow (e.g. "public queries", "SQL payload", "risk score > 0.85", "sanitized prompt", "approved action")' },
-      strokeColor: { type: Type.STRING, description: 'Hex stroke color (e.g. #18181c, #4f46e5, #16a34a, #dc2626)' },
-      style: { type: Type.STRING, description: 'solid, dashed, or curved' }
-    },
-    required: ['fromNode', 'toNode']
-  }
-};
-
-const drawShapeTool: FunctionDeclaration = {
-  name: 'draw_shape',
-  description: 'Draw a geometric shape or connecting arrow on the canvas whiteboard.',
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      shape: {
-        type: Type.STRING,
-        description: 'Kind of shape: rectangle, circle, ellipse, line, arrow, diamond, cylinder, cloud',
-      },
-      x: { type: Type.NUMBER, description: 'X coordinate on canvas (canvas grid ~1200x800, origin 0,0)' },
-      y: { type: Type.NUMBER, description: 'Y coordinate on canvas' },
-      width: { type: Type.NUMBER, description: 'Width of the shape' },
-      height: { type: Type.NUMBER, description: 'Height of the shape' },
-      fromNode: { type: Type.STRING, description: 'Optional source node name when shape is arrow' },
-      toNode: { type: Type.STRING, description: 'Optional destination node name when shape is arrow' },
-      label: { type: Type.STRING, description: 'Short technical label on the shape or connecting arrow (e.g. "json payload", "query", "evaluates")' },
-      strokeColor: { type: Type.STRING, description: 'Hex stroke color (e.g. #18181c, #dc2626, #16a34a, #d97706, #4f46e5)' },
-      fillColor: { type: Type.STRING, description: 'Hex fill color or rgba (e.g. rgba(200, 241, 58, 0.15))' },
-      fillStyle: { type: Type.STRING, description: 'solid, hachure, zigzag, dots, or none' },
-      strokeWidth: { type: Type.NUMBER, description: 'Line thickness (default 2)' },
-      roughness: { type: Type.NUMBER, description: 'Hand-drawn roughness level from 0.5 to 2.5' }
-    },
-    required: ['shape', 'x', 'y', 'width', 'height']
-  }
-};
-
-const drawStrokeTool: FunctionDeclaration = {
-  name: 'draw_stroke',
-  description: 'Draw a freehand curve or custom connecting arrow path with a list of coordinates.',
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      points: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            x: { type: Type.NUMBER },
-            y: { type: Type.NUMBER }
-          },
-          required: ['x', 'y']
-        },
-        description: 'Array of points representing the freehand stroke'
-      },
-      strokeColor: { type: Type.STRING, description: 'Hex stroke color' },
-      strokeWidth: { type: Type.NUMBER, description: 'Thickness in pixels' }
-    },
-    required: ['points']
-  }
-};
-
-const drawTextTool: FunctionDeclaration = {
-  name: 'draw_text',
-  description: 'Write a clean system title or section header on the whiteboard canvas.',
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      text: { type: Type.STRING, description: 'The title or section text (e.g. "Multi-Agent Risk Pipeline", "Memory & State Layer")' },
-      x: { type: Type.NUMBER, description: 'X coordinate' },
-      y: { type: Type.NUMBER, description: 'Y coordinate' },
-      fontSize: { type: Type.NUMBER, description: 'Font size in pixels (default 20)' },
-      strokeColor: { type: Type.STRING, description: 'Text color' },
-      fillColor: { type: Type.STRING, description: 'Optional background badge color' }
-    },
-    required: ['text', 'x', 'y']
-  }
-};
-
-const drawDiagramTool: FunctionDeclaration = {
-  name: 'draw_diagram',
-  description: 'Draw a complete structured multi-agent architecture diagram with nodes and connecting flow arrows.',
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      diagramType: { type: Type.STRING, description: 'architecture, flowchart, sequence, mindmap' },
-      nodes: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            id: { type: Type.STRING },
-            label: { type: Type.STRING },
-            x: { type: Type.NUMBER },
-            y: { type: Type.NUMBER },
-            shape: { type: Type.STRING },
-            color: { type: Type.STRING }
-          },
-          required: ['id', 'label', 'x', 'y']
-        }
-      },
-      connections: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            from: { type: Type.STRING },
-            to: { type: Type.STRING },
-            label: { type: Type.STRING }
-          },
-          required: ['from', 'to']
-        }
-      }
-    },
-    required: ['nodes', 'connections']
-  }
-};
-
-const drawChartTool: FunctionDeclaration = {
-  name: 'draw_math_or_chart',
-  description: 'Draw a coordinate graph, bar chart, or metric illustration on the whiteboard.',
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      chartType: { type: Type.STRING, description: 'bar, coordinates, pie' },
-      x: { type: Type.NUMBER, description: 'Top left origin' },
-      y: { type: Type.NUMBER, description: 'Top left origin' },
-      data: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            label: { type: Type.STRING },
-            value: { type: Type.NUMBER }
-          },
-          required: ['label', 'value']
-        }
-      }
-    },
-    required: ['chartType', 'data']
-  }
-};
-
-const clearCanvasTool: FunctionDeclaration = {
-  name: 'clear_canvas',
-  description: 'Wipe or clear the whiteboard when starting a completely fresh architecture topic.',
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      reason: { type: Type.STRING, description: 'Brief reason for clearing' }
-    }
-  }
-};
-
 const highlightAreaTool: FunctionDeclaration = {
   name: 'highlight_area',
   description: 'Draw an eye-catching highlight loop or spotlight around a component or area to draw attention.',
@@ -221,48 +62,6 @@ const highlightAreaTool: FunctionDeclaration = {
       width: { type: Type.NUMBER, description: 'Width in pixels' },
       height: { type: Type.NUMBER, description: 'Height in pixels' }
     }
-  }
-};
-
-const undoDrawingTool: FunctionDeclaration = {
-  name: 'undo_last_drawing',
-  description: 'Undo or step back the previous drawing action when correcting mistakes.',
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      reason: { type: Type.STRING, description: 'Optional reason for undoing' }
-    }
-  }
-};
-
-const drawDoodleWritingTool: FunctionDeclaration = {
-  name: 'draw_doodle_writing',
-  description: 'Write concise handwritten architectural notes, technical constraints, or component notes (e.g. "Max 3 Retries", "NeMo Guardrail", "P95 < 1.5s", "TTL: 24h", "Human Sign-off"). NEVER draw verbatim conversational speech or filler sentences.',
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      text: { 
-        type: Type.STRING, 
-        description: 'The concise technical note or constraint to write (e.g. "Checks budget ≤ $20", "Vector similarity > 0.82", "Fallback to Search if SQL fails"). MUST NOT be conversational filler or transcripts of your speech.' 
-      },
-      attachToNode: {
-        type: Type.STRING,
-        description: 'Optional component name to attach this constraint or note to (e.g. "Internal SQL DB", "Router", "Injury Risk Model")'
-      },
-      relativePosition: {
-        type: Type.STRING,
-        description: 'Position relative to the attached component: "below", "above", "right", "left"'
-      },
-      x: { type: Type.NUMBER, description: 'X position on canvas' },
-      y: { type: Type.NUMBER, description: 'Y position on canvas' },
-      fontSize: { type: Type.NUMBER, description: 'Font size in pixels (default 22)' },
-      strokeColor: { type: Type.STRING, description: 'Text ink color, defaults to #18181c or #5a5a62' },
-      doodleStyle: { 
-        type: Type.STRING, 
-        description: 'Style: "handwritten" (wavy underline), "spark" (volt dot spark), "annotated" (accent line), "callout" (boxed)' 
-      }
-    },
-    required: ['text']
   }
 };
 
@@ -282,32 +81,6 @@ const drawCalloutTool: FunctionDeclaration = {
       fillColor: { type: Type.STRING, description: 'Bubble background color, e.g. rgba(200, 241, 58, 0.2)' }
     },
     required: ['text']
-  }
-};
-
-const drawAgentNodeTool: FunctionDeclaration = {
-  name: 'draw_agent_node',
-  description: 'Draw a specialized multi-agent architectural component card (Intake Trigger, Router, Worker Agent, Tool/MCP, Vector Memory, Guardrail, Human-in-the-Loop Review).',
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      label: { type: Type.STRING, description: 'Component title (e.g. "Player Data Intake", "Risk Analyzer Router", "Trend Analyst Agent", "Pinecone Vector DB", "Dosage Guardrail")' },
-      subtext: { type: Type.STRING, description: 'Short subtitle or prompt instruction (e.g. "Extracts vitals & stats", "Evaluator loop with score > 0.85", "MCP Server / CRM API")' },
-      agentRole: { 
-        type: Type.STRING, 
-        description: 'Role category: "intake", "router", "agent", "tool", "memory", "guardrail", "human_approval"' 
-      },
-      gridColumn: { type: Type.NUMBER, description: 'Architectural column tier: 1 (Intake), 2 (Router/Supervisor), 3 (Workers/Tools), 4 (Safeguards/Memory/Human Gate)' },
-      gridRow: { type: Type.NUMBER, description: 'Row slot: 1, 2, 3, 4' },
-      shape: { type: Type.STRING, description: 'rectangle, diamond, cylinder, circle' },
-      x: { type: Type.NUMBER, description: 'X coordinate (typical range 100 to 1100)' },
-      y: { type: Type.NUMBER, description: 'Y coordinate (typical range 100 to 700)' },
-      width: { type: Type.NUMBER, description: 'Width in pixels (default 160)' },
-      height: { type: Type.NUMBER, description: 'Height in pixels (default 85)' },
-      strokeColor: { type: Type.STRING, description: 'Border stroke color' },
-      fillColor: { type: Type.STRING, description: 'Card fill color' }
-    },
-    required: ['label']
   }
 };
 
@@ -343,69 +116,6 @@ const generateSketchIllustrationTool: FunctionDeclaration = {
   }
 };
 
-const SYSTEM_INSTRUCTION = `
-You are TEOLIMA, the world's foremost Multi-Agent Systems Solutions Architect and the ultimate coach for ambitious non-technical builders, founders, and domain experts.
-
-Your Dual Identity & Mastery:
-1. MASTER SOLUTIONS ARCHITECT:
-   - Deep expertise in multi-agent orchestration paradigms:
-     * Router / Dispatcher Topologies (Classifying intent, single vs parallel agent dispatch)
-     * Orchestrator-Workers & Hierarchical Teams (Supervisor agents decomposing complex goals into sub-tasks)
-     * Evaluator-Optimizer & Reflexion Loops (Generator agent proposes, Critic/Validator agent critiques with retry bounds)
-     * Swarm / Peer-to-Peer / A2A (Dynamic handoffs between specialized peer agents)
-     * Tool & MCP (Model Context Protocol) Integration (Separating deterministic APIs from LLM reasoning)
-     * Memory Hierarchies (Short-term thread scratchpad vs long-term Vector DB embeddings vs SQL state)
-     * Safety, Budgets & Guardrails (Input sanitization, output guardrails, token/cost limits, latency ceilings)
-     * Human-in-the-Loop (HITL) Checkpoints (Mandatory approval gates for irreversible, financial, or sensitive actions)
-   - You know state-of-the-art frameworks (LangGraph, CrewAI, AutoGen, Google ADK/Interactions, LlamaIndex Workflows, OpenAI Swarm, Semantic Kernel, NeMo Guardrails).
-
-2. WORLD-CLASS COACH & MENTOR FOR NON-TECH BUILDERS:
-   - Warm, encouraging, crystal-clear, energetic, and completely jargon-free by default.
-   - You translate abstract distributed AI concepts into intuitive, unforgettable real-world metaphors (e.g. comparing an Orchestrator to an Executive Chef or Air-Traffic Controller, a Guardrail to a Quality Inspector, Vector Memory to a Searchable Filing Cabinet, Human Approval to an Executive Sign-off).
-   - You empower the user to feel total confidence and ownership over their AI system design.
-
-Proactive Web Search Grounding:
-- If the user asks about specific newer frameworks, tools, APIs, domain-specific multi-agent specs (e.g., LangGraph StateGraph, CrewAI Flows, AutoGen Studio, MCP servers, specific health/finance APIs, vector database benchmarks), ALWAYS proactively call 'web_search' to get the latest facts and documentation before finalizing your recommendation.
-
-CRITICAL RELATIVE POSITIONING & WHITEBOARD SPATIAL AWARENESS:
-1. **ARCHITECTURAL TIERS & GRID PLACEMENT**:
-   - Use 'draw_agent_node' with explicit grid placement:
-     * Column 1 (gridColumn: 1 or x: 140): Intake Triggers & Input Sources (e.g., User Chat, Wearable Sensors, Webhook).
-     * Column 2 (gridColumn: 2 or x: 440): Orchestrator Router / Supervisor / Query Classifier.
-     * Column 3 (gridColumn: 3 or x: 780): Specialized Worker Sub-Agents, Tools & APIs (e.g., Web Search, SQL DB, Risk Analyst).
-     * Column 4 (gridColumn: 4 or x: 1100): Guardrails, Evaluator Loops, Vector Memory & Human Approval Gates.
-   - Rows: Use gridRow 1 (y: 160), gridRow 2 (y: 340), gridRow 3 (y: 520), gridRow 4 (y: 700).
-
-2. **CONNECTING COMPONENTS ('draw_connection')**:
-   - ALWAYS connect components by passing their exact labels in 'fromNode' and 'toNode' (e.g. fromNode: "Risk Router", toNode: "Internal SQL DB", label: "query stats").
-   - This guarantees magnetic anchor calculation on the perimeter with non-overlapping routes!
-
-3. **CONSTRAINTS, NOTES & CALLOUTS ('draw_doodle_writing', 'draw_callout')**:
-   - ALWAYS attach technical constraints and notes to a component using 'attachToNode' (e.g. attachToNode: "Internal SQL DB", relativePosition: "below").
-   - NEVER place raw notes floating directly on top of node boxes!
-
-4. **ON-BRAND SKETCH ILLUSTRATIONS ('generate_sketch_illustration')**:
-   - When explaining memorable real-world metaphors, workflows, or personas (e.g., "Executive Chef kitchen with line cooks", "Radar tower dispatcher", "Vector filing room", "Security guardrail vault"), call 'generate_sketch_illustration' with a descriptive prompt and caption.
-   - Attach it to a relevant component using 'attachToNode' (e.g. attachToNode: "Executive Chef Router", relativePosition: "below") or place it in an open column tier without colliding with existing cards.
-
-5. **TARGETED HIGHLIGHTS ('highlight_area')**:
-   - When highlighting a component you are talking about, pass 'targetNode: "Component Name"' so the highlight loop automatically snaps to and encircles that exact card!
-
-6. **STRICT PROHIBITION ON DRAWING CONVERSATIONAL FILLER**:
-   ❌ NEVER EVER draw what you are casually saying or thinking out loud!
-   ❌ NEVER draw transcripts of your speech (e.g., DO NOT DRAW: "Doodling the architecture for player safety!", "Let me sketch this for you", "Talking to coach", "Here is what I think", "Let's see what happens").
-   ❌ Spoken voice is for conversational coaching. Visual drawings on canvas are EXCLUSIVELY for clean, production-ready system architecture components and iconic sketches.
-
-Tone: Enthusiastic, brilliant, clear, concise, and deeply empowering.
-
-NARRATION AND BOARD DISCIPLINE (these rules override anything above):
-1. Talk and draw at the same time. Say one short sentence about a component, call the tool for it, and keep talking while it is drawn. Never draw a whole system in silence and explain it afterwards.
-2. One component per tool call. Build the system up step by step, in the order you explain it.
-3. Never draw a component that is already on the board. Every tool result lists what is on the board under "onBoard". Connect to existing components by their exact label.
-4. A result with "skipped" means the component or connection already exists. Do not retry it.
-5. When the user is silent, wait. Do not redraw, extend or re-explain the board on your own.
-6. Draw only what the user asked for, at most about 12 components unless they ask for more.
-`;
 
 // Helper to initialize Gemini SDK
 function getGeminiClient(): GoogleGenAI | null {
@@ -611,7 +321,8 @@ wss.on('connection', async (clientWs: WebSocket) => {
     idleTimer = setTimeout(() => closeWith('Session closed after inactivity'), config.idleTimeoutMs);
   };
 
-  const tracker = new BoardTracker();
+  const session = new BoardSession();
+  const sendBoard = (summary?: string) => sendClient({ type: 'board', board: session.board, summary });
   let asyncTools = false;
 
   const sendClient = (m: unknown) => {
@@ -647,6 +358,19 @@ wss.on('connection', async (clientWs: WebSocket) => {
   async function handleToolCall(rawCall: any) {
     if (rawCall?.name === 'web_search') return runWebSearch(rawCall);
 
+    if (BOARD_TOOLS.has(rawCall?.name)) {
+      const args = (rawCall.args ?? {}) as Record<string, unknown>;
+      const body = toChangeBody(rawCall.name, args);
+      if (!body) return respond(rawCall, { ok: false, error: `Unknown tool ${rawCall.name}` });
+      const result = session.apply(body, 'coach', String(args.reason ?? ''));
+      if ('error' in result) {
+        console.warn(`[Board] Refused ${rawCall.name}: ${result.error}`);
+        return respond(rawCall, { ok: false, error: result.error, board: session.summary() });
+      }
+      sendBoard(result.summary);
+      return respond(rawCall, { ok: true, summary: result.summary, warnings: result.warnings, board: session.summary() });
+    }
+
     const checked = validateToolCall(rawCall);
     if (!checked.ok || !checked.call) {
       console.warn('[LiveAPI] Rejected tool call:', checked.error);
@@ -657,11 +381,6 @@ wss.on('connection', async (clientWs: WebSocket) => {
     }
     const fc = checked.call;
     const args = (fc.args ?? {}) as Record<string, any>;
-
-    const duplicate = tracker.duplicateReason(fc.name, args);
-    if (duplicate) {
-      return respond(fc, { success: false, skipped: true, reason: duplicate, onBoard: tracker.labels() });
-    }
 
     if (fc.name === 'generate_sketch_illustration') {
       const prompt = args.prompt || 'System Architecture Metaphor';
@@ -675,9 +394,8 @@ wss.on('connection', async (clientWs: WebSocket) => {
       return respond(fc, { success: true, placed: true, caption });
     }
 
-    tracker.record(fc.name, args);
     sendClient({ type: 'tool_call', toolCalls: [fc] });
-    respond(fc, { success: true, onBoard: tracker.labels() });
+    respond(fc, { success: true });
   }
 
   async function initLiveSession(voiceName = 'Kore') {
@@ -687,10 +405,18 @@ wss.on('connection', async (clientWs: WebSocket) => {
         type: 'status',
         status: { connected: true, state: 'demo', message: 'Demo mode: replaying a recorded session. Add GEMINI_API_KEY for live coaching.' }
       }));
-      clientWs.send(JSON.stringify({ type: 'transcript', transcript: { speaker: 'user', text: DEMO_GOAL } }));
+      sendClient({ type: 'transcript', transcript: { speaker: 'user', text: DEMO_GOAL } });
       stopDemo?.();
-      stopDemo = playDemo((m) => {
-        if (clientWs.readyState === WebSocket.OPEN) clientWs.send(JSON.stringify(m));
+      session.apply({ op: 'clear' }, 'coach', 'Start the demo on an empty board');
+      sendBoard();
+      stopDemo = playDemo((step) => {
+        if ('say' in step) {
+          sendClient({ type: 'transcript', transcript: { speaker: 'ai', text: step.say } });
+          return;
+        }
+        const result = session.apply(step.change, 'coach', step.reason);
+        if ('error' in result) console.error('[Demo] Refused change:', result.error);
+        else sendBoard(result.summary);
       });
       return;
     }
@@ -728,24 +454,15 @@ wss.on('connection', async (clientWs: WebSocket) => {
               prebuiltVoiceConfig: { voiceName },
             },
           },
-          systemInstruction: SYSTEM_INSTRUCTION,
+          systemInstruction: COACH_PROMPT,
           tools: [
             {
               functionDeclarations: declareTools([
+                ...boardToolDeclarations,
                 webSearchTool,
-                drawConnectionTool,
-                drawShapeTool,
-                drawStrokeTool,
-                drawTextTool,
-                drawDoodleWritingTool,
                 drawCalloutTool,
-                drawAgentNodeTool,
-                drawDiagramTool,
-                drawChartTool,
-                generateSketchIllustrationTool,
-                clearCanvasTool,
                 highlightAreaTool,
-                undoDrawingTool
+                generateSketchIllustrationTool,
               ], asyncTools)
             }
           ]
@@ -815,9 +532,10 @@ wss.on('connection', async (clientWs: WebSocket) => {
     const models = [...new Set([config.models.live, config.models.liveFallback])];
     for (const model of models) {
       try {
-        console.log(`[LiveAPI] Connecting: model=${model} voice=${voiceName} asyncTools=${supportsAsyncTools(model)}`);
+        console.log(`[LiveAPI] Connecting: model=${model} voice=${voiceName} asyncTools=${supportsAsyncTools(model)} prompt=${COACH_PROMPT_VERSION}`);
         liveSession = await connect(model);
         isSessionActive = true;
+        sendBoard();
         sendClient({ type: 'status', status: { connected: true, state: 'listening', message: `Live session active (${model}, voice ${voiceName})` } });
         return;
       } catch (err: any) {
@@ -878,25 +596,23 @@ wss.on('connection', async (clientWs: WebSocket) => {
           const fileName = msg.fileName || msg.goalContext?.fileName ? String(msg.fileName || msg.goalContext?.fileName).slice(0, 120) : undefined;
           const fileSnippet = String(msg.fileSnippet || msg.goalContext?.fileContent || '').slice(0, 8000);
 
-          let techDepthRule = '';
-          if (techLevel === 1) {
-            techDepthRule = 'The user is a NOVICE / BEGINNER in multi-agent systems. DO NOT use unexplained AI/ML acronyms or dense academic jargon. Use intuitive real-world metaphors (e.g., head chef, air traffic controller, library archive). Explain clearly why each agent role is needed in plain English with warm encouragement.';
-          } else if (techLevel === 2) {
-            techDepthRule = 'The user is an INTERMEDIATE Systems & Product Thinker. They understand LLMs, prompts, and APIs. Focus on router-worker decomposition, state handoffs, external tools, and human approval gates without over-explaining basics.';
-          } else if (techLevel === 3) {
-            techDepthRule = 'The user is an ADVANCED Hands-On AI Engineer. They are familiar with LangGraph, CrewAI, MCP servers, embeddings, vector databases, and retry loops. Use standard industry terms directly (StateGraph, MCP tools, token budgets, retry policies, async routing).';
-          } else {
-            techDepthRule = 'The user is a STAFF AI ARCHITECT. Dive straight into high-depth distributed systems architecture: deterministic vs stochastic routing, streaming backpressure, distributed consensus/A2A handoffs, P99 latency ceilings, evaluator scoring functions, and failover fallbacks.';
-          }
-
-          const contextPrompt = `[SYSTEM CONTEXT & COACHING DIRECTIVE UPDATE]:
-- USER'S SYSTEM GOAL: "${goal}"
-- SELECTED COACH ARCHETYPE: "${coachArchetype}" (${coachDesc})
-- USER TECHNICAL KNOWLEDGE LEVEL: ${techLabel} (Scale ${techLevel} of 4)
-- DEPTH & VOCABULARY DIRECTIVE: ${techDepthRule}
-${fileName ? `- UPLOADED CONTEXT DOCUMENT (${fileName}):\n${fileSnippet || ''}\n` : ''}
-
-INSTRUCTION: Greet the user with high energy tailored to your selected Coach Archetype ("${coachArchetype}"). Acknowledge their project goal and technical background. Then immediately begin breaking down the multi-agent system architecture step-by-step, simultaneously sketching the architecture on the whiteboard using 'draw_agent_node', 'draw_connection', and 'draw_doodle_writing'.`;
+          const depthRules: Record<number, string> = {
+            1: 'A beginner. No unexplained acronyms; use everyday metaphors and say why each element is needed.',
+            2: 'Understands LLMs, prompts and APIs. Focus on how work is split between agents, tools and approvals without over-explaining basics.',
+            3: 'A hands-on AI engineer. Use precise terms: orchestration patterns, MCP tools, grounding, evaluation, retries.',
+            4: 'A staff-level architect. Go deep on routing determinism, failure handling, latency, cost and evaluation.',
+          };
+          const level = Math.min(4, Math.max(1, Number(techLevel) || 2));
+          const contextPrompt = goalContextPrompt({
+            goal,
+            coach: String(coachArchetype).slice(0, 80),
+            coachDescription: String(coachDesc).slice(0, 200),
+            level,
+            levelLabel: String(techLabel).slice(0, 80),
+            depthRule: depthRules[level],
+            fileName,
+            fileSnippet,
+          });
 
           liveSession.sendRealtimeInput({
             text: contextPrompt
@@ -909,10 +625,6 @@ INSTRUCTION: Greet the user with high energy tailored to your selected Coach Arc
             video: { data: msg.image, mimeType: 'image/jpeg' }
           });
         }
-      } else if (msg.type === 'canvas_state_update') {
-        // The board as the browser sees it. Kept server-side and returned inside tool
-        // results; sending it to the model as text would start a new turn and loop.
-        if (Array.isArray(msg.elements)) tracker.syncFromCanvas(msg.elements.slice(0, 200));
       }
     } catch (e) {
       console.error('[WebSocket] Failed to handle client message:', e);

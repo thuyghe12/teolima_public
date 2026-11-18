@@ -1,91 +1,62 @@
 /**
  * Demo mode: a recorded coaching session, replayed when no GEMINI_API_KEY is set.
  *
- * The replay goes through the same path as a live session: every step is a
- * tool call validated by server/validation.ts and drawn by the same canvas
- * engine. A clone of the repo shows the real experience without credentials,
- * and the script doubles as a fixture for the tests.
+ * The replay builds the board through the same board changes the live coach
+ * makes, validated by the same change log and laid out by the same layout.
+ * A clone of the repo shows the real experience without credentials, and the
+ * script doubles as a fixture for the tests.
  */
-import { validateToolCall, type ToolCall } from './validation';
+import type { ChangeBody } from '../shared/board/changes';
 
 export type DemoStep =
   | { say: string; pauseMs?: number }
-  | { draw: ToolCall; pauseMs?: number };
-
-const node = (label: string, subtext: string, agentRole: string, gridColumn: number, gridRow: number): DemoStep => ({
-  draw: { name: 'draw_agent_node', args: { label, subtext, agentRole, gridColumn, gridRow } },
-});
-
-const link = (fromNode: string, toNode: string, label: string, style = 'solid'): DemoStep => ({
-  draw: { name: 'draw_connection', args: { fromNode, toNode, label, style } },
-  pauseMs: 500,
-});
+  | { change: ChangeBody; reason: string; pauseMs?: number };
 
 export const DEMO_GOAL = 'A customer support system that answers order questions and handles refunds safely';
 
+const add = (change: Omit<Extract<ChangeBody, { op: 'upsert_component' }>, 'op'>, reason: string): DemoStep => ({
+  change: { op: 'upsert_component', ...change },
+  reason,
+});
+
 export const DEMO_SCRIPT: DemoStep[] = [
-  { say: "Let's design your customer support system. I'll sketch it as we go, starting with where messages come in." },
-  { draw: { name: 'draw_doodle_writing', args: { text: 'Customer Support Agent System', x: 140, y: 110, fontSize: 24, doodleStyle: 'highlight' } } },
-  node('Message Intake', 'Email, chat and web form', 'intake', 1, 2),
-  { say: 'Every message first goes to a router. It classifies intent and urgency, and it never answers the customer itself.' },
-  node('Triage Router', 'Classifies intent and urgency', 'router', 2, 2),
-  link('Message Intake', 'Triage Router', 'raw message'),
-  { say: 'Behind the router, each specialist does one job. Order questions, refunds and policy questions stay separate.' },
-  node('Order Status Agent', 'Reads the order system', 'agent', 3, 1),
-  node('Refund Agent', 'Drafts refunds, never pays out', 'agent', 3, 2),
-  node('Policy Search', 'Retrieves FAQ and terms', 'tool', 3, 3),
-  link('Triage Router', 'Order Status Agent', 'order questions'),
-  link('Triage Router', 'Refund Agent', 'refund requests'),
-  link('Triage Router', 'Policy Search', 'policy questions'),
-  { say: 'Moving money is irreversible, so a refund proposal always stops at a human approval gate.' },
-  node('Human Approval', 'Refunds over 100 EUR', 'human_approval', 4, 2),
-  link('Refund Agent', 'Human Approval', 'refund proposal'),
-  { say: 'Every outgoing reply passes one output guardrail that checks for personal data and policy breaches.' },
-  node('Output Guardrail', 'PII and policy checks', 'guardrail', 4, 1),
-  link('Order Status Agent', 'Output Guardrail', 'draft reply'),
-  link('Human Approval', 'Output Guardrail', 'approved reply'),
-  { say: 'Finally, memory. The router reads the customer history, so a returning customer never has to repeat themselves.' },
-  node('Conversation Memory', 'Per-customer history', 'memory', 4, 3),
-  link('Triage Router', 'Conversation Memory', 'context', 'dashed'),
+  { say: "Let's design your customer support system. I'll build it as we talk, starting with where messages come in." },
+  { change: { op: 'set_title', title: 'Customer support' }, reason: 'Name the system' },
+  add({ kind: 'trigger', name: 'Customer message', source: 'chat', description: 'Chat and web form' }, 'Where work enters'),
+  { say: 'Specialists need the right tools. One looks up orders, one issues refunds, and policy answers come from your own documents.' },
+  add({ kind: 'tool', name: 'Order lookup', toolType: 'openapi', description: 'Reads the order system' }, 'Order data'),
+  add({ kind: 'tool', name: 'Refund API', toolType: 'openapi', description: 'Issues refunds' }, 'Refunds'),
+  add({ kind: 'knowledge', name: 'Policy docs', source: 'ai_search', description: 'Terms, FAQ and policies' }, 'Grounding for policy answers'),
+  { say: 'Now the agents. A triage agent reads each message and passes it to the specialist who can help.' },
+  add({ kind: 'agent', name: 'Triage', description: 'Reads intent, hands off', instructions: 'Classify the request and hand it to the right specialist.' }, 'Routes requests'),
+  add({ kind: 'agent', name: 'Order Status', description: 'Answers order questions', tools: ['Order lookup'] }, 'Order questions'),
+  add({ kind: 'agent', name: 'Refunds', description: 'Prepares refunds', tools: ['Refund API'] }, 'Refund requests'),
+  add({ kind: 'agent', name: 'Policy', description: 'Answers policy questions', knowledge: ['Policy docs'] }, 'Policy questions'),
+  { say: 'Together they form a handoff team. Triage receives every message first and routes it, like a good receptionist.' },
   {
-    draw: {
-      name: 'draw_callout',
-      args: { text: 'Irreversible actions always need a human', x: 140, y: 560 },
-    },
+    change: { op: 'upsert_team', name: 'Support desk', pattern: 'handoff', members: ['Triage', 'Order Status', 'Refunds', 'Policy'], startAgent: 'Triage', purpose: 'Resolve customer requests' },
+    reason: 'Triage hands off to specialists',
   },
-  { say: 'That is the full first version. Add a Gemini API key to talk it through live and change it as we go.' },
+  { say: 'Moving money cannot be undone, so larger refunds wait for a person to approve them.' },
+  add({ kind: 'approval', name: 'Refund approval', gates: 'Refund API', condition: 'Refunds over 100 EUR' }, 'Irreversible action'),
+  { say: 'Every agent talks to customers, so one guardrail covers them all: prompt shields and harm filters.' },
+  add({ kind: 'guardrail', name: 'Safety', controls: ['prompt_shields', 'harm_filters'] }, 'Protect every agent'),
+  add({ kind: 'output', name: 'Reply to customer', destination: 'chat' }, 'Where answers go'),
+  { change: { op: 'connect', from: 'Customer message', to: 'Support desk', label: 'message' }, reason: 'Entry point', pauseMs: 600 },
+  { change: { op: 'connect', from: 'Support desk', to: 'Reply to customer', label: 'answer' }, reason: 'Team output', pauseMs: 600 },
+  { say: 'That is a first version you could deploy. Add a Gemini API key to design your own system live.' },
 ];
 
-/** Validated copy of the script; throws at startup if the script itself is invalid. */
-export function compiledDemoScript(): DemoStep[] {
-  return DEMO_SCRIPT.map((step) => {
-    if (!('draw' in step)) return step;
-    const checked = validateToolCall(step.draw);
-    if (!checked.ok || !checked.call || checked.dropped.length > 0) {
-      throw new Error(`Invalid demo step ${step.draw.name}: ${checked.error ?? checked.dropped.join(', ')}`);
-    }
-    return { ...step, draw: checked.call };
-  });
-}
-
-/**
- * Plays the demo through `send`. Returns a function that stops playback.
- * `send` receives the same message shapes as a live session.
- */
-export function playDemo(send: (msg: unknown) => void, stepMs = 1100): () => void {
-  const steps = compiledDemoScript();
+/** Plays the demo, one step at a time. Returns a function that stops playback. */
+export function playDemo(run: (step: DemoStep) => void, stepMs = 1100): () => void {
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let i = 0;
 
   const next = () => {
-    if (stopped || i >= steps.length) return;
-    const step = steps[i++];
-    if ('say' in step) {
-      send({ type: 'transcript', transcript: { speaker: 'ai', text: step.say } });
-    } else {
-      send({ type: 'tool_call', toolCalls: [{ id: `demo-${i}`, ...step.draw }] });
-    }
+    if (stopped || i >= DEMO_SCRIPT.length) return;
+    const step = DEMO_SCRIPT[i++];
+    run(step);
     timer = setTimeout(next, step.pauseMs ?? stepMs);
   };
 
