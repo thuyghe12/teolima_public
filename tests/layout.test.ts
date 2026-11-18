@@ -4,7 +4,7 @@ import { emptyBoard, type Board } from '../shared/board/schema';
 import { applyChange, replay, type ChangeBody } from '../shared/board/changes';
 import { layoutBoard, fit, type Layout } from '../shared/board/layout';
 import { assertClean, inside, onBorder } from './helpers/layout';
-import { supportChanges } from './fixtures/support-board';
+import { briefedBoard, supportChanges } from './fixtures/support-board';
 
 const at = '2026-11-18T12:00:00.000Z';
 function build(bodies: ChangeBody[]): Board {
@@ -12,7 +12,7 @@ function build(bodies: ChangeBody[]): Board {
     const r = applyChange(b, { body, actor: 'coach', reason: 'test', at });
     if ('error' in r) throw new Error(r.error);
     return r.board;
-  }, emptyBoard());
+  }, briefedBoard());
 }
 const agents = (names: string[]): ChangeBody[] => names.map((name) => ({ op: 'upsert_component', kind: 'agent', name }));
 const node = (l: Layout, id: string) => {

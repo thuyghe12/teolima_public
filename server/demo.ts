@@ -21,6 +21,10 @@ const add = (change: Omit<Extract<ChangeBody, { op: 'upsert_component' }>, 'op'>
 
 export const DEMO_SCRIPT: DemoStep[] = [
   { say: "Let's design your customer support system. I'll build it as we talk, starting with where messages come in." },
+  {
+    change: { op: 'set_brief', goal: DEMO_GOAL, audience: 'Customers of a web shop', constraints: ['Refunds over 100 EUR need a person'] },
+    reason: 'The brief the user gave',
+  },
   { change: { op: 'set_title', title: 'Customer support' }, reason: 'Name the system' },
   add({ kind: 'trigger', name: 'Customer message', source: 'chat', description: 'Chat and web form' }, 'Where work enters'),
   { say: 'Specialists need the right tools. One looks up orders, one issues refunds, and policy answers come from your own documents.' },

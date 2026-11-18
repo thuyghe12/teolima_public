@@ -34,6 +34,12 @@ export const ChangeBody = z.discriminatedUnion('op', [
   z.object({ op: z.literal('set_title'), title: z.string().trim().max(120) }),
   z.object({ op: z.literal('clear') }),
   z.object({
+    op: z.literal('set_brief'),
+    goal: z.string().trim().max(600).optional(),
+    audience: z.string().trim().max(200).optional(),
+    constraints: z.array(z.string().trim().min(1).max(200)).max(12).optional(),
+  }),
+  z.object({
     op: z.literal('upsert_component'),
     kind: z.enum(COMPONENT_KINDS),
     name: z.string().trim().min(1).max(80),
@@ -246,8 +252,24 @@ export function applyChange(board: Board, change: Change): ApplyResult {
   if (!checked.success) return fail(`Invalid change: ${checked.error.issues.map((i) => `${i.path.join('.')} ${i.message}`).join('; ')}`);
   const body = checked.data.body;
 
+  // Nothing is designed before the goal is known.
+  const needsGoal = !['set_brief', 'set_title', 'clear', 'remove_component', 'remove_team', 'disconnect'].includes(body.op);
+  if (needsGoal && !board.brief.goal) {
+    return fail('No goal yet. Ask the user what the system must achieve, who uses it and its constraints, confirm it back, then save it with set_brief.');
+  }
+
   let result: ApplyResult;
   switch (body.op) {
+    case 'set_brief': {
+      const brief = {
+        goal: body.goal ?? board.brief.goal,
+        audience: body.audience ?? board.brief.audience,
+        constraints: body.constraints ?? board.brief.constraints,
+      };
+      if (!brief.goal) return fail('A brief needs a goal.');
+      result = { ok: true, board: { ...board, brief }, summary: 'Saved the brief', warnings: [] };
+      break;
+    }
     case 'set_title':
       result = { ok: true, board: { ...board, title: body.title }, summary: `Titled the board "${body.title}"`, warnings: [] };
       break;
