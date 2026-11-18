@@ -405,13 +405,6 @@ wss.on('connection', async (clientWs: WebSocket) => {
             });
           }
         }
-      } else if (msg.type === 'canvas_snapshot') {
-        // Canvas visual snapshot for vision grounding
-        if (liveSession && isSessionActive && msg.image) {
-          liveSession.sendRealtimeInput({
-            video: { data: msg.image, mimeType: 'image/jpeg' }
-          });
-        }
       }
     } catch (e) {
       console.error('[WebSocket] Failed to handle client message:', e);

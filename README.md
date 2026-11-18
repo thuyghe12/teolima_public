@@ -33,7 +33,7 @@ speaker 24 kHz  ◀── audio ────── session + idle caps     ◀�
 ```
 
 1. The browser streams microphone audio to the server over a websocket. The API key never leaves the server.
-2. Nothing is built before there is a brief: a goal, who uses the system, and its constraints. You can write it before the call, or the coach asks for it and confirms it back. The server refuses every building change until the goal is saved.
+2. Nothing is built before there is a brief: a goal, who uses the system, and its constraints. You can write it in the call panel before the call (recent briefs are one click away), or the coach asks for it and confirms it back. The server refuses every building change until the goal is saved.
 3. The coach builds the design with tools that edit a typed board model (agents, tools, knowledge, teams with an orchestration pattern, guardrails, approvals, triggers, outputs, connections). It never draws shapes or chooses positions.
 4. Every edit is a change with an actor and a reason, validated by the change log: names map to stable ids, so nothing is created twice, and references are checked by kind. A refused change tells the model why.
 5. After each accepted change the server sends the board to the browser. The layout is computed from the board (`shared/board/layout.ts`): teams laid out by pattern, resources in a lane below, connectors routed around cards.
@@ -69,7 +69,7 @@ server/prompts/        Versioned coach prompt
 shared/board/          Typed board model, change log and layout (docs/BOARD_MODEL.md)
 src/lib/canvas/        Canvas engine and hand-drawn renderer
 src/lib/audio/         Microphone capture and playback
-src/components/        Whiteboard, toolbar, call HUD, goal setup, history
+src/components/        Whiteboard, toolbar, call panel with the brief, settings, history
 tests/                 node:test suites
 docs/                  Architecture, roadmap, decision records, verified Azure targets
 ```
