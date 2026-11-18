@@ -9,6 +9,7 @@ import { config } from './server/config';
 import { DEMO_GOAL, playDemo } from './server/demo';
 import { BOARD_TOOLS, BoardSession, GROUNDED_TOOLS, basisFrom, boardToolDeclarations, toChangeBody } from './server/board-tools';
 import { Audit, Guard, promptShields } from './server/guard';
+import { LIVE_SAFETY_SETTINGS } from './server/guard/gemini-safety';
 import { ChangeBody } from './shared/board/changes';
 import { COACH_PROMPT, COACH_PROMPT_VERSION, openingPrompt } from './server/prompts/coach';
 import { declareTools, supportsAsyncTools, toolResponse } from './server/live-tools';
@@ -298,6 +299,8 @@ wss.on('connection', async (clientWs: WebSocket) => {
             },
           },
           systemInstruction: COACH_PROMPT,
+          // The model provider's own filters, off by default unless set.
+          safetySettings: LIVE_SAFETY_SETTINGS,
           // Transcripts of both sides: the guard checks quotes against what the user said
           // and checks what the coach says.
           inputAudioTranscription: {},
