@@ -32,6 +32,13 @@ export const config = {
   accessToken: process.env.ACCESS_TOKEN || '',
   /** Microsoft Learn MCP server for documentation grounding. Set to "off" to disable. */
   microsoftDocsUrl: process.env.MICROSOFT_DOCS_MCP_URL ?? 'https://learn.microsoft.com/api/mcp?maxTokenBudget=3000',
+  /** Prompt Shields (Azure AI Content Safety). Screening is off until both are set. */
+  contentSafety: {
+    endpoint: process.env.AZURE_CONTENT_SAFETY_ENDPOINT || '',
+    key: process.env.AZURE_CONTENT_SAFETY_KEY || '',
+  },
+  /** Folder for the per-session audit trail (JSON lines). Set to "off" to disable. */
+  auditDir: process.env.AUDIT_DIR === 'off' ? null : process.env.AUDIT_DIR || 'logs/audit',
   maxConnections: int('MAX_CONNECTIONS', 20),
   sessionMaxMs: int('SESSION_MAX_MINUTES', 15) * 60_000,
   idleTimeoutMs: int('IDLE_TIMEOUT_SECONDS', 120) * 1000,

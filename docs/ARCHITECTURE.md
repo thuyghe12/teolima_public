@@ -66,4 +66,23 @@ Sessions (goal, transcript, canvas elements) are saved to a Supabase `call_sessi
 
 ## Security model
 
-See the table in the [README](../README.md#security). The main design choice is that the browser never talks to the model provider: the server is the only party holding credentials, and it treats both the model's tool calls and search results as untrusted input.
+See the table in the [README](../README.md#security). The main design choice is that the browser never talks to the model provider: the server is the only party holding credentials, and it treats the model's tool calls, the user's input and documentation results as untrusted.
+
+## Guard pipeline
+
+Rules in the prompt are a request; the guard (`server/guard/`) enforces them in code on every hop.
+
+| Hop | Check | On failure |
+|---|---|---|
+| Input: the brief | Prompt Shields user prompt analysis | Not saved; the user is told why |
+| Input: typed message | Prompt Shields, before the model sees it | Not sent to the model |
+| Input: speech | Live API input transcription, each finished turn screened | Notice to the model and the user; screened after the model heard it |
+| Pre-tool: building change | Provenance: `basis_source` and `basis_quote` must be found in the brief or the user's transcribed words; then the typed change log | Refused with a reason the coach can act on |
+| Pre-tool: drawing call | Tool allowlist and argument validation | Refused |
+| Post-tool: documentation | Only Microsoft Learn links kept; Prompt Shields document analysis | Withheld, also when it cannot be screened |
+| Output: speech | Output transcription checked for reciting the instructions | Notice to the model |
+| All | Audit trail, one JSON line per decision | |
+
+Provenance is the core control against invention. The quote check tolerates transcription noise (three quarters of the quote's words must appear, and at least one pair of adjacent words) but not invented content or shuffled words. It does not judge scope: if the user asks for something off-topic in their own words, the prompt's scope rule is what declines it.
+
+Prompt Shields is probabilistic, so it is one layer, not the boundary. When it is not configured or not reachable, user input is marked unscreened in the audit trail (fail open, so a call is not cut by an outage) and documentation results are withheld (fail closed, because the coach can work without them). The demo replays recorded changes and does not pass through the guard.

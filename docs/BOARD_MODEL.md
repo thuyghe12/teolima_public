@@ -45,6 +45,7 @@ Nothing edits the board directly. Every edit is a change (`shared/board/changes.
 - **body:** one of `set_brief`, `set_title`, `clear`, `upsert_component`, `remove_component`, `upsert_team`, `remove_team`, `connect`, `disconnect`
 - **actor:** `coach`, `user`, or a named memory worker (`worker:<name>`)
 - **reason:** why, in a sentence
+- **basis:** for coach changes that add to the design, what it rests on: `brief` or `user`, and the exact words quoted. The guard checks the quote before the change is applied (`server/guard/provenance.ts`)
 - **at:** a timestamp
 
 `applyChange` returns the next board or refuses with a reason the caller can act on; a refused change leaves the board untouched. The same list of changes always replays to the same board, which is what lets the change log become git commits later (ADR 0001).

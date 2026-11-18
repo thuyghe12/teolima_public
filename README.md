@@ -50,9 +50,13 @@ The board model and what each element compiles to: [docs/BOARD_MODEL.md](docs/BO
 | Unwanted clients | Origin allowlist on the websocket; optional `ACCESS_TOKEN` for hosted demos |
 | Runaway cost | Connection cap, hard session limit, idle timeout |
 | Malformed or hostile tool calls | Server-side validation of every tool call and argument |
-| Invented or ungrounded designs | No building before a brief with a goal (enforced by the change log); every element must trace to the brief or the user; no web search, image generation or free drawing |
-| Prompt injection | The brief and documentation results are passed as the user's words or reference material, never as instructions; the prompt's rules cannot be changed in conversation |
-| Oversized input | 200 KB JSON limit, 4 MB websocket frames, goal and file context truncated |
+| Invented or ungrounded designs | No building before a brief with a goal (change log); every building change must quote its basis, and the server checks the quote against the brief and the user's transcribed words (provenance); no web search, image generation or free drawing |
+| Prompt injection | Prompt Shields screens the brief, typed messages, finished speech turns and documentation results; documentation keeps only Microsoft Learn links and is withheld if it cannot be screened; the brief and documents are passed as data, never as instructions |
+| Instruction leaks | The coach's transcribed speech is checked for reciting its instructions |
+| Accountability | Per-session audit trail of every guard decision and every accepted or refused change with its basis (`logs/audit`) |
+| Oversized input | 200 KB JSON limit, 4 MB websocket frames, capped brief and typed messages |
+
+The guard pipeline and its limits are described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#guard-pipeline). Speech reaches the model as audio, so a spoken turn is screened after the model has heard it: a flagged turn gets a notice to the model and to the user, and nothing it asks for can reach the board without passing provenance and the change log.
 
 All limits are configurable in `.env` (see `.env.example`).
 
@@ -61,8 +65,9 @@ All limits are configurable in `.env` (see `.env.example`).
 ```
 server.ts              Express app, websocket bridge, Live API session
 server/config.ts       Environment configuration and limits
-server/security.ts     Origin and token checks, rate limiter
+server/security.ts     Origin and token checks
 server/validation.ts   Tool-call validation
+server/guard/          Guard pipeline: provenance, Prompt Shields, audit trail
 server/demo.ts         Recorded session for demo mode
 server/board-tools.ts  The coach's board tools and per-session board
 server/prompts/        Versioned coach prompt
@@ -97,6 +102,8 @@ CI runs typecheck, tests and build on every push and pull request.
 | `MICROSOFT_DOCS_MCP_URL` | Microsoft Learn MCP server | Documentation grounding for the coach; `off` disables it |
 | `ALLOWED_ORIGINS` | `http://localhost:PORT` | Browser origins allowed on the websocket |
 | `ACCESS_TOKEN` | none | Required token for hosted demos (`?token=...`) |
+| `AZURE_CONTENT_SAFETY_ENDPOINT`, `AZURE_CONTENT_SAFETY_KEY` | none | Prompt Shields screening; off until both are set, and reported as off in the audit trail |
+| `AUDIT_DIR` | `logs/audit` | Per-session audit trail; `off` disables it |
 | `MAX_CONNECTIONS`, `SESSION_MAX_MINUTES`, `IDLE_TIMEOUT_SECONDS` | 20, 15, 120 | Cost and abuse limits |
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | none | Saved sessions in Supabase; otherwise kept in the browser |
 
