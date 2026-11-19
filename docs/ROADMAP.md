@@ -13,14 +13,14 @@ Teolima follows Microsoft's architect process: discovery, functional specificati
 | Exact board model | Every element has one compile meaning in Agent Framework, Foundry or Azure, with its source; per agent: model, tools, knowledge, memory, conversation history | [ADR 0005](adr/0005-high-level-board-exact-meaning.md) |
 | Guidance snapshot | Microsoft's architecture guidance ships as a versioned map of pages and sections, read by progressive disclosure, with quotes checked against the text and a weekly reviewed refresh | [ADR 0006](adr/0006-guidance-snapshot.md) |
 | Stages and gates | Four stages (discovery, solution design, technical design, compile), each for its own audience with its own diagram, drawn below the last on one board; only a person approves a stage | [ADR 0007](adr/0007-scope-to-iac.md) |
-| Architect process: discovery | A functional specification on the board, from voice or a pasted transcript, RFP or notes; every requirement quotes its source; design waits until the required discovery topics are covered | [ADR 0007](adr/0007-scope-to-iac.md) |
+| Architect process: discovery | The functional specification as arc42 sections 1 to 3, following Microsoft's discovery method, editable inline; the business context draws the C4 system context; every line names its source | [ADR 0008](adr/0008-arc42-and-c4.md) |
 
 ## Next, in order
 
 | Step | Outcome | Decision record |
 |---|---|---|
-| 1. Solution model | The board describes the whole solution: boundaries, actors, hosting, data stores, memory, identity, network, observability, deployment and numbered flows. A Microsoft reference architecture is the test it must reproduce | [ADR 0005](adr/0005-high-level-board-exact-meaning.md) |
-| 2. Diagrams per audience | A renderer with Microsoft's official icons, nested boundaries and numbered steps, and a view per audience: context, solution, deployment | [ADR 0004](adr/0004-design-standard.md) |
+| 1. Solution design | arc42 4 solution strategy (the recommendation), 5 building blocks, 6 runtime scenarios (numbered, with their approvals), 9 decisions with alternatives; drawn as a C4 container view and a dynamic view per key scenario. A Microsoft reference architecture is the test it must reproduce | [ADR 0008](adr/0008-arc42-and-c4.md) |
+| 2. Technical design | arc42 7 deployment, 8 crosscutting concepts, 10 quality scenarios, 11 risks, reviewed against the Well-Architected pillar checklists; drawn as a C4 deployment view with Microsoft's official icons | [ADR 0008](adr/0008-arc42-and-c4.md) |
 | 3. Compiler | Compile produces an Azure Developer CLI project (Bicep and declarative agents) with landing zone defaults, plus the design specification (open discovery topics become stated assumptions), a cost estimate from public list prices and a draft statement of work | [ADR 0003](adr/0003-compile-to-foundry-package.md) |
 | 4. Specialist workers | Narrow workers, one per part of the solution (network, identity, memory, tools, observability), each reading only its part of the guidance and drawing its part of the board, coordinated so cross-cutting dependencies stay consistent | |
 | 5. Organisation standards | An organisation's own baseline and approved modules, as data the checks and the compiler read | [ADR 0007](adr/0007-scope-to-iac.md) |

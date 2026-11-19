@@ -7,13 +7,18 @@ Teolima designs multi-agent systems the way Microsoft's own guidance says to des
 | Short name | Source |
 |---|---|
 | Orchestration patterns | Azure Architecture Center, [AI agent orchestration patterns](https://learn.microsoft.com/azure/architecture/ai-ml/guide/ai-agent-design-patterns) |
-| Single or multiple agents | Cloud Adoption Framework, [Single agent or multiple agents](https://learn.microsoft.com/azure/cloud-adoption-framework/ai-agents/single-agent-multiple-agents) |
-| Build process | Cloud Adoption Framework, [Process to build agents](https://learn.microsoft.com/azure/cloud-adoption-framework/ai-agents/build-secure-process) |
+| AI agent adoption | Cloud Adoption Framework, [AI agent adoption: decision tree and architecture](https://learn.microsoft.com/azure/cloud-adoption-framework/ai-agents/#ai-agent-decision-tree-and-architecture) |
+| Operational standards | Cloud Adoption Framework, [Operational standards for AI agents](https://learn.microsoft.com/azure/cloud-adoption-framework/ai-agents/operational-standards) |
 | Agent Framework | Microsoft Learn, [Agent Framework orchestrations](https://learn.microsoft.com/agent-framework/workflows/orchestrations) |
 | Reference architecture | Microsoft, [Multi-Agent Reference Architecture](https://microsoft.github.io/multi-agent-reference-architecture/) |
 | Baseline | Azure Architecture Center, [Baseline Microsoft Foundry chat reference architecture](https://learn.microsoft.com/azure/architecture/ai-ml/architecture/baseline-microsoft-foundry-chat) |
 | Diagrams | Well-Architected Framework, [Architecture design diagrams](https://learn.microsoft.com/azure/well-architected/architect-role/design-diagrams) |
+| Discovery | Well-Architected Framework, [Align technical strategy with business requirements](https://learn.microsoft.com/azure/well-architected/architect-role/design-business-requirements) |
 | Specification | Well-Architected Framework, [Architecture design specification](https://learn.microsoft.com/azure/well-architected/architect-role/architecture-design-specification) and the [architect's checklist](https://learn.microsoft.com/azure/well-architected/architect-role/checklist) |
+| arc42 | [arc42](https://docs.arc42.org/home/), the open template for architecture documentation: twelve sections from introduction and goals to risks and glossary |
+| C4 | [The C4 model](https://c4model.com/) by Simon Brown: system context, container, component and code diagrams, with dynamic and deployment views alongside |
+
+Microsoft links are checked against the guidance snapshot by `tests/discovery.test.ts` and `tests/design-standard.test.ts`, except Agent Framework, which is a separate doc set.
 
 ## Stages
 
@@ -36,26 +41,26 @@ The coach works through these steps in order. `shared/board/readiness.ts` checks
 
 ### 1. Discovery and functional specification
 
-Before designing, write down what the system must do and why. The functional specification details the what and the why of the system, not the implementation: the current problem, how the system improves it, and the business requirements. The design must then meet functional and nonfunctional requirements and be constrained by business, financial, compliance and organisational requirements (Specification). The build process asks for an agent charter covering business objectives, roles and prohibited actions (Build process).
+Before designing anything, create clarity about what the system must achieve, who it serves and which constraints it operates within (Discovery). The coach follows Microsoft's discovery steps: listen to what is asked and treat early asks as requests rather than requirements; probe why, until the real motivation shows; clarify requests into concrete, measurable requirements per user flow, including implicit ones such as data residency, security standards and retention; evaluate the constraints and trade-offs that bound the solution, without choosing technology yet. The fifth step, recommend, is the solution strategy of stage 2.
 
-The specification holds requirements of nine kinds: problem, outcome, user, scenario, functional, oversight (an action a person must approve, or something the system must never do on its own), nonfunctional (with its Well-Architected pillar), constraint and integration (a system or data it touches). Discovery covers eleven topics:
+The outcome is a functional specification: what the workload must achieve and why, with measurable success criteria, what is in and out of scope, user flows with their errors and exceptions, requirements for accessibility, compliance, performance, privacy and security, and a rollout strategy (Discovery, "Expected outcome"). Teolima records it in arc42 sections 1 to 3 (`shared/board/arc42.ts`):
 
-| Topic | Covered by | Before design |
-|---|---|---|
-| Problem, outcome, users | a problem, an outcome, a user | required |
-| Scenarios | a scenario or functional requirement | required |
-| Systems and data | an integration | required |
-| Human oversight | an oversight requirement | required |
-| Security and compliance | a security nonfunctional requirement or constraint | required |
-| Reliability, cost, operations, performance | a nonfunctional requirement or constraint with that pillar | open topics become assumptions to confirm in the design specification |
+| Section | Holds |
+|---|---|
+| 1.1 Requirements overview | Goals, success metrics, user flows, requirements, what needs a person, assumptions still to verify |
+| 1.2 Quality goals | Measurable qualities, each with its attribute: reliability, security, privacy, compliance, performance, cost, operations, accessibility |
+| 1.3 Stakeholders | Each role and what it expects |
+| 2 Constraints | Budget or timeline, regulatory, technical, organizational |
+| 3.1 Scope | In scope, out of scope, rollout |
+| 3.2 Business context | Each person and external system, with what it exchanges with the system. This draws the C4 system context diagram |
 
-Requirements come from what the user says in the session, the brief, or a pasted document such as a discovery call transcript, an RFP or notes.
+Discovery is ready for approval when these topics are covered: goals, success metrics, user flows, human oversight, security, privacy and compliance, stakeholders, scope, and the people and systems around it. Out of scope, reliability, performance, cost, operations and rollout may stay open; the technical design confirms them as stated assumptions (`shared/board/discovery.ts`). Items come from what the user says in the session, the brief, a pasted document (a discovery call transcript, an RFP, notes), or what the user types in the document; the user can also add sections of their own.
 
-**Enforced:** the change log refuses every design change until the brief has a goal and every required topic is covered (`shared/board/discovery.ts`). Every requirement and every design change must quote its source; the quote is checked against the brief, the user's own words or the named document (`server/guard/provenance.ts`). The specification can be read and exported as Markdown in the app.
+**Enforced:** every item the coach records quotes its source, and the quote is checked against the brief, the user's own words or the named document (`server/guard/provenance.ts`); what the user types is marked as theirs. Each section accepts only its own item types, with the name, attribute or category they need. Design changes are refused until the user approves discovery.
 
 ### 2. One agent or several
 
-Use the lowest level of complexity that reliably meets the requirements: a direct model call, then a single agent with tools, then multi-agent orchestration. A single agent with tools is often the right default for enterprise use cases, and several agents are justified when one agent cannot reliably handle the task because of prompt complexity, tool overload or security requirements (Orchestration patterns). Start with several agents when the use case crosses security and compliance boundaries, involves multiple teams, or is expected to grow; otherwise test a single agent first (Single or multiple agents).
+Use the lowest level of complexity that reliably meets the requirements: a direct model call, then a single agent with tools, then multi-agent orchestration. A single agent with tools is often the right default for enterprise use cases, and several agents are justified when one agent cannot reliably handle the task because of prompt complexity, tool overload or security requirements (Orchestration patterns). Start with several agents when the use case crosses security and compliance boundaries, involves multiple teams, or is expected to grow; otherwise test a single agent first (AI agent adoption).
 
 **Enforced:** the board records the decision (`shape`: single or multi) and, for multi, at least one of five reasons: `security_or_compliance_boundary`, `multiple_teams`, `future_growth`, `prompt_complexity`, `tool_overload`. The change log refuses a second agent or a team until the shape is multi.
 
@@ -71,25 +76,25 @@ Put cooperating agents in a team with one of the five patterns Agent Framework p
 | Group chat | Decisions come from discussion or maker-checker review | A pipeline or simple delegation is enough, or there is no clear completion criterion |
 | Magentic | Open-ended work with no predetermined path that needs a reviewable plan | The path is deterministic, the task is simple or time-sensitive |
 
-Use deterministic workflows for critical business logic (Build process).
+Route deterministically where the right agent can be picked from the input, and define agents in code where routing must be controlled (Orchestration patterns, "Deterministic routing"); Agent Framework workflows give explicit control over multi-agent execution paths (Agent Framework).
 
 **Enforced:** team members must be agents on the board and belong to one team; handoff teams name a start agent and group chat and magentic teams name a manager, or the change log warns. Readiness reports agents left outside a team.
 
 ### 4. Tools and knowledge
 
-Segment knowledge by role so each agent reaches only what it needs, define explicit tool boundaries, and keep integrations behind narrowly scoped APIs with least-privilege access (Build process).
+Design agents and their orchestrators to follow the principle of least privilege, and trim what every agent returns to what the user may see (Orchestration patterns, "Security").
 
 **Enforced:** an agent can only reference tools and knowledge that are on the board. Readiness reports agents with neither and tools or knowledge no agent uses.
 
 ### 5. Guardrails
 
-Apply content safety guardrails at input, tool calls, tool responses and final output, and keep audit trails (Orchestration patterns, Build process).
+Apply content safety guardrails at multiple points: user input, tool calls, tool responses and final output, and design audit trails to meet compliance requirements (Orchestration patterns, "Security"). Organizations set a baseline of runtime safeguards, with stronger ones for agents exposed to untrusted information or taking consequential actions (Operational standards).
 
 **Enforced:** readiness requires every agent to be covered by a guardrail that includes Prompt Shields. A guardrail compiles to a Foundry guardrail (see [BOARD_MODEL.md](BOARD_MODEL.md)).
 
 ### 6. Human approvals
 
-Require a person to confirm high-impact actions such as database writes or financial transactions (Build process). Scope approval gates to specific tool invocations rather than whole agent outputs, so low-risk actions proceed on their own (Orchestration patterns).
+Identify which points require human input, whether it is mandatory, and whether it approves or loops back for refinement; scope approval gates to specific tool invocations rather than whole agent outputs, so low-risk actions proceed on their own (Orchestration patterns, "Human participation"). Agents that perform consequential actions need additional review and testing (Operational standards).
 
 **Enforced:** an approval must gate a tool or agent on the board, with a condition ("always" unless the user states one). Readiness keeps the step open until the user has confirmed whether any tool takes a high-impact action.
 
@@ -101,7 +106,7 @@ Show where work comes from and where results go, so the system has an explicit b
 
 ### 8. Evaluation
 
-Evaluate with scoring rubrics or model-graded evaluations rather than exact matches, because outputs are not deterministic (Orchestration patterns), keep evaluations in a central catalog and run them in CI/CD, and red-team for prompt injection and system prompt extraction (Build process).
+Agent outputs are nondeterministic, so integration tests use scoring rubrics or language-model-as-judge evaluations rather than exact-match assertions (Orchestration patterns, "Observability and testing"). Every production agent has acceptance thresholds approved by its business owners, an action-taking agent shows it respects approval boundaries, and agents that access sensitive information or take consequential actions get risk-based testing, including adversarial testing (Operational standards).
 
 **Planned:** the compiler writes an evaluation set from the board's own rules (ADR 0003).
 
