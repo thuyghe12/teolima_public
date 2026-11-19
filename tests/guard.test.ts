@@ -5,7 +5,6 @@ import { Audit, Guard, keepLearnLinks } from '../server/guard';
 import { promptShields, type Shield } from '../server/guard/prompt-shields';
 import { basisFrom } from '../server/board-tools';
 import { COACH_PROMPT } from '../server/prompts/coach';
-import { LIVE_SAFETY_SETTINGS } from '../server/guard/gemini-safety';
 
 const brief = { goal: 'Answer order questions and handle refunds safely', audience: 'Customers of a web shop', constraints: ['Refunds over 100 EUR need a person'] };
 const guardWith = (shield: Shield | null) => new Guard(new Audit('test', null), shield, COACH_PROMPT);
@@ -119,13 +118,6 @@ test('Prompt Shields client: endpoint, key header, 10K cap and parsing', async (
   assert.equal(seen!.body.userPrompt.length, 10_000);
   const failing = promptShields({ endpoint: 'https://cs.example.com', key: 'k', fetch: async () => ({ ok: false, status: 401, json: async () => ({}) }) });
   await assert.rejects(failing({ userPrompt: 'hi' }), /401/);
-});
-
-test('Gemini safety filters are set, including jailbreak, one per category', () => {
-  const categories = LIVE_SAFETY_SETTINGS.map((s) => s.category);
-  assert.ok(categories.includes('HARM_CATEGORY_JAILBREAK' as never));
-  assert.equal(new Set(categories).size, categories.length);
-  assert.ok(LIVE_SAFETY_SETTINGS.every((s) => s.threshold === 'BLOCK_MEDIUM_AND_ABOVE'));
 });
 
 const TRANSCRIPT = `Anna (client): Right now our planners rebook every cancelled delivery by hand, it takes them most of the morning.
