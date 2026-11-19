@@ -77,15 +77,18 @@ test('guardrails: an agent without Prompt Shields is missing', () => {
   assert.equal(status(b).guardrails, 'done');
 });
 
-test('tools: unused tools and bare agents are open items', () => {
+test('tools: an unused tool is open; an agent with no tools works from the model and is noted', () => {
   let b = approved(apply(emptyBoard(), { op: 'set_brief', goal: 'Answer questions' }));
   b = apply(b, { op: 'set_shape', shape: 'single' });
   b = apply(b, { op: 'upsert_component', kind: 'tool', name: 'Search' });
   b = apply(b, { op: 'upsert_component', kind: 'agent', name: 'Helper' });
-  const t = readiness(b).steps.find((s) => s.id === 'tools')!;
+  let t = readiness(b).steps.find((s) => s.id === 'tools')!;
   assert.equal(t.status, 'open');
-  assert.match(t.detail, /"Helper"/);
   assert.match(t.detail, /"Search"/);
+  b = apply(b, { op: 'remove_component', ref: 'Search' });
+  t = readiness(b).steps.find((s) => s.id === 'tools')!;
+  assert.equal(t.status, 'done');
+  assert.match(t.detail, /"Helper" works from the model/);
 });
 
 test('single agent: no pattern needed', () => {
