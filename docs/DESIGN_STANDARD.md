@@ -154,6 +154,12 @@ The resource plan (`shared/board/deployment.ts`) follows the baseline Foundry ar
 
 **Enforced:** a setting names its category, and network isolation and the landing zone one of their values. A quality scenario serves a 1.2 goal and states its measure. A review takes only codes in the checklists, and anything not met says why. The gate requires the region, network isolation and landing zone settings, the five required concepts, a quality scenario for every quality goal, an assumption for every open discovery topic, every recommendation reviewed, and nothing the resource plan cannot decide. The checklists ship as `shared/board/waf.ts`, generated from the guidance snapshot (`npm run knowledge:checklists`, also run by the weekly refresh) and tested to match it.
 
+### 11. Compile
+
+The compiled project follows Microsoft's own building blocks: the AI Landing Zone for the infrastructure, the Azure Developer CLI with its Foundry extensions for the project, and Agent Framework for the code, each at the version recorded in the project. The hosting decision chooses between prompt agents, hosted agents and self-hosted orchestration as the baseline describes them (Baseline, "Alternatives"); a team's orchestration runs as the Agent Framework builder of its pattern (Agent Framework).
+
+**Enforced:** compile waits for the approval of technical design, and the wizard asks only what no stage settled and what is hard to change after deployment (region, network isolation, landing zone, each model's version, SKU and capacity); it never guesses a model version. The tests validate every compiled `azure.yaml` against the azd and Foundry extension schemas, check every landing zone parameter the compiler sets against its declaration, and parse the generated Python; CI builds the compiled Bicep. See [ADR 0003](adr/0003-compile-to-foundry-package.md).
+
 ## Notation
 
 The board follows the diagram guidance (Diagrams): directional arrows only, labels on lines whose meaning is not obvious, one consistent line style per kind of relationship, an explicit system boundary, a legend whenever borders or lines carry meaning, and official names for Microsoft services. The building blocks follow the reference architecture's split between agents, an orchestration layer, knowledge, and an integration layer for tools (Reference architecture). The deployment view follows the baseline Foundry architecture (Baseline).

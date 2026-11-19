@@ -46,6 +46,14 @@ speaker 24 kHz  ◀── audio ────── session + idle caps     ◀�
 10. Before advising on anything specific to Agent Framework, Foundry, guardrails, evaluations or Azure resources, the coach searches Microsoft Learn through Microsoft's official documentation server and bases its advice on the excerpts.
 11. Tools are non-blocking on Live models that support it, so the coach keeps talking while the board updates.
 
+## Compile
+
+Once technical design is approved, the design compiles to a complete Azure Developer CLI project ([ADR 0003](docs/adr/0003-compile-to-foundry-package.md)): the [AI Landing Zone](https://github.com/Azure/bicep-ptn-aiml-landing-zone) Bicep, unchanged, with the design's choices in its parameters; the agents as prompt agents, or as Agent Framework code running the team's orchestration pattern on hosted agents or Container Apps; connections, routines and an evaluation per runtime scenario; a GitHub Actions workflow; and the arc42 architecture with an ADR per decision. A short wizard asks only what no stage settled, such as each model's version. To see the project the demo design compiles to:
+
+```bash
+npm run compile:example    # writes out/customer-support
+```
+
 The board model and what each element compiles to: [docs/BOARD_MODEL.md](docs/BOARD_MODEL.md). Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Security
