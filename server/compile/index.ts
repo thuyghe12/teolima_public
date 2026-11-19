@@ -37,8 +37,18 @@ export interface CompiledFile {
   serves: string[];
 }
 
+/** A landing zone parameter the design sets, or a person changed in review. */
+export interface CompiledParameter {
+  name: string;
+  value: unknown;
+  because: string;
+  serves: string[];
+  /** Changed by a person in the folder view, away from the design's value. */
+  edited: boolean;
+}
+
 export type CompileResult =
-  | { ok: true; files: CompiledFile[]; dilemmas: Dilemma[]; todo: string[] }
+  | { ok: true; files: CompiledFile[]; dilemmas: Dilemma[]; todo: string[]; parameters: CompiledParameter[] }
   | { ok: false; reason: string; dilemmas: Dilemma[] };
 
 type Agent = Extract<Component, { kind: 'agent' }>;
@@ -50,9 +60,11 @@ export interface CompileInput {
   changes?: Change[];
   /** Titles of pasted documents, by id, for the exported sources. */
   documents?: Record<string, string>;
+  /** Parameter values a person changed in the folder view, by parameter name. */
+  overrides?: Record<string, unknown>;
 }
 
-export function compile({ board, answers = {}, changes = [], documents = {} }: CompileInput): CompileResult {
+export function compile({ board, answers = {}, changes = [], documents = {}, overrides = {} }: CompileInput): CompileResult {
   const asked = dilemmas(board, answers);
   if (board.stage.current !== 'compile') return { ok: false, reason: 'Technical design is not approved yet.', dilemmas: asked };
   const open = asked.filter((d) => d.open);
@@ -66,7 +78,11 @@ export function compile({ board, answers = {}, changes = [], documents = {} }: C
 
   // infra: the foundation, unchanged, and its parameters with the design's values
   const lz = landingZoneFiles();
-  const changesToParams = parameterChanges(board, plan, answers);
+  const designed = parameterChanges(board, plan, answers);
+  const changesToParams = [
+    ...designed.map((c) => (c.name in overrides ? { ...c, value: overrides[c.name], because: `Changed in review (the design: ${JSON.stringify(c.value)})` } : c)),
+    ...Object.entries(overrides).filter(([n]) => !designed.some((c) => c.name === n)).map(([name, value]) => ({ name, value, because: 'Changed in review', serves: [] })),
+  ];
   for (const [path, content] of lz) {
     if (path === 'main.parameters.json') add(`infra/${path}`, parametersFile(content, changesToParams), 'parameters', changesToParams.flatMap((c) => c.serves));
     else add(`infra/${path}`, content, 'landing-zone');
@@ -108,11 +124,18 @@ export function compile({ board, answers = {}, changes = [], documents = {} }: C
     .filter((i) => i.type === 'decision')
     .forEach((d, n) => add(`docs/adr/${String(n + 1).padStart(4, '0')}-${slug(d.name ?? d.id)}.md`, adr(board, d, n + 1), 'document', [d.id, ...(d.serves ?? [])]));
   add('docs/resources.md', resources(board, plan, changesToParams), 'document', plan.resources.flatMap((r) => r.serves));
-  add('docs/audit-trail.json', `${JSON.stringify(changes, null, 2)}\n`, 'document');
+  const trail = {
+    approvals: board.stage.approvals,
+    sources: board.spec.items.map((i) => ({ id: i.id, source: i.source })),
+    reviews: board.spec.reviews.map((r) => ({ code: r.code, status: r.status, source: r.source })),
+    changes,
+  };
+  add('docs/audit-trail.json', `${JSON.stringify(trail, null, 2)}\n`, 'document');
   add('README.md', readme(board, hosting, todo, us.length), 'generated');
 
   files.sort((a, b) => a.path.localeCompare(b.path));
-  return { ok: true, files, dilemmas: asked, todo };
+  const parameters = changesToParams.map((c) => ({ ...c, edited: c.name in overrides }));
+  return { ok: true, files, dilemmas: asked, todo, parameters };
 }
 
 function adr(board: Board, d: Board['spec']['items'][number], n: number): string {
