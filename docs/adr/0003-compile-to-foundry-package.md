@@ -1,6 +1,6 @@
 # ADR 0003: Compile the board to an Azure Developer CLI project, reviewed in a shared workspace
 
-**Status:** Accepted, not yet implemented. Revised in November 2026 for the stages (ADR 0007, ADR 0008) and the Foundry support in the Azure Developer CLI. Targets verified in [AZURE_TARGETS.md](../AZURE_TARGETS.md).
+**Status:** Accepted. The compiler is built and tested headless (`server/compile/`); the wizard, the shared folder view, the git tree and the GitHub push follow. Revised in November 2026 for the stages (ADR 0007, ADR 0008) and the Foundry support in the Azure Developer CLI.
 
 ## Context
 
@@ -38,6 +38,14 @@ docs/                             the arc42 export of stages 1 to 3, one diagram
 ### Everything is versioned
 
 Each project is one git tree: the board, the stage documents, the change log and the compiled files. Every accepted change is a commit with its actor (user, coach, compiler), its reason and its source. Approving a stage tags the tree. Compiling commits the generated files; a person's edit in the folder view is a commit by that person; compiling again shows a diff and never overwrites a person's edit silently. The audit trail in `docs/` is the log of that tree.
+
+## Implementation
+
+- **Foundation.** `vendor/ai-landing-zone/` holds the AI Landing Zone Bicep at `v2.7.3` (commit `97e2375b`), copied unchanged with its MIT licence, the way Microsoft's Agent Landing Zone incorporates the same foundation: repository-owned source, not a submodule. `manifest.json` in every compiled project records where it came from. Only `infra/main.parameters.json` changes, and only the parameters the design decides, each kept in the landing zone's own `${VARIABLE=default}` form: the region, network isolation, deployment mode (`standalone` or `ailz-integrated` with the hub network), which data services to deploy, Container Apps for self-hosted orchestration, the model deployments, the container apps and the Cosmos DB containers. `prepareHostedAgent` exposes the landing zone's Foundry project to the agent services as `AZURE_AI_PROJECT_ENDPOINT`.
+- **Agents.** The hosting decision sets the shape, as the baseline Foundry architecture describes the three options. Prompt agents are `azure.ai.agent` services with `kind: prompt`, their model, instructions, an `azure_ai_search` tool per knowledge source and connections for their tools. A team, or an agent outside a team, on hosted agents is one `azure.ai.agent` service with `kind: hosted`, running Agent Framework code: the agents from `FoundryChatClient.as_agent`, the team's orchestration from the builder of its pattern in `agent_framework.orchestrations`, wrapped with `workflow.as_agent` and served by `ResponsesHostServer`. Self-hosted orchestration is the same code as a `containerapp` service on the landing zone's Container Apps. Every API used is the one Microsoft Learn documents; the generated Python is parsed in the tests.
+- **Tools.** A tool's implementation cannot be compiled from a design: each is a typed `@tool` function that raises until the agent team connects it, gated tools carry `approval_mode="always_require"`, and the project README lists every one.
+- **Routines and evaluations.** Scheduled triggers become `azure.ai.routine` services. Each runtime scenario becomes a dataset and an evaluation of the agent service that runs it, graded by the built-in task adherence evaluator and a rubric evaluator per quality scenario with its measure.
+- **Checks.** The tests validate every compiled `azure.yaml` against the azd schema and the Foundry extension schemas (`vendor/azd-schemas/`, pinned), and check every parameter the compiler sets against the landing zone's own `param` declarations and types. CI builds and lints the compiled Bicep of the demo design (`npm run compile:example`), which needs the public Bicep registry.
 
 ## Consequences
 
