@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEMO_SCRIPT, playDemo, type DemoStep } from '../server/demo';
+import { DEMO_SCRIPT, DEMO_USER_WORDS, playDemo, type DemoStep } from '../server/demo';
+import { quoteFound } from '../server/guard/provenance';
 import { emptyBoard } from '../shared/board/schema';
 import { applyChange, type Change } from '../shared/board/changes';
 import { layoutBoard } from '../shared/board/layout';
@@ -12,7 +13,7 @@ function replayDemo() {
   let board = emptyBoard();
   for (const step of DEMO_SCRIPT) {
     if (!('change' in step)) continue;
-    const change: Change = { body: step.change, actor: 'coach', reason: step.reason, at };
+    const change: Change = { body: step.change, actor: 'coach', reason: step.reason, at, ...(step.basis ? { basis: step.basis } : {}) };
     const r = applyChange(board, change);
     assert.ok(!('error' in r), `demo step refused: ${'error' in r ? r.error : ''}`);
     if ('board' in r) board = r.board;
@@ -22,6 +23,16 @@ function replayDemo() {
 
 test('every demo change is accepted by the change log', () => {
   replayDemo();
+});
+
+test('the demo runs discovery first, and every requirement quotes what the user said', () => {
+  const b = replayDemo();
+  const firstDesign = DEMO_SCRIPT.findIndex((s) => 'change' in s && s.change.op === 'upsert_component');
+  const lastRequirement = DEMO_SCRIPT.map((s) => 'change' in s && s.change.op === 'record_requirement').lastIndexOf(true);
+  assert.ok(lastRequirement < firstDesign, 'requirements come before design');
+  assert.ok(b.spec.requirements.length >= 7);
+  const said = DEMO_USER_WORDS.join('\n');
+  for (const r of b.spec.requirements) assert.ok(quoteFound(r.source.quote, said), `${r.id} quotes the user: "${r.source.quote}"`);
 });
 
 test('the demo builds a handoff team with an approval and a guardrail', () => {

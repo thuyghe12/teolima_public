@@ -1,7 +1,7 @@
 /**
  * Every edit to the board is a change with an actor and a reason.
  *
- * The coach, the user and (later) memory workers never mutate a board
+ * The coach, the user and (later) specialist workers never mutate a board
  * directly: they submit changes, and applyChange either returns the next
  * board or refuses with a reason the caller can act on. The same list of
  * changes always replays to the same board, which is what lets the change
@@ -12,19 +12,22 @@
  * instead of creating two.
  */
 import { z } from 'zod';
+import { discovery, discoveryRefusal } from './discovery';
 import {
   Board,
   Component,
   COMPONENT_KINDS,
   GuardrailControl,
   OrchestrationPattern,
+  Pillar,
+  REQUIREMENT_KINDS,
   ShapeReason,
   slug,
   type Id,
   type Team,
 } from './schema';
 
-/** Who made a change. Memory workers are named: "worker:constraints". */
+/** Who made a change. Workers are named: "worker:network". */
 export const Actor = z.union([z.literal('coach'), z.literal('user'), z.string().regex(/^worker:[a-z0-9-]{1,40}$/)]);
 export type Actor = z.infer<typeof Actor>;
 
@@ -63,6 +66,15 @@ export const ChangeBody = z.discriminatedUnion('op', [
     condition: z.string().optional(),
     destination: z.string().optional(),
   }),
+  z.object({
+    op: z.literal('record_requirement'),
+    /** An existing requirement to update; omit to add one. */
+    id: Ref.optional(),
+    kind: z.enum(REQUIREMENT_KINDS),
+    text: z.string().trim().min(1).max(300),
+    pillar: Pillar.optional(),
+  }),
+  z.object({ op: z.literal('remove_requirement'), ref: Ref }),
   z.object({ op: z.literal('remove_component'), ref: Ref }),
   z.object({
     op: z.literal('upsert_team'),
@@ -79,9 +91,11 @@ export const ChangeBody = z.discriminatedUnion('op', [
 ]);
 export type ChangeBody = z.infer<typeof ChangeBody>;
 
-/** What a coach change rests on: the brief, or the user's own words, quoted. */
+/** What a change rests on, quoted: the brief, the user's own words, or a document the user pasted. */
 export const Basis = z.object({
-  source: z.enum(['brief', 'user']),
+  source: z.enum(['brief', 'user', 'document']),
+  /** The pasted document, for source document. */
+  document: z.string().trim().max(40).optional(),
   quote: z.string().trim().min(1).max(300),
 });
 export type Basis = z.infer<typeof Basis>;
@@ -286,6 +300,40 @@ function setShape(board: Board, kind: 'single' | 'multi', reasons: ShapeReason[]
   };
 }
 
+function recordRequirement(board: Board, body: Extract<ChangeBody, { op: 'record_requirement' }>, basis: Basis | undefined): ApplyResult {
+  if (!basis) return fail('A requirement needs its source: the brief, the user\'s words or a pasted document, quoted.');
+  if (basis.source === 'document' && !basis.document) return fail('Name the document the quote comes from.');
+  if (body.kind === 'nonfunctional' && !body.pillar) {
+    return fail('A nonfunctional requirement belongs to a pillar: reliability, security, cost-optimization, operational-excellence or performance-efficiency.');
+  }
+  if (body.pillar && body.kind !== 'nonfunctional' && body.kind !== 'constraint') {
+    return fail('Only nonfunctional requirements and constraints take a pillar.');
+  }
+  const reqs = board.spec.requirements;
+  const existing = body.id ? reqs.find((r) => r.id === body.id) : reqs.find((r) => r.kind === body.kind && r.text.toLowerCase() === body.text.toLowerCase());
+  if (body.id && !existing) return fail(`Requirement "${body.id}" is not in the specification.`);
+  let id = existing?.id;
+  if (!id) {
+    let n = reqs.filter((r) => r.kind === body.kind).length + 1;
+    while (reqs.some((r) => r.id === `${body.kind}-${n}`)) n++;
+    id = `${body.kind}-${n}`;
+  }
+  const requirement = {
+    id,
+    kind: body.kind,
+    text: body.text,
+    ...(body.pillar ? { pillar: body.pillar } : {}),
+    source: { kind: basis.source, ...(basis.document ? { document: basis.document } : {}), quote: basis.quote },
+  };
+  const requirements = existing ? reqs.map((r) => (r.id === id ? requirement : r)) : [...reqs, requirement];
+  return {
+    ok: true,
+    board: { ...board, spec: { requirements } },
+    summary: `${existing ? 'Updated' : 'Recorded'} ${body.kind} requirement ${id}`,
+    warnings: [],
+  };
+}
+
 const NEEDS_MULTI =
   'One agent with tools is the default. A second agent or a team needs a multi-agent decision: agree a reason with the user (security or compliance boundary, several teams, expected growth, prompt complexity, tool overload), then call set_shape.';
 
@@ -296,9 +344,16 @@ export function applyChange(board: Board, change: Change): ApplyResult {
   const body = checked.data.body;
 
   // Nothing is designed before the goal is known.
-  const needsGoal = !['set_brief', 'set_title', 'clear', 'remove_component', 'remove_team', 'disconnect'].includes(body.op);
+  const needsGoal = !['set_brief', 'set_title', 'clear', 'remove_component', 'remove_team', 'disconnect', 'record_requirement', 'remove_requirement'].includes(body.op);
   if (needsGoal && !board.brief.goal) {
     return fail('No goal yet. Ask the user what the system must achieve, who uses it and its constraints, confirm it back, then save it with set_brief.');
+  }
+
+  // Nothing is designed before discovery is done (docs/DESIGN_STANDARD.md, step 1).
+  const designs = ['set_shape', 'upsert_component', 'upsert_team', 'connect'].includes(body.op);
+  if (designs) {
+    const d = discovery(board);
+    if (!d.done) return fail(discoveryRefusal(d));
   }
 
   // A second agent or a team needs a reason (docs/DESIGN_STANDARD.md, step 2).
@@ -336,6 +391,16 @@ export function applyChange(board: Board, change: Change): ApplyResult {
     case 'set_shape':
       result = setShape(board, body.shape, body.reasons ?? []);
       break;
+    case 'record_requirement':
+      result = recordRequirement(board, body, checked.data.basis);
+      break;
+    case 'remove_requirement': {
+      const target = board.spec.requirements.find((r) => r.id === body.ref);
+      result = target
+        ? { ok: true, board: { ...board, spec: { requirements: board.spec.requirements.filter((r) => r.id !== target.id) } }, summary: `Removed requirement ${target.id}`, warnings: [] }
+        : fail(`Requirement "${body.ref}" is not in the specification.`);
+      break;
+    }
     case 'upsert_component':
       result = upsertComponent(board, body);
       break;

@@ -169,11 +169,62 @@ export const Shape = z.object({
 });
 export type Shape = z.infer<typeof Shape>;
 
+/** The five pillars of the Well-Architected Framework. */
+export const Pillar = z.enum(['reliability', 'security', 'cost-optimization', 'operational-excellence', 'performance-efficiency']);
+export type Pillar = z.infer<typeof Pillar>;
+
+/**
+ * What a requirement states, following the functional specification in
+ * Microsoft's architect guidance: the problem and the outcome (the why), who
+ * uses it and what they do (the what), what a person must decide, the
+ * nonfunctional requirements by pillar, the constraints, and the systems and
+ * data it touches. Never the implementation.
+ */
+export const REQUIREMENT_KINDS = [
+  'problem',
+  'outcome',
+  'user',
+  'scenario',
+  'functional',
+  'oversight',
+  'nonfunctional',
+  'constraint',
+  'integration',
+] as const;
+export type RequirementKind = (typeof REQUIREMENT_KINDS)[number];
+
+/** Where a statement comes from, quoted: the brief, the user's words in the call, or a document the user pasted. */
+export const SourceRef = z.object({
+  kind: z.enum(['brief', 'user', 'document']),
+  /** The pasted document, for kind document. */
+  document: z.string().trim().max(40).optional(),
+  quote: z.string().trim().min(1).max(300),
+});
+export type SourceRef = z.infer<typeof SourceRef>;
+
+export const Requirement = z.object({
+  id: Id,
+  kind: z.enum(REQUIREMENT_KINDS),
+  /** The requirement in one plain sentence. */
+  text: z.string().trim().min(1).max(300),
+  /** The pillar a nonfunctional requirement or a constraint belongs to. */
+  pillar: Pillar.optional(),
+  source: SourceRef,
+});
+export type Requirement = z.infer<typeof Requirement>;
+
+/** The functional specification: what the system must do and why, each statement traced to its source. */
+export const Spec = z.object({
+  requirements: z.array(Requirement).max(80).default([]),
+});
+export type Spec = z.infer<typeof Spec>;
+
 export const Board = z.object({
   version: z.literal(1),
   title: z.string().trim().max(120).default(''),
   brief: Brief.default({ goal: '', audience: '', constraints: [] }),
   shape: Shape.default({ kind: 'undecided', reasons: [] }),
+  spec: Spec.default({ requirements: [] }),
   components: z.array(Component).max(60),
   teams: z.array(Team).max(10),
   connections: z.array(Connection).max(150),
@@ -185,6 +236,7 @@ export const emptyBoard = (): Board => ({
   title: '',
   brief: { goal: '', audience: '', constraints: [] },
   shape: { kind: 'undecided', reasons: [] },
+  spec: { requirements: [] },
   components: [],
   teams: [],
   connections: [],

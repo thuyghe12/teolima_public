@@ -6,13 +6,31 @@
  * A clone of the repo shows the real experience without credentials, and the
  * script doubles as a fixture for the tests.
  */
-import type { ChangeBody } from '../shared/board/changes';
+import type { Basis, ChangeBody } from '../shared/board/changes';
+import type { Requirement } from '../shared/board/schema';
 
 export type DemoStep =
   | { say: string; pauseMs?: number }
-  | { change: ChangeBody; reason: string; pauseMs?: number };
+  | { change: ChangeBody; reason: string; basis?: Basis; pauseMs?: number };
 
 export const DEMO_GOAL = 'A customer support system that answers order questions and handles refunds safely';
+
+/** What the user tells the coach in the recorded session; every requirement quotes it. */
+export const DEMO_USER_WORDS = [
+  DEMO_GOAL,
+  'Today customers of our web shop wait two days for an answer. Most questions are where is my order or can I get a refund.',
+  'I want most order questions answered without a person, around the clock.',
+  'It reads our order system and issues refunds through the refund API. Policies are in our FAQ and terms.',
+  'Refunds over 100 EUR need a person. Returning customers should not have to repeat themselves.',
+  'Customer data must stay in the EU, and only logged-in customers can see their orders.',
+];
+
+const req = (kind: Requirement['kind'], text: string, quote: string, pillar?: Requirement['pillar']): DemoStep => ({
+  change: { op: 'record_requirement', kind, text, ...(pillar ? { pillar } : {}) },
+  reason: 'Stated by the user',
+  basis: { source: 'user', quote },
+  pauseMs: 500,
+});
 
 const add = (change: Omit<Extract<ChangeBody, { op: 'upsert_component' }>, 'op'>, reason: string): DemoStep => ({
   change: { op: 'upsert_component', ...change },
@@ -20,7 +38,7 @@ const add = (change: Omit<Extract<ChangeBody, { op: 'upsert_component' }>, 'op'>
 });
 
 export const DEMO_SCRIPT: DemoStep[] = [
-  { say: "Let's design your customer support system. I'll build it as we talk, starting with where messages come in." },
+  { say: "Let's design your customer support system. First what it must do and why, then the design." },
   {
     change: {
       op: 'set_brief',
@@ -31,6 +49,17 @@ export const DEMO_SCRIPT: DemoStep[] = [
     reason: 'The brief the user gave',
   },
   { change: { op: 'set_title', title: 'Customer support' }, reason: 'Name the system' },
+  { say: 'Before drawing anything, the specification. I am recording what you told me, each point with your own words as its source.' },
+  req('problem', 'Customers wait two days for an answer', 'wait two days for an answer'),
+  req('outcome', 'Most order questions are answered without a person, around the clock', 'answered without a person'),
+  req('user', 'Customers of the web shop', 'customers of our web shop'),
+  req('scenario', 'A customer asks where an order is, or asks for a refund', 'where is my order'),
+  req('integration', 'Reads the order system and issues refunds through the refund API', 'issues refunds through the refund API'),
+  req('integration', 'Policies come from the FAQ and terms', 'policies are in our FAQ'),
+  req('oversight', 'Refunds over 100 EUR need a person', 'refunds over 100 EUR need a person'),
+  req('nonfunctional', 'Customer data stays in the EU; only logged-in customers see their orders', 'customer data must stay in the EU', 'security'),
+  req('functional', 'Returning customers do not have to repeat themselves', 'should not have to repeat themselves'),
+  { say: 'Reliability, cost, operations and performance are still open; we confirm them in the design specification. Now the design, starting with where messages come in.' },
   add({ kind: 'trigger', name: 'Customer message', source: 'chat', description: 'Chat and web form' }, 'Where work enters'),
   { say: 'Specialists need the right tools. One looks up orders, one issues refunds, and policy answers come from your own documents.' },
   add({ kind: 'tool', name: 'Order lookup', toolType: 'openapi', description: 'Reads the order system' }, 'Order data'),

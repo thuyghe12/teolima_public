@@ -5,9 +5,10 @@
  * gets the first unfinished step with every tool result, so it works through
  * the standard in order; the app and, later, the compiler read the same list.
  */
+import { discovery } from './discovery';
 import type { Board, Component } from './schema';
 
-export type StepId = 'brief' | 'shape' | 'pattern' | 'tools' | 'guardrails' | 'approvals' | 'flow' | 'evaluation';
+export type StepId = 'discovery' | 'shape' | 'pattern' | 'tools' | 'guardrails' | 'approvals' | 'flow' | 'evaluation';
 export type StepStatus = 'done' | 'missing' | 'open' | 'later';
 
 export interface Step {
@@ -37,8 +38,15 @@ export function readiness(board: Board): Readiness {
   const steps: Step[] = [];
   const step = (id: StepId, title: string, status: StepStatus, detail: string) => steps.push({ id, title, status, detail });
 
-  step('brief', 'Brief', board.brief.goal ? 'done' : 'missing',
-    board.brief.goal ? 'Goal saved.' : 'Ask for the goal, who uses the system and its limits, then save the brief.');
+  const d = discovery(board);
+  if (!board.brief.goal) {
+    step('discovery', 'Discovery', 'missing', 'Ask what the system must achieve, confirm it back, and save it with set_brief.');
+  } else if (!d.done) {
+    step('discovery', 'Discovery', 'missing', `Ask, one question at a time, and record each answer with record_requirement: ${d.missing.map((t) => t.question).join(' ')}`);
+  } else {
+    step('discovery', 'Discovery', 'done',
+      d.open.length ? `Requirements recorded. Still open, to confirm later: ${d.open.map((t) => t.title.toLowerCase()).join(', ')}.` : 'Requirements recorded for every topic.');
+  }
 
   if (board.shape.kind === 'undecided') {
     step('shape', 'Single agent or several', 'missing',
