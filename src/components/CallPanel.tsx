@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { ChevronDown, ChevronUp, ClipboardPaste, History, Keyboard, Mic, MicOff, Phone, PhoneOff, Send } from 'lucide-react';
 import type { LiveTranscriptItem } from '../types';
 import type { Step } from '../../shared/board/readiness';
-import { BRIEF_LIMITS, BriefDraft, constraintsFromText, normalizeBrief } from '../lib/briefs';
 
 interface CallPanelProps {
   isCallActive: boolean;
@@ -12,13 +11,8 @@ interface CallPanelProps {
   isAiDrawing: boolean;
   statusMessage?: string;
   transcripts: LiveTranscriptItem[];
-  brief: BriefDraft;
-  onBriefChange: (brief: BriefDraft) => void;
-  recentBriefs: BriefDraft[];
   onStartCall: () => void;
   onEndCall: () => void;
-  /** Saves an edited brief during a call. */
-  onSaveBrief: (brief: BriefDraft) => void;
   onToggleMute: () => void;
   onSendText: (text: string) => void;
   onOpenHistory: () => void;
@@ -103,69 +97,9 @@ const field =
   'w-full px-3 py-2 rounded-lg bg-white border border-[#e2e2e6] text-sm text-[#18181c] placeholder:text-[#a1a0a8] focus:outline-none focus:border-[#18181c] transition-colors';
 const quiet = 'p-2 rounded-lg text-[#5a5a62] hover:text-[#18181c] hover:bg-[#f0f0f2] transition-colors disabled:opacity-40';
 
-/** The brief form, used before a call and when editing during one. */
-const BriefFields: React.FC<{ brief: BriefDraft; onChange: (b: BriefDraft) => void; autoFocus?: boolean }> = ({
-  brief,
-  onChange,
-  autoFocus,
-}) => {
-  // Constraints are edited as text so typing a new line is not swallowed.
-  const [constraintsText, setConstraintsText] = useState(brief.constraints.join('\n'));
-  useEffect(() => {
-    if (constraintsFromText(constraintsText).join('\n') !== brief.constraints.join('\n')) {
-      setConstraintsText(brief.constraints.join('\n'));
-    }
-    // only when the brief is replaced from outside (a recent brief, the coach)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brief.constraints.join('\n')]);
-
-  return (
-    <div className="space-y-3">
-      <div>
-        <label htmlFor="brief-goal" className={label}>What should the system do?</label>
-        <textarea
-          id="brief-goal"
-          rows={3}
-          autoFocus={autoFocus}
-          maxLength={BRIEF_LIMITS.goal}
-          value={brief.goal}
-          onChange={(e) => onChange({ ...brief, goal: e.target.value })}
-          placeholder="e.g. Answer order questions and handle refunds safely"
-          className={`${field} resize-none`}
-        />
-      </div>
-      <div>
-        <label htmlFor="brief-audience" className={label}>Who uses it?</label>
-        <input
-          id="brief-audience"
-          maxLength={BRIEF_LIMITS.audience}
-          value={brief.audience}
-          onChange={(e) => onChange({ ...brief, audience: e.target.value })}
-          placeholder="e.g. Customers of a web shop"
-          className={field}
-        />
-      </div>
-      <div>
-        <label htmlFor="brief-constraints" className={label}>Constraints, one per line</label>
-        <textarea
-          id="brief-constraints"
-          rows={2}
-          value={constraintsText}
-          onChange={(e) => {
-            setConstraintsText(e.target.value);
-            onChange({ ...brief, constraints: constraintsFromText(e.target.value) });
-          }}
-          placeholder="e.g. Refunds over 100 EUR need a person"
-          className={`${field} resize-none`}
-        />
-      </div>
-    </div>
-  );
-};
-
 function statusText(p: CallPanelProps): string {
   if (p.isConnecting) return 'Connecting';
-  if (!p.isCallActive) return 'Brief';
+  if (!p.isCallActive) return 'Voice coach';
   if (p.statusMessage?.startsWith('Demo mode')) return 'Demo replay';
   if (p.isAiDrawing) return 'Building';
   if (p.isAiSpeaking) return 'Speaking';
@@ -176,10 +110,8 @@ function statusText(p: CallPanelProps): string {
 const formatDuration = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 export const CallPanel: React.FC<CallPanelProps> = (props) => {
-  const { isCallActive, isConnecting, brief, transcripts } = props;
+  const { isCallActive, isConnecting, transcripts } = props;
   const [collapsed, setCollapsed] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<BriefDraft>(brief);
   const [typing, setTyping] = useState(false);
   const [pasting, setPasting] = useState(false);
   const [showDocument, setShowDocument] = useState(false);
@@ -190,7 +122,6 @@ export const CallPanel: React.FC<CallPanelProps> = (props) => {
   useEffect(() => {
     if (!isCallActive) {
       setSeconds(0);
-      setEditing(false);
       setTyping(false);
       setPasting(false);
       return;
@@ -246,10 +177,9 @@ export const CallPanel: React.FC<CallPanelProps> = (props) => {
 
           {!isCallActive && (
             <>
-              <BriefFields brief={brief} onChange={props.onBriefChange} />
-              {!brief.goal.trim() && (
-                <p className="text-xs text-[#87868e]">Without a goal, the coach asks for one before it builds anything.</p>
-              )}
+              <p className="text-sm text-[#5a5a62]">
+                Start a call and talk the case through. The coach writes the functional specification as you speak and draws the system context.
+              </p>
               <div>
                 <button
                   onClick={() => setShowDocument(!showDocument)}
@@ -264,76 +194,17 @@ export const CallPanel: React.FC<CallPanelProps> = (props) => {
                   </div>
                 )}
               </div>
-              {props.recentBriefs.length > 0 && (
-                <div>
-                  <div className={label}>Recent</div>
-                  <ul className="space-y-0.5">
-                    {props.recentBriefs.map((b) => (
-                      <li key={b.goal}>
-                        <button
-                          onClick={() => props.onBriefChange(b)}
-                          title={b.goal}
-                          className="w-full text-left truncate px-2 py-1 -mx-2 rounded-md text-xs text-[#5a5a62] hover:text-[#18181c] hover:bg-[#f0f0f2]"
-                        >
-                          {b.goal}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
             </>
           )}
 
-          {isCallActive && !editing && (
+          {isCallActive && (
             <div className="space-y-2">
-              <div className="flex items-start justify-between gap-3">
-                <p className="text-sm text-[#18181c] line-clamp-2">
-                  {brief.goal || <span className="text-[#87868e]">No brief yet. The coach will ask for the goal.</span>}
-                </p>
-                <button
-                  onClick={() => {
-                    setDraft(brief);
-                    setEditing(true);
-                  }}
-                  className="shrink-0 text-xs text-[#5a5a62] hover:text-[#18181c] underline underline-offset-2"
-                >
-                  {brief.goal ? 'Edit' : 'Write'}
-                </button>
-              </div>
               {latest && (
                 <p className="text-xs text-[#5a5a62] line-clamp-2">
                   <span className="font-medium text-[#18181c]">{latest.speaker === 'ai' ? 'Coach' : 'You'}:</span> {latest.text}
                 </p>
               )}
             </div>
-          )}
-
-          {isCallActive && editing && (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const b = normalizeBrief(draft);
-                if (!b.goal) return;
-                props.onSaveBrief(b);
-                setEditing(false);
-              }}
-              className="space-y-3"
-            >
-              <BriefFields brief={draft} onChange={setDraft} autoFocus />
-              <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => setEditing(false)} className="px-3 py-1.5 rounded-lg text-xs text-[#5a5a62] hover:bg-[#f0f0f2]">
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={!draft.goal.trim()}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#18181c] text-white disabled:opacity-40"
-                >
-                  Save brief
-                </button>
-              </div>
-            </form>
           )}
 
           {isCallActive && pasting && (

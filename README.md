@@ -44,15 +44,14 @@ npm run dev
 
 **A live session**
 
-1. Write the brief in the call panel: the goal, who uses it and any constraint (for example *Answer order questions and handle refunds safely*, *Customers of a web shop*, *Refunds over 100 EUR need a person*). You can also skip this and tell the coach.
-2. Press **Start call** and allow the microphone. Talk the case through as you would with a client. The coach asks one question at a time, records each answer in the stage document with your words as its source, and draws the diagram as you go. To type instead of speaking, use the keyboard icon; to add a meeting transcript or notes, use the paste icon.
-3. When the stage bar shows nothing left to go, review the document (**Document**) and press **Approve**. Only you can approve; the coach then moves to the next stage. Discovery, solution design and technical design each end this way.
-4. After technical design, press **Open the project**, answer the few questions no stage settled (such as each model's version and capacity, for example `gpt-4.1`, `2025-04-14`, `50`) and press **Compile**.
-5. Review the project. `infra/main.parameters.json` shows the design's choices in green; click one to see why it is set, or change it and watch the checks react. **Approve and download** exports the project with `docs/checks.md`.
+1. Press **Start call** and allow the microphone. Talk the case through as you would with a client: what the system must achieve, who uses it, what it connects to. The coach asks one question at a time, records each answer in the stage document with your words as its source, and draws the diagram as you go. To type instead of speaking, use the keyboard icon; to add a meeting transcript or notes, use the paste icon.
+2. The stage's document is open on the left; click a stage in the top bar to see another. When the stage is ready, the **Approve** button at the top right turns green; until then it shows what is left. Only you can approve; the coach then moves to the next stage. Discovery, solution design and technical design each end this way.
+3. After technical design, press **Open the project**, answer the few questions no stage settled (such as each model's version and capacity, for example `gpt-4.1`, `2025-04-14`, `50`) and press **Compile**.
+4. Review the project. `infra/main.parameters.json` shows the design's choices in green; click one to see why it is set, or change it and watch the checks react. **Approve and download** exports the project with `docs/checks.md`.
 
-**Without a key**, **Start call** replays a recorded session through the same path a live session uses, in about a minute and a half, and you continue from step 4.
+**Without a key**, **Start call** replays a recorded session through the same path a live session uses, in about a minute and a half, and you continue from step 3.
 
-From the command line: `npm test` runs the 192 tests, and `npm run compile:example` compiles the demo design to `out/customer-support`.
+From the command line: `npm test` runs the 190 tests, and `npm run compile:example` compiles the demo design to `out/customer-support`.
 
 ## Design decisions
 
