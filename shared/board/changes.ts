@@ -467,6 +467,7 @@ function setScenario(board: Board, body: Extract<ChangeBody, { op: 'set_scenario
     if (!from || !to) {
       return fail(`Step ${n + 1}: "${!from ? st.from : st.to}" is neither a person or system from 3.2 nor a building block on the board.`);
     }
+    if (from === to) return fail(`Step ${n + 1} goes from "${st.from}" to itself. A step is one participant asking or telling another.`);
     steps.push({ from, to, what: st.what });
   }
   let source: SpecItem['source'];

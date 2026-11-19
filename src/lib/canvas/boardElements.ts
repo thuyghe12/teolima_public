@@ -7,19 +7,24 @@
  * (updated in place). Pure, so it can be tested without a browser.
  */
 import type { Layout } from '../../../shared/board/layout';
-import type { Frame } from '../../../shared/board/workspace';
+import type { Frame, Panel } from '../../../shared/board/workspace';
 import type { AgentRoleKind, CanvasElement } from '../../types';
 
 export const BOARD_PREFIX = 'board:';
 
 const base = { strokeColor: '#18181c', strokeWidth: 2, roughness: 1.1, author: 'ai' as const, timestamp: 0 };
 
-export function boardElements(layout: Layout & { frames?: Frame[] }): CanvasElement[] {
+export function boardElements(layout: Layout & { frames?: Frame[]; panels?: Panel[] }): CanvasElement[] {
   const out: CanvasElement[] = [];
 
   // One frame per stage, labelled with the stage, its view and who approved it.
   for (const f of layout.frames ?? []) {
     out.push({ ...base, id: `${BOARD_PREFIX}frame:${f.id}`, type: 'shape', shapeKind: 'boundary', x: f.x, y: f.y, width: f.w, height: f.h, label: f.label, strokeColor: '#c4c4ca', strokeWidth: 1.5 });
+  }
+
+  // Views inside a stage's frame, such as the dynamic view of each runtime scenario.
+  for (const p of layout.panels ?? []) {
+    out.push({ ...base, id: `${BOARD_PREFIX}panel:${p.id}`, type: 'shape', shapeKind: 'boundary', x: p.x, y: p.y, width: p.w, height: p.h, label: p.label, strokeColor: '#d4d4d8', strokeWidth: 1.2 });
   }
 
   if (layout.boundary) {
@@ -69,8 +74,9 @@ export function boardElements(layout: Layout & { frames?: Frame[] }): CanvasElem
       points: e.points,
       label: e.label || undefined,
       lineStyle: e.style,
-      arrowHead: e.kind !== 'uses',
-      strokeColor: e.kind === 'uses' ? '#87868e' : '#18181c',
+      arrowHead: e.kind !== 'uses' && e.kind !== 'lifeline',
+      strokeColor: e.kind === 'uses' ? '#87868e' : e.kind === 'lifeline' ? '#b4b4ba' : '#18181c',
+      ...(e.kind === 'lifeline' ? { strokeWidth: 1.2 } : {}),
     });
   }
 
@@ -114,7 +120,7 @@ export function boardElements(layout: Layout & { frames?: Frame[] }): CanvasElem
 /** Draw order: the boundary at the back, then teams and bands, connectors, cards, then the title and legend. */
 export function boardLayer(id: string): number {
   if (!id.startsWith(BOARD_PREFIX)) return 5;
-  if (id === `${BOARD_PREFIX}boundary` || id.startsWith(`${BOARD_PREFIX}frame:`)) return 0;
+  if (id === `${BOARD_PREFIX}boundary` || id.startsWith(`${BOARD_PREFIX}frame:`) || id.startsWith(`${BOARD_PREFIX}panel:`)) return 0;
   if (id.startsWith(`${BOARD_PREFIX}team:`) || id.startsWith(`${BOARD_PREFIX}band:`)) return 1;
   if (id.startsWith(`${BOARD_PREFIX}edge:`)) return 2;
   if (id.startsWith(`${BOARD_PREFIX}node:`)) return 3;

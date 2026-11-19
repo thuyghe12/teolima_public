@@ -9,7 +9,11 @@
  *                      inside the system boundary (layout.ts), with the same
  *                      people on the left, connected to where their work
  *                      enters, and the same external systems below the
- *                      tools and knowledge that reach them.
+ *                      tools and knowledge that reach them. Below it, one
+ *                      dynamic view per runtime scenario (arc42 section 6),
+ *                      drawn as a sequence: the participants in a row in
+ *                      the order they first take part, a lifeline under
+ *                      each, and the numbered steps from top to bottom.
  *
  * Each stage's frame appears once the stage is reached, so the board grows
  * downwards as the session moves on and an approved stage stays readable
@@ -20,7 +24,9 @@ import type { Board, StageId } from './schema';
 import { stageOf } from './stages';
 
 export type Frame = Box & { id: StageId; label: string };
-export type Workspace = Layout & { frames: Frame[] };
+/** A view inside a stage's frame, such as one dynamic view per runtime scenario. */
+export type Panel = Box & { id: string; label: string };
+export type Workspace = Layout & { frames: Frame[]; panels: Panel[] };
 
 const ORIGIN = { x: 80, y: 150 } as const;
 const FRAME = { pad: 40, header: 56, gap: 96 } as const;
@@ -35,6 +41,48 @@ function frameLabel(board: Board, id: StageId, view: string): string {
   return `${s.n} · ${s.title.toUpperCase()} · ${view}${approval ? ` · APPROVED BY ${approval.by.toUpperCase()}` : ''}`;
 }
 
+
+// Dynamic views: participant cards, the space between lifelines, the height of one step.
+const SEQ = { w: 190, h: 72, col: 270, step: 58, pad: 32, header: 40 } as const;
+
+/** What to draw for a scenario participant: a person or system from 3.2, a building block or a team. */
+function participant(board: Board, id: string): Pick<LayoutNode, 'kind' | 'role' | 'title' | 'subtitle'> {
+  const item = board.spec.items.find((i) => i.id === id);
+  if (item) return item.type === 'person' ? { kind: 'actor', role: 'actor', title: fit(item.name ?? item.text, 40), subtitle: '' } : { kind: 'external', role: 'external', title: fit(item.name ?? item.text, 40), subtitle: '' };
+  const c = board.components.find((x) => x.id === id);
+  if (c) return { kind: c.kind, role: c.kind, title: fit(c.name, 40), subtitle: '' };
+  const t = board.teams.find((x) => x.id === id);
+  return { kind: 'system', role: 'system', title: fit(t?.name ?? id, 40), subtitle: t ? `${t.pattern.replace('_', ' ')} team` : '' };
+}
+
+/** One runtime scenario as a C4 dynamic view, drawn as a sequence. Its top-left corner is (x0, y0). */
+function dynamicView(board: Board, sc: Board['spec']['scenarios'][number], index: number, x0: number, y0: number): { panel: Panel; nodes: LayoutNode[]; edges: LayoutEdge[] } {
+  const order: string[] = [];
+  for (const st of sc.steps) for (const id of [st.from, st.to]) if (!order.includes(id)) order.push(id);
+  const known = (id: string) => board.spec.items.some((i) => i.id === id) || board.components.some((c) => c.id === id) || board.teams.some((t) => t.id === id);
+  const ids = order.filter(known);
+  const cardsY = y0 + SEQ.header;
+  const nodes: LayoutNode[] = ids.map((id, i) => ({ id: `dyn-${sc.id}-${id}`, ...participant(board, id), x: x0 + SEQ.pad + i * SEQ.col, y: cardsY, w: SEQ.w, h: SEQ.h }));
+  const lifeX = new Map(ids.map((id, i) => [id, nodes[i].x + SEQ.w / 2]));
+  const firstStep = cardsY + SEQ.h + SEQ.step * 0.75;
+  const bottom = firstStep + Math.max(0, sc.steps.length - 1) * SEQ.step + SEQ.step * 0.6;
+  const edges: LayoutEdge[] = nodes.map((n, i) => ({
+    id: `dyn:${sc.id}|${ids[i]}`,
+    points: [{ x: n.x + SEQ.w / 2, y: n.y + n.h }, { x: n.x + SEQ.w / 2, y: bottom }],
+    label: '',
+    style: 'dotted',
+    kind: 'lifeline',
+  }));
+  sc.steps.forEach((st, n) => {
+    const a = lifeX.get(st.from);
+    const b = lifeX.get(st.to);
+    if (a === undefined || b === undefined || a === b) return;
+    const yy = firstStep + n * SEQ.step;
+    edges.push({ id: `dyn:${sc.id}#${n + 1}`, points: [{ x: a, y: yy }, { x: b, y: yy }], label: fit(`${n + 1}. ${st.what}`, 38), style: 'solid', kind: 'flow' });
+  });
+  const w = Math.max(ids.length, 1) * SEQ.col - (SEQ.col - SEQ.w) + 2 * SEQ.pad;
+  return { panel: { id: `dyn-${sc.id}`, label: `DYNAMIC VIEW · 6.${index + 1} ${sc.title.toUpperCase()}`, x: x0, y: y0, w, h: bottom - y0 + SEQ.pad / 2 }, nodes, edges };
+}
 
 /** An orthogonal route from the right of a to the left of b, turning at turnX. */
 function route(a: Box, b: Box, turnX: number): Point[] {
@@ -106,6 +154,7 @@ export function layoutWorkspace(board: Board): Workspace {
     edges: [],
     legend: null,
     frames: [],
+    panels: [],
     bounds: { x: ORIGIN.x, y: ORIGIN.y, w: CARD.w, h: CARD.h },
   };
   const stageN = stageOf(board.stage.current).n;
@@ -197,9 +246,22 @@ export function layoutWorkspace(board: Board): Workspace {
     }
 
     out.legend = design.legend ? { ...design.legend, x: design.legend.x + dx, y: (taken.length ? sysY + CARD.h : design.legend.y + dy) + (taken.length ? 48 : 0) } : null;
+    // The dynamic views, one per scenario in the order of the user flows, below the container view.
+    const containerBottom = Math.max(...out.nodes.filter((n) => !n.id.startsWith('ctx-')).map((n) => n.y + n.h), out.boundary ? out.boundary.y + out.boundary.h : 0, out.legend ? out.legend.y + out.legend.h : 0);
+    let panelY = containerBottom + FRAME.gap;
+    const flows = board.spec.items.filter((i) => i.type === 'flow').map((i) => i.id);
+    const scenarios = [...board.spec.scenarios].sort((a, b) => flows.indexOf(a.flow) - flows.indexOf(b.flow));
+    scenarios.forEach((sc, i) => {
+      const v = dynamicView(board, sc, flows.indexOf(sc.flow) >= 0 ? flows.indexOf(sc.flow) : i, ORIGIN.x + FRAME.pad, panelY);
+      out.panels.push(v.panel);
+      out.nodes.push(...v.nodes);
+      out.edges.push(...v.edges);
+      panelY += v.panel.h + FRAME.gap / 2;
+    });
+
     const contentNodes = out.nodes.filter((n) => !n.id.startsWith('ctx-'));
-    const right = Math.max(...contentNodes.map((n) => n.x + n.w), ...out.teams.map((t) => t.x + t.w), out.boundary ? out.boundary.x + out.boundary.w : 0, out.legend ? out.legend.x + out.legend.w : 0);
-    const bottom = Math.max(...contentNodes.map((n) => n.y + n.h), out.boundary ? out.boundary.y + out.boundary.h : 0, out.legend ? out.legend.y + out.legend.h : 0);
+    const right = Math.max(...contentNodes.map((n) => n.x + n.w), ...out.teams.map((t) => t.x + t.w), ...out.panels.map((p) => p.x + p.w), out.boundary ? out.boundary.x + out.boundary.w : 0, out.legend ? out.legend.x + out.legend.w : 0);
+    const bottom = Math.max(containerBottom, ...out.panels.map((p) => p.y + p.h));
     out.frames.push({
       id: 'solution',
       label: frameLabel(board, 'solution', 'CONTAINERS'),
@@ -210,7 +272,7 @@ export function layoutWorkspace(board: Board): Workspace {
     });
   }
 
-  const all: Box[] = [...out.frames, ...out.nodes, ...out.teams, ...out.bands, ...(out.legend ? [out.legend] : [])];
+  const all: Box[] = [...out.frames, ...out.panels, ...out.nodes, ...out.teams, ...out.bands, ...(out.legend ? [out.legend] : [])];
   if (all.length) {
     const minX = Math.min(...all.map((b) => b.x));
     const minY = Math.min(...all.map((b) => b.y));

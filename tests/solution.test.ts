@@ -119,3 +119,44 @@ test('the container view keeps the context: people on the left of the entry poin
   const frame = w.frames.find((f) => f.id === 'solution')!;
   assert.match(frame.label, /^2 · SOLUTION DESIGN · CONTAINERS/);
 });
+
+test('a scenario step goes from one participant to another', () => {
+  refused(designed(), ch({ op: 'set_scenario', flow: 'flow-1', title: 'x', steps: [{ from: 'Triage', to: 'Triage', what: 'thinks' }] }, 'coach', said), /to itself/);
+});
+
+test('each runtime scenario draws as a dynamic view: participants in order of appearance, lifelines, numbered steps top to bottom', async () => {
+  const { layoutWorkspace } = await import('../shared/board/workspace');
+  const { assertClean, inside } = await import('./helpers/layout');
+  const b = designed();
+  const sc = b.spec.scenarios[0];
+  const w = layoutWorkspace(b);
+  assertClean(w);
+  const panel = w.panels.find((p) => p.id === `dyn-${sc.id}`)!;
+  assert.match(panel.label, /^DYNAMIC VIEW · 6\.1 /);
+  const frame = w.frames.find((f) => f.id === 'solution')!;
+  assert.ok(inside(panel, frame), 'the dynamic view sits inside the solution design frame');
+  const boundary = w.boundary!;
+  assert.ok(panel.y > boundary.y + boundary.h, 'below the container view');
+
+  const cards = w.nodes.filter((n) => n.id.startsWith(`dyn-${sc.id}-`));
+  const firstSeen = [...new Set(sc.steps.flatMap((s) => [s.from, s.to]))];
+  assert.deepEqual(cards.map((c) => c.id.slice(`dyn-${sc.id}-`.length)), firstSeen);
+  for (let i = 1; i < cards.length; i++) assert.ok(cards[i].x > cards[i - 1].x + cards[i - 1].w, 'in a row, left to right');
+  for (const c of cards) assert.ok(inside(c, panel));
+
+  const lifelines = w.edges.filter((e) => e.kind === 'lifeline' && e.id.startsWith(`dyn:${sc.id}|`));
+  assert.equal(lifelines.length, cards.length);
+  const steps = w.edges.filter((e) => e.id.startsWith(`dyn:${sc.id}#`));
+  assert.equal(steps.length, sc.steps.length);
+  steps.forEach((e, n) => {
+    assert.ok(e.label.startsWith(`${n + 1}. `));
+    assert.equal(e.points[0].y, e.points[1].y, 'a step is horizontal');
+    if (n) assert.ok(e.points[0].y > steps[n - 1].points[0].y, 'steps go down in order');
+  });
+});
+
+test('the dynamic view follows the scenario: removing it removes the view', async () => {
+  const { layoutWorkspace } = await import('../shared/board/workspace');
+  const b = apply(designed(), ch({ op: 'remove_scenario', ref: designed().spec.scenarios[0].id }));
+  assert.equal(layoutWorkspace(b).panels.length, 0);
+});

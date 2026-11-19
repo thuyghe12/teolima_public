@@ -38,7 +38,7 @@ export type LayoutEdge = {
   points: Point[];
   label: string;
   style: 'solid' | 'dashed' | 'dotted';
-  kind: 'flow' | 'pattern' | 'uses' | 'approval';
+  kind: 'flow' | 'pattern' | 'uses' | 'approval' | 'lifeline';
 };
 /** A guardrail, drawn as a band across the system it protects. */
 export type LayoutBand = Box & { id: string; title: string; subtitle: string };
