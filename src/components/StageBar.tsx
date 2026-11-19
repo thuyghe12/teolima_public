@@ -10,6 +10,8 @@ interface StageBarProps {
   requirementCount: number;
   specOpen: boolean;
   onToggleSpec: () => void;
+  /** Opens the compiled project, once technical design is approved. */
+  onOpenProject: () => void;
 }
 
 const formatTime = (iso: string) => new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -19,7 +21,7 @@ const formatTime = (iso: string) => new Date(iso).toLocaleString(undefined, { da
  * the current one is for, and the gate to the next. Approving is always a
  * person's click; the coach can only ask for it.
  */
-export const StageBar: React.FC<StageBarProps> = ({ board, onApprove, onReopen, requirementCount, specOpen, onToggleSpec }) => {
+export const StageBar: React.FC<StageBarProps> = ({ board, onApprove, onReopen, requirementCount, specOpen, onToggleSpec, onOpenProject }) => {
   const stage = stageOf(board.stage.current);
   const g = gate(board, stage.id);
   const [approving, setApproving] = useState(false);
@@ -94,14 +96,19 @@ export const StageBar: React.FC<StageBarProps> = ({ board, onApprove, onReopen, 
         >
           Document · {requirementCount}
         </button>
-        {g.ready && !approving && (
+        {stage.id === 'compile' && (
+          <button onClick={onOpenProject} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#18181c] text-white hover:bg-black">
+            Open the project
+          </button>
+        )}
+        {stage.id !== 'compile' && g.ready && !approving && (
           <button onClick={() => setApproving(true)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#18181c] text-white hover:bg-black">
             Approve {stage.title.toLowerCase()}
           </button>
         )}
-        {!g.ready && (
+        {stage.id !== 'compile' && !g.ready && (
           <span className="text-xs text-[#87868e] text-right truncate" title={g.missing.join(', ')}>
-            {stage.n > 2 ? 'Coming next' : `${g.missing.length} to go`}
+            {g.missing.length} to go
           </span>
         )}
       </div>

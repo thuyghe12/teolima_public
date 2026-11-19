@@ -14,6 +14,7 @@ import { StarterPrompts } from './components/StarterPrompts';
 import { CanvasToolbar } from './components/CanvasToolbar';
 import { CallPanel, type DocumentDraft } from './components/CallPanel';
 import { StageDocument } from './components/StageDocument';
+import { CompileStudio } from './components/CompileStudio';
 import type { ChangeBody } from '../shared/board/changes';
 import { sectionsOf } from '../shared/board/arc42';
 import { stageDocument } from '../shared/board/spec-document';
@@ -69,6 +70,7 @@ export default function App() {
   const [pastedDoc, setPastedDoc] = useState<DocumentDraft>({ title: '', text: '' });
   const [documents, setDocuments] = useState<Record<string, string>>({});
   const [specOpen, setSpecOpen] = useState(false);
+  const [projectOpen, setProjectOpen] = useState(false);
   /** The stage document shown in the panel; null follows the current stage. */
   const [docStage, setDocStage] = useState<StageId | null>(null);
   const specOpenRef = useRef(false);
@@ -502,6 +504,7 @@ export default function App() {
           onReopen={(stage) => changeStage({ op: 'reopen_stage', stage })}
           requirementCount={stageDocument(board, documentStage(board)).reduce((n, s) => n + s.items.length, 0) + (documentStage(board) === 'solution' ? board.spec.scenarios.length : 0)}
           specOpen={specOpen}
+          onOpenProject={() => setProjectOpen(true)}
           onToggleSpec={() => {
             setDocStage(null);
             setSpecOpen(!specOpen);
@@ -527,6 +530,8 @@ export default function App() {
           />
         );
       })()}
+
+      {projectOpen && board && board.stage.current === 'compile' && <CompileStudio board={board} onClose={() => setProjectOpen(false)} />}
 
       {/* Session History & Review Modal */}
       <SessionHistoryModal

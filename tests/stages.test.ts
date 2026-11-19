@@ -65,7 +65,7 @@ test('solution design is ready for approval when its steps are done, and opens t
   const r = applyChange(b, ch({ op: 'approve_stage', stage: 'solution', by: 'Lead architect' }, 'user'));
   assert.ok(r.ok && r.board.stage.current === 'technical');
   assert.equal(gate(r.board, 'technical').ready, false);
-  assert.deepEqual(gate(r.board, 'compile'), { ready: false, missing: ['this stage is not built yet'] });
+  assert.deepEqual(gate(r.board, 'compile'), { ready: false, missing: ['the export checks and approval, in the project view'] });
   const wrong = applyChange(b, ch({ op: 'approve_stage', stage: 'technical', by: 'x' }, 'user'));
   assert.ok('error' in wrong && /only it can be approved/.test(wrong.error));
 });

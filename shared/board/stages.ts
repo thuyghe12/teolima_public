@@ -100,7 +100,7 @@ export function gate(board: Board, id: StageId): { ready: boolean; missing: stri
     const missing = technicalGaps(board);
     return { ready: missing.length === 0, missing };
   }
-  return { ready: false, missing: ['this stage is not built yet'] };
+  return { ready: false, missing: ['the export checks and approval, in the project view'] };
 }
 
 /**
