@@ -78,9 +78,13 @@ Four decisions are recorded before the stage can be approved, each linked to its
 | Orchestration pattern | Which pattern, and why not a simpler one? Only when there are several agents | Orchestration patterns, "Choose a pattern" (step 4 below) |
 | Agent hosting | Prompt agents run by Foundry Agent Service, or hosted agents with custom code? | Baseline, "Alternatives" |
 
+Each runtime scenario is drawn as a C4 dynamic view, below the container view: the participants in a row in the order they first take part, a lifeline under each, and the numbered steps from top to bottom, as a sequence diagram (Diagrams, "Sequence diagram").
+
 The container view draws the specification's people and external systems around the system boundary: each person on the left, connected to the entry point that serves them, and each external system below the tool or knowledge source that reaches it (C4, container diagram; Diagrams, "High-level system or container diagram").
 
 **Enforced:** every building block names the specification items it serves, and the change log refuses an id that does not exist. The gate for approval (`traceability` in `shared/board/stages.ts`) requires a runtime scenario for every user flow; an approval, or a decision, for every oversight rule; a tool or knowledge source for every external system in 3.2; something served by every agent; no scenario step or served id that points at something removed; and the four decision records. A decision's name is the option chosen and must be one of the options weighed. A quality approach names the 1.2 goal it meets. The document lists what is still open, and the coach receives the same list in every tool result.
+
+**Tested against Microsoft:** `tests/reference.test.ts` specifies Microsoft's [multiple-agent workflow automation](https://learn.microsoft.com/azure/architecture/ai-ml/idea/multiple-agent-workflow-automation) solution idea from its published page, for the page's own use case, legacy SQL query translation. Every line quotes the page, checked against the snapshot, except the approval rule and the measurable target the page leaves to the client. The stages must reach an approvable solution design with Microsoft's decisions: Microsoft Foundry with GPT-4.1, four specialised agents in a sequential team, hosted agents in custom Agent Framework code, and Azure Cosmos DB for plans and history. The first run found a rule stricter than the guidance: agents with no tools of their own were blocked, although the reference has two (step 5).
 
 ### 3. One agent or several
 
@@ -108,7 +112,7 @@ Route deterministically where the right agent can be picked from the input, and 
 
 Design agents and their orchestrators to follow the principle of least privilege, and trim what every agent returns to what the user may see (Orchestration patterns, "Security").
 
-**Enforced:** an agent can only reference tools and knowledge that are on the board. Readiness reports agents with neither and tools or knowledge no agent uses.
+**Enforced:** an agent can only reference tools and knowledge that are on the board, and every external system in the business context needs a tool or knowledge source that reaches it (step 2). Readiness keeps the step open while a tool, knowledge source or memory is used by no agent. An agent with neither works from the model and its input, such as the previous agent's output in a sequential team, as in Microsoft's multiple-agent workflow automation; readiness notes it without blocking.
 
 ### 6. Guardrails
 
