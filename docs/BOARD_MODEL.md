@@ -2,11 +2,11 @@
 
 The board is a typed document (`shared/board/schema.ts`). Every element maps onto something the compiler will emit for Microsoft Agent Framework and Foundry, so a design that is valid on the board is never ambiguous at compile time. The board holds no coordinates; layout is computed from it.
 
-## The brief and the functional specification
+## The brief and the stage documents
 
-Every board carries a brief: the goal, who uses the system, and the constraints the user stated. It also carries the functional specification (`spec`): requirements of nine kinds (problem, outcome, user, scenario, functional, oversight, nonfunctional, constraint, integration), each in one plain sentence, nonfunctional requirements and constraints with their Well-Architected pillar, and each with its source quoted: the brief, the user's words in the session, or a pasted document by id. Requirement ids are stable per kind (`scenario-2`).
+Every board carries a brief (the goal, who uses the system, the constraints the user stated) and the stage documents (`spec`): items in arc42 sections (`shared/board/arc42.ts`), plus sections the user added. An item has a section, a type that section accepts, one plain sentence, and where needed a short name (a role, a system), a quality attribute or a constraint category. Its source is the brief, the user's words in the session or a pasted document, each quoted, or typed by the user in the app. Item ids are stable per type (`flow-2`, `in-scope-1`).
 
-The change log refuses every design change while the goal is empty or a required discovery topic is uncovered (`shared/board/discovery.ts`), so nothing is designed before the purpose and the requirements are known, and every element can be traced back to a stated requirement. Clearing the board keeps the brief and the specification. See [DESIGN_STANDARD.md](DESIGN_STANDARD.md), step 1.
+Stage 1 owns arc42 sections 1.1 to 3.2. Its business context (3.2) draws the C4 system context diagram. Design is refused until the user approves discovery, and an approved stage's sections are frozen until it is reopened. Clearing the board keeps the brief and the documents. See [DESIGN_STANDARD.md](DESIGN_STANDARD.md), step 1, and [ADR 0008](adr/0008-arc42-and-c4.md).
 
 ## Stages
 
@@ -59,10 +59,10 @@ Orchestrations support human-in-the-loop through tool approval and request info 
 
 Nothing edits the board directly. Every edit is a change (`shared/board/changes.ts`) with:
 
-- **body:** one of `set_brief`, `record_requirement`, `remove_requirement`, `approve_stage`, `reopen_stage`, `set_shape`, `set_title`, `clear`, `upsert_component`, `remove_component`, `upsert_team`, `remove_team`, `connect`, `disconnect`
+- **body:** one of `set_brief`, `record_item`, `remove_item`, `add_section`, `rename_section`, `remove_section`, `approve_stage`, `reopen_stage`, `set_shape`, `set_title`, `clear`, `upsert_component`, `remove_component`, `upsert_team`, `remove_team`, `connect`, `disconnect`
 - **actor:** `coach`, `user`, or a named worker (`worker:<name>`)
 - **reason:** why, in a sentence
-- **basis:** for requirements and for coach changes that add to the design, what it rests on: `brief`, `user` or `document` (with the document id), and the exact words quoted. The guard checks the quote before the change is applied (`server/guard/provenance.ts`); a requirement without a basis is refused by the change log itself
+- **basis:** for document items and coach changes that add to the design, what it rests on: `brief`, `user` or `document` (with the document id), and the exact words quoted. The guard checks the quote before the change is applied (`server/guard/provenance.ts`); an item from the coach without a basis is refused by the change log itself; an item from the user without one is recorded as typed by the user
 - **at:** a timestamp
 
 `applyChange` returns the next board or refuses with a reason the caller can act on; a refused change leaves the board untouched. The same list of changes always replays to the same board, which is what lets the change log become git commits later (ADR 0001).

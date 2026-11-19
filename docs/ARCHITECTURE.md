@@ -96,7 +96,7 @@ Rules in the prompt are a request; the guard (`server/guard/`) enforces them in 
 | Input: typed message | Prompt Shields, before the model sees it | Not sent to the model |
 | Input: speech | Live API input transcription, each finished turn screened | Notice to the model and the user; screened after the model heard it |
 | Input: pasted document | Prompt Shields document analysis, before the model sees it; kept with an id for provenance | Not added; the user is told why |
-| Pre-tool: requirement or building change | Provenance: `basis_source` and `basis_quote` must be found in the brief, the user's transcribed words or the named pasted document; then the typed change log, which also refuses design before discovery is done | Refused with a reason the coach can act on |
+| Pre-tool: document item or building change | Provenance: `basis_source` and `basis_quote` must be found in the brief, the user's transcribed words or the named pasted document; then the typed change log, which also refuses design before discovery is done | Refused with a reason the coach can act on |
 | Pre-tool: drawing call | Tool allowlist and argument validation | Refused |
 | Post-tool: documentation | Only Microsoft Learn links kept; Prompt Shields document analysis | Withheld, also when it cannot be screened |
 | Output: speech | Output transcription checked for reciting the instructions | Notice to the model |
