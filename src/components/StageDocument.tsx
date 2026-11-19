@@ -2,14 +2,17 @@ import React, { useMemo, useRef, useState } from 'react';
 import { Check, ChevronRight, Copy, Download, FileText, Lock, Mic, PenLine, Plus, Trash2, Type as TypeIcon, X } from 'lucide-react';
 import type { ChangeBody } from '../../shared/board/changes';
 import type { Board, SpecItem, StageId } from '../../shared/board/schema';
-import { CHAPTERS, CONSTRAINT_CATEGORIES, QUALITY_ATTRIBUTES, type ItemType } from '../../shared/board/arc42';
+import { CHAPTERS, CONSTRAINT_CATEGORIES, DECISION_TOPICS, QUALITY_ATTRIBUTES, type ItemType } from '../../shared/board/arc42';
 import { discovery } from '../../shared/board/discovery';
-import { itemLabel, sourceLabel, stageDocument, stageMarkdown, type DocSection } from '../../shared/board/spec-document';
-import { stageOf } from '../../shared/board/stages';
+import { itemLabel, itemName, itemRef, KIND_LABELS, scenarioSteps, servedBy, sourceLabel, stageDocument, stageMarkdown, traceTargets, type DocSection } from '../../shared/board/spec-document';
+import { stageOf, traceability } from '../../shared/board/stages';
 
 interface StageDocumentProps {
   board: Board;
   stage: StageId;
+  /** The stages reached so far that have a document, for the tabs. */
+  stages: StageId[];
+  onSelectStage: (stage: StageId) => void;
   /** Titles of pasted documents, by id. */
   documents: Record<string, string>;
   /** Sends a change as the user's; undefined when the document cannot be edited right now. */
@@ -30,11 +33,11 @@ const field = 'bg-transparent text-sm text-[#18181c] placeholder:text-[#b4b4ba] 
 const input = `w-full ${field}`;
 
 /** One line: its label, its text (click to edit), and on hover its source and a delete button. */
-const Row: React.FC<{ section: DocSection; item: SpecItem; documents: Record<string, string>; onEdit?: (b: ChangeBody) => void }> = ({ section, item, documents, onEdit }) => {
+const Row: React.FC<{ board: Board; section: DocSection; item: SpecItem; documents: Record<string, string>; onEdit?: (b: ChangeBody) => void }> = ({ board, section, item, documents, onEdit }) => {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(item.text);
   const [showSource, setShowSource] = useState(false);
-  const label = itemLabel(section, item);
+  const label = item.topic ? DECISION_TOPICS[item.topic].label : itemLabel(section, item);
   const save = () => {
     setEditing(false);
     const t = text.trim();
@@ -72,6 +75,23 @@ const Row: React.FC<{ section: DocSection; item: SpecItem; documents: Record<str
               {item.text}
             </span>
           )}
+          {item.type === 'quality_approach' && !!item.serves?.length && (
+            <p className="mt-0.5 text-xs text-[#87868e]">Meets {item.serves.map((id) => itemName(board, id)).join(' · ')}</p>
+          )}
+          {item.type === 'decision' && (
+            <div className="mt-1 space-y-1">
+              {!!item.options?.length && (
+                <div className="flex flex-wrap gap-1" aria-label="Options considered">
+                  {item.options.map((o) => (
+                    <span key={o} className={`text-[11px] px-1.5 py-0.5 rounded ${o.toLowerCase() === item.name?.toLowerCase() ? 'bg-[#18181c] text-white' : 'bg-[#f0f0f2] text-[#5a5a62]'}`}>
+                      {o}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {item.consequences && <p className="text-xs text-[#5a5a62]">{item.consequences}</p>}
+            </div>
+          )}
           {showSource && (
             <p className="mt-1 text-xs text-[#87868e]">
               {item.source.quote ? `"${item.source.quote}" · ` : ''}
@@ -95,15 +115,24 @@ const Row: React.FC<{ section: DocSection; item: SpecItem; documents: Record<str
 };
 
 /** The inline composer: choose the type if the section has several, then name, attribute or category if it needs one, then the text. */
-const Composer: React.FC<{ section: DocSection; onAdd: (b: ChangeBody) => void; onDone: () => void }> = ({ section, onAdd, onDone }) => {
+const Composer: React.FC<{ board: Board; section: DocSection; onAdd: (b: ChangeBody) => void; onDone: () => void }> = ({ board, section, onAdd, onDone }) => {
   const types = section.custom ? [NOTE] : section.def!.types;
   const [type, setType] = useState(types[0]);
   const [name, setName] = useState('');
   const [text, setText] = useState('');
   const [attribute, setAttribute] = useState<keyof typeof QUALITY_ATTRIBUTES>('reliability');
   const [category, setCategory] = useState<keyof typeof CONSTRAINT_CATEGORIES>('regulatory');
+  const qualityGoals = board.spec.items.filter((i) => i.section === '1.2');
+  const [goal, setGoal] = useState(qualityGoals[0]?.id ?? '');
+  const [topic, setTopic] = useState<keyof typeof DECISION_TOPICS>('platform');
+  const [others, setOthers] = useState('');
+  const [consequences, setConsequences] = useState('');
   const textRef = useRef<HTMLInputElement>(null);
-  const ready = text.trim() && (!type.named || name.trim());
+  const ready = text.trim() && (!type.named || name.trim()) && (type.id !== 'quality_approach' || goal);
+  const options = () => {
+    const rest = others.split(',').map((o) => o.trim()).filter((o) => o && o.toLowerCase() !== name.trim().toLowerCase());
+    return rest.length ? [name.trim(), ...rest] : undefined;
+  };
   const submit = () => {
     if (!ready) return;
     onAdd({
@@ -114,9 +143,13 @@ const Composer: React.FC<{ section: DocSection; onAdd: (b: ChangeBody) => void; 
       ...(type.named ? { name: name.trim() } : {}),
       ...(type.id === 'quality' ? { attribute } : {}),
       ...(type.id === 'constraint' ? { category } : {}),
+      ...(type.id === 'quality_approach' ? { serves: [goal] } : {}),
+      ...(type.id === 'decision' ? { topic, options: options(), ...(consequences.trim() ? { consequences: consequences.trim() } : {}) } : {}),
     });
     setText('');
     setName('');
+    setOthers('');
+    setConsequences('');
     textRef.current?.focus();
   };
   const select = 'text-xs bg-[#f0f0f2] rounded-md px-1.5 py-1 text-[#18181c] focus:outline-none';
@@ -152,8 +185,31 @@ const Composer: React.FC<{ section: DocSection; onAdd: (b: ChangeBody) => void; 
             ))}
           </select>
         )}
+        {type.id === 'quality_approach' && (
+          <select value={goal} onChange={(e) => setGoal(e.target.value)} className={`${select} max-w-36`} aria-label="Quality goal">
+            {qualityGoals.length === 0 && <option value="">No quality goals in 1.2</option>}
+            {qualityGoals.map((q) => (
+              <option key={q.id} value={q.id}>{q.text}</option>
+            ))}
+          </select>
+        )}
+        {type.id === 'decision' && (
+          <select value={topic} onChange={(e) => setTopic(e.target.value as never)} className={select} aria-label="Decision topic">
+            {Object.entries(DECISION_TOPICS).map(([k, v]) => (
+              <option key={k} value={k}>{v.label}</option>
+            ))}
+          </select>
+        )}
         {type.named && (
-          <input autoFocus value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder="Name" className={`${field} w-28 shrink-0 font-medium`} aria-label="Name" />
+          <input
+            autoFocus
+            value={name}
+            maxLength={40}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={type.id === 'decision' ? 'Chosen option' : 'Name'}
+            className={`${field} w-28 shrink-0 font-medium`}
+            aria-label={type.id === 'decision' ? 'Chosen option' : 'Name'}
+          />
         )}
         <input
           ref={textRef}
@@ -170,10 +226,91 @@ const Composer: React.FC<{ section: DocSection; onAdd: (b: ChangeBody) => void; 
           aria-label="Text"
         />
       </div>
+      {type.id === 'decision' && (
+        <div className="space-y-1.5">
+          <input value={others} maxLength={200} onChange={(e) => setOthers(e.target.value)} placeholder="Other options weighed, separated by commas" className={input} aria-label="Other options" />
+          <input value={consequences} maxLength={300} onChange={(e) => setConsequences(e.target.value)} placeholder="Consequences, good and bad" className={input} aria-label="Consequences" />
+        </div>
+      )}
       <div className="flex justify-end gap-1">
         <button onClick={onDone} className="text-xs px-2 py-1 rounded-md text-[#5a5a62] hover:bg-white">Done</button>
         <button onClick={submit} disabled={!ready} className="text-xs px-2 py-1 rounded-md bg-[#18181c] text-white disabled:opacity-30">Add</button>
       </div>
+    </div>
+  );
+};
+
+/** arc42 5: the building blocks on the board with what they serve, and the coverage of every flow, rule and external system. */
+const BuildingBlocks: React.FC<{ board: Board }> = ({ board }) => {
+  const targets = traceTargets(board);
+  if (!board.components.length) return <p className="mt-1 text-xs text-[#a1a0a8]">The blocks appear here as they are drawn on the board.</p>;
+  return (
+    <div className="mt-1 space-y-3">
+      <ul>
+        {board.components.map((c) => (
+          <li key={c.id} className="flex items-start gap-3 py-1">
+            <span className="w-24 shrink-0 pt-0.5 text-[11px] uppercase tracking-wide text-[#87868e]">{KIND_LABELS[c.kind]}</span>
+            <div className="flex-1 min-w-0 text-sm leading-snug">
+              <span className="font-medium mr-1.5">{c.name}</span>
+              <span className="text-[#5a5a62]">{c.description}</span>
+              {!!c.serves.length && <p className="text-xs text-[#87868e]">Serves {c.serves.map((id) => itemName(board, id)).join(' · ')}</p>}
+            </div>
+          </li>
+        ))}
+      </ul>
+      {!!targets.length && (
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-[#a1a0a8] mb-1">Traceability</p>
+          <ul className="space-y-0.5">
+            {targets.map((t) => {
+              const by = servedBy(board, t.id);
+              return (
+                <li key={t.id} className="text-xs flex gap-2">
+                  <span className={by.length ? 'text-[#18181c]' : 'text-[#b91c1c]'}>{by.length ? '✓' : '○'}</span>
+                  <span className="flex-1 min-w-0">
+                    {itemRef(board, t.id)}
+                    <span className="text-[#87868e]"> · {by.length ? by.join(', ') : 'not covered'}</span>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/** arc42 6: the runtime scenario of each user flow, numbered. */
+const Runtime: React.FC<{ board: Board; onEdit?: (b: ChangeBody) => void }> = ({ board, onEdit }) => {
+  const flows = board.spec.items.filter((i) => i.type === 'flow');
+  return (
+    <div className="mt-1 space-y-3">
+      {flows.map((f) => {
+        const sc = board.spec.scenarios.find((x) => x.flow === f.id);
+        return (
+          <div key={f.id} className="group">
+            <div className="flex items-center gap-2">
+              <p className="flex-1 text-sm font-medium">{sc ? sc.title : f.text}</p>
+              {sc && onEdit && (
+                <button onClick={() => onEdit({ op: 'remove_scenario', ref: sc.id })} className="p-0.5 text-[#b4b4ba] opacity-0 group-hover:opacity-100 hover:text-[#b91c1c]" aria-label="Delete scenario">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-[#87868e]">Realises {itemRef(board, f.id)}</p>
+            {sc ? (
+              <ol className="mt-1 space-y-0.5">
+                {scenarioSteps(board, sc).map((line) => (
+                  <li key={line} className="text-xs text-[#18181c] tabular-nums">{line}</li>
+                ))}
+              </ol>
+            ) : (
+              <p className="mt-1 text-xs text-[#b91c1c]">No scenario yet. Ask the coach to walk through this flow.</p>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -210,7 +347,7 @@ const SectionTitle: React.FC<{ section: DocSection; onEdit?: (b: ChangeBody) => 
 };
 
 /** A stage document as an editable page: arc42 sections, items one line each, add and edit inline. */
-export const StageDocument: React.FC<StageDocumentProps> = ({ board, stage, documents, onEdit, readOnlyReason, onClose }) => {
+export const StageDocument: React.FC<StageDocumentProps> = ({ board, stage, stages, onSelectStage, documents, onEdit, readOnlyReason, onClose }) => {
   const sections = useMemo(() => stageDocument(board, stage), [board, stage]);
   const d = useMemo(() => discovery(board), [board]);
   const st = stageOf(stage);
@@ -219,6 +356,8 @@ export const StageDocument: React.FC<StageDocumentProps> = ({ board, stage, docu
   const [newSection, setNewSection] = useState<string | null>(null);
   const [showTopics, setShowTopics] = useState(false);
   const [copied, setCopied] = useState(false);
+  const gaps = useMemo(() => (stage === 'solution' ? traceability(board) : []), [board, stage]);
+  const [showGaps, setShowGaps] = useState(false);
   const required = d.topics.filter((t) => t.topic.required);
   const covered = required.filter((t) => t.covered).length;
   const markdown = () => stageMarkdown(board, stage, documents);
@@ -268,6 +407,22 @@ export const StageDocument: React.FC<StageDocumentProps> = ({ board, stage, docu
         </div>
       </header>
 
+      {stages.length > 1 && (
+        <div className="flex gap-1 px-4 py-1.5 border-b border-[#f0f0f2]" role="tablist" aria-label="Stage documents">
+          {stages.map((id) => (
+            <button
+              key={id}
+              role="tab"
+              aria-selected={id === stage}
+              onClick={() => onSelectStage(id)}
+              className={`text-xs px-2 py-1 rounded-md ${id === stage ? 'bg-[#f0f0f2] text-[#18181c]' : 'text-[#87868e] hover:text-[#18181c]'}`}
+            >
+              {stageOf(id).n} · {stageOf(id).title}
+            </button>
+          ))}
+        </div>
+      )}
+
       {stage === 'discovery' && !approval && (
         <div className="px-5 py-2 border-b border-[#f0f0f2]">
           <button onClick={() => setShowTopics(!showTopics)} className="w-full flex items-center justify-between text-xs text-[#5a5a62]" aria-expanded={showTopics}>
@@ -281,6 +436,22 @@ export const StageDocument: React.FC<StageDocumentProps> = ({ board, stage, docu
                   {c ? '✓' : topic.required ? '○' : '·'} {topic.title}
                   {!c && <span className="text-[#a1a0a8]"> · {topic.records}</span>}
                 </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {stage === 'solution' && !approval && (
+        <div className="px-5 py-2 border-b border-[#f0f0f2]">
+          <button onClick={() => setShowGaps(!showGaps)} disabled={!gaps.length} className="w-full flex items-center justify-between text-xs text-[#5a5a62]" aria-expanded={showGaps}>
+            <span>{gaps.length ? `${gaps.length} open before approval` : 'Everything traces to the specification'}</span>
+            {!!gaps.length && <ChevronRight className={`w-3.5 h-3.5 transition-transform ${showGaps ? 'rotate-90' : ''}`} />}
+          </button>
+          {showGaps && (
+            <ul className="mt-2 space-y-1">
+              {gaps.map((g) => (
+                <li key={g} className="text-xs text-[#5a5a62]">○ {g}</li>
               ))}
             </ul>
           )}
@@ -306,16 +477,18 @@ export const StageDocument: React.FC<StageDocumentProps> = ({ board, stage, docu
                 </p>
               )}
               <SectionTitle section={s} onEdit={onEdit} />
-              {s.items.length === 0 && s.hint && adding !== s.id && <p className="mt-1 text-xs text-[#a1a0a8]">{s.hint}</p>}
+              {s.id === '5' && <BuildingBlocks board={board} />}
+              {s.id === '6' && <Runtime board={board} onEdit={onEdit} />}
+              {s.items.length === 0 && s.hint && adding !== s.id && s.id !== '5' && s.id !== '6' && <p className="mt-1 text-xs text-[#a1a0a8]">{s.hint}</p>}
               {s.items.length > 0 && (
                 <ul className="mt-1">
                   {s.items.map((i) => (
-                    <Row key={`${i.id}:${i.text}`} section={s} item={i} documents={documents} onEdit={onEdit} />
+                    <Row key={`${i.id}:${i.text}`} board={board} section={s} item={i} documents={documents} onEdit={onEdit} />
                   ))}
                 </ul>
               )}
-              {onEdit && adding === s.id && <Composer section={s} onAdd={onEdit} onDone={() => setAdding(null)} />}
-              {onEdit && adding !== s.id && (
+              {onEdit && adding === s.id && <Composer board={board} section={s} onAdd={onEdit} onDone={() => setAdding(null)} />}
+              {onEdit && adding !== s.id && (s.custom || !!s.def?.types.length) && (
                 <button onClick={() => setAdding(s.id)} className="mt-1 flex items-center gap-1 text-xs text-[#a1a0a8] hover:text-[#18181c]">
                   <Plus className="w-3.5 h-3.5" /> Add
                 </button>

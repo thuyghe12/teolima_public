@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import type { Board } from '../shared/board/schema';
+import type { Board, StageId } from '../shared/board/schema';
 import { readiness } from '../shared/board/readiness';
 import { boardElements } from './lib/canvas/boardElements';
 import { getAccessToken } from './lib/access';
@@ -16,10 +16,10 @@ import { CallPanel, type DocumentDraft } from './components/CallPanel';
 import { StageDocument } from './components/StageDocument';
 import type { ChangeBody } from '../shared/board/changes';
 import { sectionsOf } from '../shared/board/arc42';
+import { stageDocument } from '../shared/board/spec-document';
+import { STAGES, stageOf } from '../shared/board/stages';
 import { StageBar } from './components/StageBar';
 import { currentFrame, layoutWorkspace } from '../shared/board/workspace';
-import { stageOf } from '../shared/board/stages';
-import type { StageId } from '../shared/board/schema';
 import { SessionHistoryModal } from './components/SessionHistoryModal';
 import { SettingsModal } from './components/SettingsModal';
 import { LayerPanel } from './components/LayerPanel';
@@ -37,6 +37,9 @@ import {
   VoiceSettings,
   WSServerMessage
 } from './types';
+
+/** The stage whose document the panel opens on: the current stage, or the last one with a document while later stages have none yet. */
+const documentStage = (board: Board): StageId => (sectionsOf(board.stage.current).length ? board.stage.current : [...STAGES].reverse().find((s) => s.n < stageOf(board.stage.current).n && sectionsOf(s.id).length)?.id ?? 'discovery');
 
 export default function App() {
   const [engine, setEngine] = useState<CanvasEngine | null>(null);
@@ -66,6 +69,8 @@ export default function App() {
   const [pastedDoc, setPastedDoc] = useState<DocumentDraft>({ title: '', text: '' });
   const [documents, setDocuments] = useState<Record<string, string>>({});
   const [specOpen, setSpecOpen] = useState(false);
+  /** The stage document shown in the panel; null follows the current stage. */
+  const [docStage, setDocStage] = useState<StageId | null>(null);
   const specOpenRef = useRef(false);
 
   // Session & Transcripts
@@ -495,21 +500,26 @@ export default function App() {
           board={board}
           onApprove={(stage, by) => changeStage({ op: 'approve_stage', stage, by })}
           onReopen={(stage) => changeStage({ op: 'reopen_stage', stage })}
-          requirementCount={board.spec.items.length}
+          requirementCount={stageDocument(board, documentStage(board)).reduce((n, s) => n + s.items.length, 0) + (documentStage(board) === 'solution' ? board.spec.scenarios.length : 0)}
           specOpen={specOpen}
-          onToggleSpec={() => setSpecOpen(!specOpen)}
+          onToggleSpec={() => {
+            setDocStage(null);
+            setSpecOpen(!specOpen);
+          }}
         />
       )}
 
       {specOpen && board && (() => {
-        // the current stage's document, or discovery's while later stages have no sections yet
-        const stage = sectionsOf(board.stage.current).length ? board.stage.current : 'discovery';
+        const stage = docStage ?? documentStage(board);
+        const reached = STAGES.filter((s) => s.n <= stageOf(board.stage.current).n && sectionsOf(s.id).length).map((s) => s.id);
         const connected = isCallActive && wsRef.current?.readyState === WebSocket.OPEN;
         const current = stage === board.stage.current;
         return (
           <StageDocument
             board={board}
             stage={stage}
+            stages={reached}
+            onSelectStage={(id) => setDocStage(id === documentStage(board) ? null : id)}
             documents={documents}
             onEdit={connected && current ? editDocument : undefined}
             readOnlyReason={!current ? 'Approved. Reopen the stage to edit it.' : !connected ? 'Start a call to edit the document.' : undefined}

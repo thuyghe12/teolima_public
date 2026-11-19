@@ -5,7 +5,11 @@
  *                      who use it on the left, the external systems on the
  *                      right, each relationship labelled with what is
  *                      exchanged (arc42 section 3.2). Internals are left out.
- *   2 Solution design  the high-level design (layout.ts), below it.
+ *   2 Solution design  the C4 container view, below it: the building blocks
+ *                      inside the system boundary (layout.ts), with the same
+ *                      people on the left, connected to where their work
+ *                      enters, and the same external systems below the
+ *                      tools and knowledge that reach them.
  *
  * Each stage's frame appears once the stage is reached, so the board grows
  * downwards as the session moves on and an approved stage stays readable
@@ -31,8 +35,13 @@ function frameLabel(board: Board, id: StageId, view: string): string {
   return `${s.n} · ${s.title.toUpperCase()} · ${view}${approval ? ` · APPROVED BY ${approval.by.toUpperCase()}` : ''}`;
 }
 
-const shiftPoint = (p: Point, dy: number): Point => ({ x: p.x, y: p.y + dy });
-const shiftBox = <T extends Box>(b: T, dy: number): T => ({ ...b, y: b.y + dy });
+
+/** An orthogonal route from the right of a to the left of b, turning at turnX. */
+function route(a: Box, b: Box, turnX: number): Point[] {
+  const s = { x: a.x + a.w, y: a.y + a.h / 2 };
+  const t = { x: b.x, y: b.y + b.h / 2 };
+  return Math.abs(s.y - t.y) < 1 ? [s, t] : [s, { x: turnX, y: s.y }, { x: turnX, y: t.y }, t];
+}
 
 /** The context diagram: users, the system, and the systems and data it touches. */
 function contextDiagram(board: Board, x0: number, y0: number): { nodes: LayoutNode[]; edges: LayoutEdge[]; bottom: number; right: number } {
@@ -73,11 +82,6 @@ function contextDiagram(board: Board, x0: number, y0: number): { nodes: LayoutNo
   // The fan-out turns close to the system box, so each relationship's long
   // horizontal run sits at its neighbour's height and carries its own label.
   const TURN = 36;
-  const route = (a: Box, b: Box, turnX: number): Point[] => {
-    const s = { x: a.x + a.w, y: a.y + a.h / 2 };
-    const t = { x: b.x, y: b.y + b.h / 2 };
-    return Math.abs(s.y - t.y) < 1 ? [s, t] : [s, { x: turnX, y: s.y }, { x: turnX, y: t.y }, t];
-  };
   // C4 labels every relationship with what it is for.
   const relation = (id: string) => fit(board.spec.items.find((i) => `ctx-${i.id}` === id)?.text ?? '', 34);
   for (const a of actors) edges.push({ id: `ctx:${a.id}>system`, points: route(a, system, system.x - TURN), label: relation(a.id), style: 'solid', kind: 'flow' });
@@ -124,27 +128,85 @@ export function layoutWorkspace(board: Board): Workspace {
     y = frame.y + frame.h + FRAME.gap;
   }
 
-  // 2. Solution design: the high-level design, below discovery, once the stage is reached.
+  // 2. Solution design: the container view, below discovery, once the stage is reached.
   if (stageN >= 2 || board.components.length) {
     const design = layoutBoard({ ...board, title: '' });
+    const persons = board.spec.items.filter((i) => i.section === '3.2' && i.type === 'person');
+    const systems = board.spec.items.filter((i) => i.section === '3.2' && i.type === 'system');
     const drawn: Box[] = [...(design.boundary ? [design.boundary] : []), ...design.nodes, ...design.teams];
     const top = Math.min(...drawn.map((b) => b.y), design.bounds.y);
+    const left = Math.min(...drawn.map((b) => b.x), design.bounds.x);
+    // people get a column of their own on the left
+    const personCol = ORIGIN.x + FRAME.pad;
+    const dx = (persons.length ? personCol + CARD.w + COL_GAP : ORIGIN.x + FRAME.pad) - left;
     const dy = y + FRAME.header - top;
-    out.nodes.push(...design.nodes.map((n) => shiftBox(n, dy)));
-    out.teams.push(...design.teams.map((t) => shiftBox(t, dy)));
-    out.bands.push(...design.bands.map((b) => shiftBox(b, dy)));
-    out.edges.push(...design.edges.map((e) => ({ ...e, points: e.points.map((p) => shiftPoint(p, dy)) })));
-    out.boundary = design.boundary ? shiftBox(design.boundary, dy) : null;
-    out.legend = design.legend ? shiftBox(design.legend, dy) : null;
-    const contentRight = design.bounds.x + design.bounds.w;
-    const contentBottom = design.bounds.y + design.bounds.h + dy;
+    const move = (b: Box) => ({ x: b.x + dx, y: b.y + dy });
+    out.nodes.push(...design.nodes.map((n) => ({ ...n, ...move(n) })));
+    out.teams.push(...design.teams.map((t) => ({ ...t, ...move(t) })));
+    out.bands.push(...design.bands.map((b) => ({ ...b, ...move(b) })));
+    out.edges.push(...design.edges.map((e) => ({ ...e, points: e.points.map((p) => ({ x: p.x + dx, y: p.y + dy })) })));
+    out.boundary = design.boundary ? { ...design.boundary, ...move(design.boundary) } : null;
+    const placed = new Map(out.nodes.map((n) => [n.id, n]));
+
+    // People, connected to the entry point that serves them, else to every entry point.
+    const triggers = out.nodes.filter((n) => n.kind === 'trigger');
+    const midY = triggers.length ? triggers.reduce((a, t) => a + t.y + t.h / 2, 0) / triggers.length : y + FRAME.header + CARD.h;
+    persons.forEach((p, i) => {
+      const node: LayoutNode = {
+        id: `c2-${p.id}`,
+        kind: 'actor',
+        role: 'actor',
+        title: fit(p.name ?? p.text, 40),
+        subtitle: '',
+        x: personCol,
+        y: midY - (persons.length * (CARD.h + ROW_GAP) - ROW_GAP) / 2 + i * (CARD.h + ROW_GAP),
+        w: CARD.w,
+        h: CARD.h,
+      };
+      out.nodes.push(node);
+      const entries = board.components.filter((c) => c.kind === 'trigger' && c.serves.includes(p.id));
+      for (const t of entries.length ? entries : board.components.filter((c) => c.kind === 'trigger')) {
+        const target = placed.get(t.id);
+        if (target) out.edges.push({ id: `c2:${p.id}>${t.id}`, points: route(node, target, target.x - 24), label: fit(p.text, 34), style: 'solid', kind: 'flow' });
+      }
+    });
+
+    // External systems below the system, each under the first tool or knowledge source that reaches it.
+    const boundaryBottom = Math.max(...out.nodes.filter((n) => !n.id.startsWith('ctx-')).map((n) => n.y + n.h), out.boundary ? out.boundary.y + out.boundary.h : 0);
+    const sysY = boundaryBottom + FRAME.gap;
+    const taken: Box[] = [];
+    for (const sys of systems) {
+      const reachers = board.components.filter((c) => (c.kind === 'tool' || c.kind === 'knowledge') && c.serves.includes(sys.id)).map((c) => placed.get(c.id)).filter((n): n is LayoutNode => !!n);
+      let x = reachers[0]?.x ?? (taken.length ? taken[taken.length - 1].x + CARD.w + ROW_GAP : personCol + CARD.w + COL_GAP);
+      while (taken.some((b) => Math.abs(b.x - x) < CARD.w + ROW_GAP)) x += CARD.w + ROW_GAP;
+      const node: LayoutNode = { id: `c2-${sys.id}`, kind: 'external', role: 'external', title: fit(sys.name ?? sys.text, 40), subtitle: '', x, y: sysY, w: CARD.w, h: CARD.h };
+      taken.push(node);
+      out.nodes.push(node);
+      for (const r of reachers) {
+        const s0 = { x: r.x + r.w / 2, y: r.y + r.h };
+        const t0 = { x: node.x + node.w / 2, y: node.y };
+        const midY2 = sysY - FRAME.gap / 2;
+        out.edges.push({
+          id: `c2:${r.id}>${sys.id}`,
+          points: Math.abs(s0.x - t0.x) < 1 ? [s0, t0] : [s0, { x: s0.x, y: midY2 }, { x: t0.x, y: midY2 }, t0],
+          label: fit(sys.text, 34),
+          style: 'solid',
+          kind: 'flow',
+        });
+      }
+    }
+
+    out.legend = design.legend ? { ...design.legend, x: design.legend.x + dx, y: (taken.length ? sysY + CARD.h : design.legend.y + dy) + (taken.length ? 48 : 0) } : null;
+    const contentNodes = out.nodes.filter((n) => !n.id.startsWith('ctx-'));
+    const right = Math.max(...contentNodes.map((n) => n.x + n.w), ...out.teams.map((t) => t.x + t.w), out.boundary ? out.boundary.x + out.boundary.w : 0, out.legend ? out.legend.x + out.legend.w : 0);
+    const bottom = Math.max(...contentNodes.map((n) => n.y + n.h), out.boundary ? out.boundary.y + out.boundary.h : 0, out.legend ? out.legend.y + out.legend.h : 0);
     out.frames.push({
       id: 'solution',
-      label: frameLabel(board, 'solution', 'HIGH-LEVEL DESIGN'),
+      label: frameLabel(board, 'solution', 'CONTAINERS'),
       x: ORIGIN.x,
       y,
-      w: Math.max(contentRight - ORIGIN.x + FRAME.pad, 600),
-      h: Math.max(contentBottom - y + FRAME.pad, FRAME.header + CARD.h),
+      w: Math.max(right - ORIGIN.x + FRAME.pad, 600),
+      h: Math.max(bottom - y + FRAME.pad, FRAME.header + CARD.h),
     });
   }
 
