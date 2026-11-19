@@ -62,7 +62,7 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
   return (
     <div
       id="canvas-layer-manager-modal"
-      className="absolute top-16 right-6 z-50 w-80 p-4 rounded-3xl bg-white/95 border border-[#e2e2e6] shadow-2xl backdrop-blur-xl text-[#18181c] animate-in fade-in zoom-in-95 duration-150"
+      className="absolute top-[128px] right-6 z-50 w-80 p-4 rounded-3xl bg-white/95 border border-[#e2e2e6] shadow-2xl backdrop-blur-xl text-[#18181c] animate-in fade-in zoom-in-95 duration-150"
     >
       {/* Header */}
       <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#e2e2e6]">

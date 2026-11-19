@@ -552,7 +552,7 @@ export const StageDocument: React.FC<StageDocumentProps> = ({ board, stage, stag
   return (
     <aside
       aria-label={`${st.title} document`}
-      className="fixed top-[150px] left-5 bottom-5 z-20 w-[440px] max-w-[calc(100vw-2.5rem)] flex flex-col rounded-2xl bg-white border border-[#e2e2e6] shadow-[0_8px_30px_rgba(24,24,28,0.06)] text-[#18181c] font-body"
+      className="fixed top-[128px] left-5 bottom-5 z-20 w-[440px] max-w-[calc(100vw-2.5rem)] flex flex-col rounded-2xl bg-white border border-[#e2e2e6] shadow-[0_8px_30px_rgba(24,24,28,0.06)] text-[#18181c] font-body"
     >
       <header className="flex items-start justify-between pl-5 pr-2 pt-3 pb-2.5 border-b border-[#f0f0f2]">
         <div>
