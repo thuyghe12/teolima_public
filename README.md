@@ -1,10 +1,10 @@
 # Teolima
 
-Teolima turns a client scoping conversation into an approved Microsoft Foundry design and a complete Azure Developer CLI project that infrastructure and agent teams can review, check and deploy.
+Teolima turns a client scoping conversation into an approved Microsoft Foundry design and a complete Azure Developer CLI project for infrastructure and agent teams to review, check and deploy.
 
 ## The problem
 
-At a Microsoft partner, AI agent solutions are scoped in conversations, then rebuilt by hand as slides, diagrams and infrastructure code. The quality depends on the architect, the decisions behind the design get lost on the way, and the engineers who deploy it find the gaps late. Generic AI tools make this faster but not more reliable: one model drafting everything, with nothing that checks it against Microsoft's own guidance.
+At a Microsoft partner, an AI agent solution goes through weeks of workshops with business and IT stakeholders before anyone writes infrastructure code. What comes out is spread over meeting notes, slides, diagrams and spreadsheets, each rebuilt by hand. Nothing records which requirement led to which decision, so the reasons get lost between pre-sales and delivery, and the engineers who deploy find the gaps late. Generic AI tools make the writing faster but not more reliable: one model drafts everything, and nothing checks it against Microsoft's own guidance.
 
 ## The approach
 
@@ -17,7 +17,7 @@ A voice coach (Gemini Live) works through Microsoft's architect process with the
 | 3. Technical design | Security and platform leads | Deployment settings, crosscutting concepts, quality scenarios, risks (arc42 7, 8, 10, 11), the Well-Architected review, C4 deployment view |
 | 4. Compile | Infrastructure and agent teams | An azd project on the AI Landing Zone, checked by narrow rules before export |
 
-Every statement in the documents quotes its source (the client's words, the brief or a pasted transcript), and every design element traces back to a requirement.
+Every item in the documents records its source (the client's words, the brief or a pasted transcript), and the server refuses a quote that was never said. Each stage gate lists any design element that does not trace back to a requirement.
 
 | Discovery | Solution design |
 |---|---|
@@ -25,20 +25,27 @@ Every statement in the documents quotes its source (the client's words, the brie
 | **Technical design** | **Compile** |
 | ![Technical design: the C4 deployment view of the Azure resources](docs/images/3-technical.png) | ![Compile: the project as a folder, coloured by origin, with the checks](docs/images/4-compile.png) |
 
-## Try it in two minutes
+## Run it
 
-Requires Node 20 or later. No keys needed.
+Requires Node 20 or later and a browser with a microphone (Chrome or Edge).
 
 ```bash
 npm install
+cp .env.example .env     # then set GEMINI_API_KEY (https://aistudio.google.com/apikey)
 npm run dev              # http://localhost:3000
 ```
 
-1. Press **Start call**. Without a key, the app replays a recorded session through the same path a live session uses: discovery, solution design and technical design, about a minute and a half.
-2. Press **Approve technical design**, then **Open the project**. Answer the questions no stage settled (for example `gpt-4.1`, version `2025-04-14`, capacity `50`) and press **Compile**.
-3. Browse the project. `infra/main.parameters.json` shows the design's choices in green; click one to see why it is set, or change it and watch the checks react. **Approve and download** exports the project with `docs/checks.md`.
+**A live session**
 
-Or from the command line: `npm run compile:example` writes the same project to `out/customer-support`, and `npm test` runs the 193 tests. For live coaching, copy `.env.example` to `.env` and add a `GEMINI_API_KEY`.
+1. Write the brief in the call panel: the goal, who uses it and any constraint (for example *Answer order questions and handle refunds safely*, *Customers of a web shop*, *Refunds over 100 EUR need a person*). You can also skip this and tell the coach.
+2. Press **Start call** and allow the microphone. Talk the case through as you would with a client. The coach asks one question at a time, records each answer in the stage document with your words as its source, and draws the diagram as you go. To type instead of speaking, use the keyboard icon; to add a meeting transcript or notes, use the paste icon.
+3. When the stage bar shows nothing left to go, review the document (**Document**) and press **Approve**. Only you can approve; the coach then moves to the next stage. Discovery, solution design and technical design each end this way.
+4. After technical design, press **Open the project**, answer the few questions no stage settled (such as each model's version and capacity, for example `gpt-4.1`, `2025-04-14`, `50`) and press **Compile**.
+5. Review the project. `infra/main.parameters.json` shows the design's choices in green; click one to see why it is set, or change it and watch the checks react. **Approve and download** exports the project with `docs/checks.md`.
+
+**Without a key**, **Start call** replays a recorded session through the same path a live session uses, in about a minute and a half, and you continue from step 4.
+
+From the command line: `npm test` runs the 193 tests, and `npm run compile:example` compiles the demo design to `out/customer-support`.
 
 ## Design decisions
 
