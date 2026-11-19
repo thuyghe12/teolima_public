@@ -96,3 +96,26 @@ test('the solution design document: strategy, building blocks with traceability,
   assert.ok(!md.includes('not covered'));
   assert.ok(!md.includes('Open before approval'));
 });
+
+test('the container view keeps the context: people on the left of the entry point, each external system below what reaches it', async () => {
+  const { layoutWorkspace } = await import('../shared/board/workspace');
+  const { assertClean } = await import('./helpers/layout');
+  const b = designed();
+  const w = layoutWorkspace(b);
+  assertClean(w);
+  const node = (id: string) => w.nodes.find((n) => n.id === id)!;
+  const customer = node('c2-person-1');
+  const entry = w.nodes.find((n) => n.kind === 'trigger')!;
+  assert.equal(customer.kind, 'actor');
+  assert.ok(customer.x + customer.w < entry.x, 'the person sits left of the entry point');
+  assert.ok(w.edges.some((e) => e.id === `c2:person-1>${entry.id}`));
+  for (const sys of b.spec.items.filter((i) => i.section === '3.2' && i.type === 'system')) {
+    const box = node(`c2-${sys.id}`);
+    const reacher = b.components.find((c) => c.serves.includes(sys.id))!;
+    const r = node(reacher.id);
+    assert.ok(box.y > r.y + r.h, `${sys.name} sits below ${reacher.name}`);
+    assert.ok(w.edges.some((e) => e.id === `c2:${reacher.id}>${sys.id}`), `${reacher.name} reaches ${sys.name}`);
+  }
+  const frame = w.frames.find((f) => f.id === 'solution')!;
+  assert.match(frame.label, /^2 · SOLUTION DESIGN · CONTAINERS/);
+});
