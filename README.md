@@ -156,12 +156,12 @@ CI runs typecheck, tests and build on every push and pull request, and builds an
 | `GEMINI_LIVE_MODEL` | `gemini-3.8-live` | Speech-to-speech model, with asynchronous tool calls |
 | `GEMINI_LIVE_FALLBACK_MODEL` | `gemini-3.1-flash-live-preview` | Used if the primary model cannot be reached |
 | `MICROSOFT_DOCS_MCP_URL` | Microsoft Learn MCP server | Documentation grounding for the coach; `off` disables it |
+| `PORT` | `3000` | Port of the app and the API |
 | `ALLOWED_ORIGINS` | `http://localhost:PORT` | Browser origins allowed on the websocket |
 | `ACCESS_TOKEN` | none | Required token for hosted demos (`?token=...`) |
 | `AZURE_CONTENT_SAFETY_ENDPOINT`, `AZURE_CONTENT_SAFETY_KEY` | none | Prompt Shields screening; off until both are set, and reported as off in the audit trail |
 | `AUDIT_DIR` | `logs/audit` | Per-session audit trail; `off` disables it |
 | `MAX_CONNECTIONS`, `SESSION_MAX_MINUTES`, `IDLE_TIMEOUT_SECONDS` | 20, 15, 120 | Cost and abuse limits |
-| `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | none | Saved sessions in Supabase; otherwise kept in the browser |
 
 ## License
 

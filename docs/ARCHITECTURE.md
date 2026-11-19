@@ -18,7 +18,6 @@ flowchart LR
   end
   LIVE[(Gemini Live API)]
   DOCS[(Microsoft Learn MCP server)]
-  SB[(Supabase, optional)]
 
   MIC -- audio --> WS
   WS --> SEC --> LIVE
@@ -27,7 +26,6 @@ flowchart LR
   LIVE -- audio --> WS -- audio --> MIC
   BOARD -- search_microsoft_docs --> DOCS
   DEMO -- changes --> BOARD
-  UI -- saved sessions --> SB
 ```
 
 ## The tool loop
@@ -83,7 +81,7 @@ Once technical design is approved, the browser sends its board to `POST /api/com
 
 ## Persistence
 
-Sessions (goal, transcript, canvas elements) are saved to a Supabase `call_sessions` table when `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are set, and to browser storage otherwise. The roadmap moves the board itself into a versioned tree; see [ROADMAP.md](ROADMAP.md).
+Sessions (goal, transcript, canvas elements) are saved in browser storage. The roadmap moves the board into a versioned tree per project; see [ROADMAP.md](ROADMAP.md).
 
 ## Security model
 

@@ -30,7 +30,7 @@ Out of scope: Teolima's own memory of users and boards ([ADR 0002](adr/0002-memo
 
 ## Platform
 
-The app runs with a Gemini key and nothing else. Supabase is optional, for saved boards with sign-in and row level security; without it, boards stay in the browser.
+The app runs with a Gemini key and nothing else. Sessions are saved in the browser. Shared, versioned boards come with the git tree per project (Next, 1).
 
 ## Also planned
 
