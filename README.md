@@ -30,9 +30,16 @@ Every item in the documents records its source (the client's words, the brief or
 Requires Node 20 or later and a browser with a microphone (Chrome or Edge).
 
 ```bash
+git clone https://github.com/thuyghe12/teolima_public.git
+cd teolima_public
 npm install
-cp .env.example .env     # then set GEMINI_API_KEY (https://aistudio.google.com/apikey)
-npm run dev              # http://localhost:3000
+cp .env.example .env
+```
+
+Open `.env` and put your Gemini API key (from [Google AI Studio](https://aistudio.google.com/apikey)) after `GEMINI_API_KEY=`, without spaces or quotes. Then start the app and open http://localhost:3000:
+
+```bash
+npm run dev
 ```
 
 **A live session**
