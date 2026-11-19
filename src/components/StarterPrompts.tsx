@@ -33,7 +33,7 @@ export const StarterPrompts: React.FC<StarterPromptsProps> = ({ onSelect }) => (
     <div className="pointer-events-auto max-w-xl text-center px-6">
       <h1 className="text-2xl font-semibold text-[#18181c] font-body">What should your agents do?</h1>
       <p className="mt-2 text-sm text-[#5a5a62] font-body">
-        Write a brief in the panel, or start from an example.
+        Start a call and describe it, or start from an example.
       </p>
       <div className="mt-5 flex flex-wrap justify-center gap-2">
         {STARTER_BRIEFS.map((s) => (

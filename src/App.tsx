@@ -25,7 +25,7 @@ import { currentFrame, layoutWorkspace } from '../shared/board/workspace';
 import { SessionHistoryModal } from './components/SessionHistoryModal';
 import { SettingsModal } from './components/SettingsModal';
 import { LayerPanel } from './components/LayerPanel';
-import { BriefDraft, emptyBrief, normalizeBrief, recentBriefs, rememberBrief } from './lib/briefs';
+import { BriefDraft, emptyBrief, normalizeBrief } from './lib/briefs';
 
 import { CanvasEngine } from './lib/canvas/canvasEngine';
 import { LiveAudioManager } from './lib/audio/audioManager';
@@ -66,7 +66,6 @@ export default function App() {
 
   // The brief: written in the panel before a call, or saved by the coach during one.
   const [brief, setBrief] = useState<BriefDraft>(emptyBrief);
-  const [recent, setRecent] = useState<BriefDraft[]>(() => recentBriefs());
   // A transcript or notes pasted before the call, and the documents the server has accepted.
   const [pastedDoc, setPastedDoc] = useState<DocumentDraft>({ title: '', text: '' });
   const [documents, setDocuments] = useState<Record<string, string>>({});
@@ -258,7 +257,6 @@ export default function App() {
       ws.onopen = () => {
         // Only what the user typed goes to the server; it is saved as the user's change.
         const typed = normalizeBrief(brief);
-        if (typed.goal) setRecent(rememberBrief(typed));
         ws.send(JSON.stringify({
           type: 'start_call',
           voice: settings.voiceName,
@@ -401,15 +399,6 @@ export default function App() {
     setIsMuted(newMuted);
   };
 
-  /** Saves a brief edited during a call. */
-  const saveBrief = (b: BriefDraft) => {
-    setBrief(b);
-    setRecent(rememberBrief(b));
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'set_brief', brief: b }));
-    }
-  };
-
   /** Hands a transcript or notes to the coach during a call. */
   const sendDocument = (d: DocumentDraft) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -488,12 +477,8 @@ export default function App() {
         isAiDrawing={isAiDrawing}
         statusMessage={statusMessage}
         transcripts={transcripts}
-        brief={brief}
-        onBriefChange={setBrief}
-        recentBriefs={recent}
         onStartCall={startCall}
         onEndCall={endCall}
-        onSaveBrief={saveBrief}
         onToggleMute={toggleMute}
         onSendText={sendPromptText}
         onOpenHistory={() => setIsHistoryOpen(true)}

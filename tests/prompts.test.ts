@@ -27,10 +27,10 @@ test('the prompt offers no web search or image generation', () => {
   assert.doesNotMatch(COACH_PROMPT, /web_search|generate_sketch|sketch illustration/);
 });
 
-test('without a brief, the session opens by asking for the goal', () => {
+test('without a goal, the session opens by asking for it and recording as it goes', () => {
   const p = openingPrompt({ goal: '', audience: '', constraints: [], level: 2 });
-  assert.match(p, /no brief yet/);
-  assert.match(p, /Do not build anything until the brief is saved and discovery is done/);
+  assert.match(p, /Nothing is recorded yet/);
+  assert.match(p, /ask what the system must achieve and who uses it/);
 });
 
 test('documents pasted before the call are announced in the opening and followed as messages', () => {

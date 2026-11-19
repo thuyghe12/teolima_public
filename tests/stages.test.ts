@@ -107,3 +107,12 @@ test('the context diagram names each neighbour, and labels each relationship wit
   assert.equal(node.title, 'Order system');
   assert.equal(ws.edges.find((e) => e.id === 'ctx:system>ctx-system-1')?.label, 'Orders and their status', 'C4: the relationship says what is exchanged');
 });
+
+test('the goal recorded in the specification is the brief: no separate brief is needed', () => {
+  const r = applyChange(emptyBoard(), ch({ op: 'record_item', section: '1.1', type: 'goal', text: 'Scouting reports within five minutes' }, 'user'));
+  assert.ok(r.ok);
+  assert.equal(r.board.brief.goal, 'Scouting reports within five minutes');
+  const second = applyChange(r.board, ch({ op: 'record_item', section: '1.1', type: 'goal', text: 'Fewer hours of film per coach' }, 'user'));
+  assert.ok(second.ok);
+  assert.equal(second.board.brief.goal, 'Scouting reports within five minutes');
+});

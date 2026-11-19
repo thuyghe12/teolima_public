@@ -550,7 +550,7 @@ export function applyChange(board: Board, change: Change): ApplyResult {
   // Nothing is designed before the goal is known.
   const needsGoal = !['set_brief', 'set_title', 'clear', 'remove_component', 'remove_team', 'disconnect', 'record_item', 'remove_item', 'add_section', 'rename_section', 'remove_section', 'approve_stage', 'reopen_stage'].includes(body.op);
   if (needsGoal && !board.brief.goal) {
-    return fail('No goal yet. Ask the user what the system must achieve, who uses it and its constraints, confirm it back, then save it with set_brief.');
+    return fail('No goal yet. Ask the user what the system must achieve and record it with record_item, section 1.1, type goal.');
   }
 
   // Nothing is designed before discovery is done (docs/DESIGN_STANDARD.md, step 1).
@@ -617,6 +617,10 @@ export function applyChange(board: Board, change: Change): ApplyResult {
     }
     case 'record_item':
       result = recordItem(board, body, checked.data.actor, checked.data.basis);
+      // The goal in the specification is the brief: the first one recorded becomes the board's goal.
+      if (result.ok && body.type === 'goal' && !board.brief.goal && body.text) {
+        result = { ...result, board: { ...result.board, brief: { ...result.board.brief, goal: body.text.trim() } } };
+      }
       break;
     case 'remove_item': {
       const target = board.spec.items.find((i) => i.id === body.ref);
