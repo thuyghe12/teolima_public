@@ -38,6 +38,13 @@ const Base = z.object({
   id: Id,
   name: Name,
   description: Text.default(''),
+  /**
+   * The stage documents' items this building block serves, by id: the user
+   * flows and requirements an agent fulfils, the external system a tool
+   * reaches, the oversight rule an approval enforces. Traceability from the
+   * design back to the specification (arc42 section 5).
+   */
+  serves: z.array(Id).max(20).default([]),
 });
 
 export const Trigger = Base.extend({
@@ -206,8 +213,37 @@ export const SpecItem = z.object({
   attribute: z.enum(['reliability', 'security', 'privacy', 'compliance', 'performance', 'cost', 'operations', 'accessibility']).optional(),
   /** Constraints: the category. */
   category: z.enum(['business', 'regulatory', 'technical', 'organizational']).optional(),
+  /** Stage 2 items: the stage 1 items this one answers, by id (a quality approach serves a quality goal). */
+  serves: z.array(Id).max(20).optional(),
+  /** Decision records: what is decided, the options weighed, and the consequences. */
+  topic: z.enum(['platform', 'complexity', 'pattern', 'hosting', 'other']).optional(),
+  options: z.array(z.string().trim().min(1).max(160)).max(6).optional(),
+  consequences: z.string().trim().min(1).max(400).optional(),
   source: SourceRef,
 });
+
+/**
+ * A runtime scenario (arc42 section 6): one user flow from discovery, as
+ * numbered steps between people, building blocks and external systems.
+ */
+export const ScenarioStep = z.object({
+  /** Who acts: a person or external system from 3.2 (item id), or a building block (component or team id). */
+  from: Id,
+  to: Id,
+  /** What happens, in a few words, e.g. "asks for a refund". */
+  what: z.string().trim().min(1).max(100),
+});
+export type ScenarioStep = z.infer<typeof ScenarioStep>;
+
+export const Scenario = z.object({
+  id: Id,
+  /** The user flow (1.1) this scenario realises. */
+  flow: Id,
+  title: z.string().trim().min(1).max(100),
+  steps: z.array(ScenarioStep).min(1).max(20),
+  source: SourceRef,
+});
+export type Scenario = z.infer<typeof Scenario>;
 export type SpecItem = z.infer<typeof SpecItem>;
 
 /** A section the user added to a stage document. */
@@ -222,6 +258,7 @@ export type CustomSection = z.infer<typeof CustomSection>;
 export const Spec = z.object({
   items: z.array(SpecItem).max(150).default([]),
   sections: z.array(CustomSection).max(30).default([]),
+  scenarios: z.array(Scenario).max(30).default([]),
 });
 export type Spec = z.infer<typeof Spec>;
 
@@ -253,7 +290,7 @@ export const Board = z.object({
   title: z.string().trim().max(120).default(''),
   brief: Brief.default({ goal: '', audience: '', constraints: [] }),
   shape: Shape.default({ kind: 'undecided', reasons: [] }),
-  spec: Spec.default({ items: [], sections: [] }),
+  spec: Spec.default({ items: [], sections: [], scenarios: [] }),
   stage: StageState.default({ current: 'discovery', approvals: [] }),
   components: z.array(Component).max(60),
   teams: z.array(Team).max(10),
@@ -266,7 +303,7 @@ export const emptyBoard = (): Board => ({
   title: '',
   brief: { goal: '', audience: '', constraints: [] },
   shape: { kind: 'undecided', reasons: [] },
-  spec: { items: [], sections: [] },
+  spec: { items: [], sections: [], scenarios: [] },
   stage: { current: 'discovery', approvals: [] },
   components: [],
   teams: [],
