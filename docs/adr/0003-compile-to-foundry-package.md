@@ -1,6 +1,6 @@
 # ADR 0003: Compile the board to an Azure Developer CLI project, reviewed in a shared workspace
 
-**Status:** Accepted. The compiler is built and tested headless (`server/compile/`); the wizard, the shared folder view, the git tree and the GitHub push follow. Revised in November 2026 for the stages (ADR 0007, ADR 0008) and the Foundry support in the Azure Developer CLI.
+**Status:** Accepted. Built: the compiler (`server/compile/`), the rule checks, the wizard, the folder view and the export. The git tree per project and the push to GitHub follow. Revised in November 2026 for the stages (ADR 0007, ADR 0008) and the Foundry support in the Azure Developer CLI.
 
 ## Context
 
@@ -46,6 +46,9 @@ Each project is one git tree: the board, the stage documents, the change log and
 - **Tools.** A tool's implementation cannot be compiled from a design: each is a typed `@tool` function that raises until the agent team connects it, gated tools carry `approval_mode="always_require"`, and the project README lists every one.
 - **Routines and evaluations.** Scheduled triggers become `azure.ai.routine` services. Each runtime scenario becomes a dataset and an evaluation of the agent service that runs it, graded by the built-in task adherence evaluator and a rubric evaluator per quality scenario with its measure.
 - **Checks.** The tests validate every compiled `azure.yaml` against the azd schema and the Foundry extension schemas (`vendor/azd-schemas/`, pinned), and check every parameter the compiler sets against the landing zone's own `param` declarations and types. CI builds and lints the compiled Bicep of the demo design (`npm run compile:example`), which needs the public Bicep registry.
+
+- **Checks before export.** `server/compile/checks.ts` holds 21 narrow rules over the compiled project, each owning one signal, each deterministic (a schema, code or a regular expression), each with its severity, threshold where it has one, and source: the azd schemas, the landing zone's declarations, data residency, private networking for regulated workloads, no secrets, Entra ID connections, enforced approvals, valid Python, the team's builder, pinned prereleases, traceability of every building block and decision, an evaluation per scenario, and the documents. Model judges and people are the escalation, not the first line. The user sees every rule and its result, can adjust thresholds, turn a rule off and add regex rules of their own. A blocking failure stops the export; what was turned off or added is recorded in the exported `docs/checks.md` with who approved the export.
+- **Folder view.** The project opens as the folder both teams review: every file and line coloured by origin (the landing zone unchanged, the design's choices, changes in review, compiled from the board, documentation), markers on tool stubs still to connect and on approval gates, and the design's parameters editable in place with why they are set and what they serve. A change in review recompiles, reruns the checks and is marked as a person's change.
 
 ## Consequences
 
