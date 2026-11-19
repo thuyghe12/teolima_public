@@ -234,7 +234,9 @@ export interface WSClientMessage {
 }
 
 export interface WSServerMessage {
-  type: 'connected' | 'audio' | 'tool_call' | 'interrupted' | 'transcript' | 'status' | 'error' | 'board';
+  type: 'connected' | 'audio' | 'tool_call' | 'interrupted' | 'transcript' | 'status' | 'error' | 'board' | 'documents';
+  /** Documents the user pasted in this session, as the server accepted them. */
+  documents?: Array<{ id: string; title: string; words: number }>;
   audio?: string; // base64 24kHz PCM
   /** The board model, sent after every accepted change. */
   board?: import('../shared/board/schema').Board;
