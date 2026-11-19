@@ -51,7 +51,7 @@ npm run dev
 
 **Without a key**, **Start call** replays a recorded session through the same path a live session uses, in about a minute and a half, and you continue from step 3.
 
-From the command line: `npm test` runs the 190 tests, and `npm run compile:example` compiles the demo design to `out/customer-support`.
+From the command line: `npm test` runs the 191 tests, and `npm run compile:example` compiles the demo design to `out/customer-support`.
 
 ## Design decisions
 
