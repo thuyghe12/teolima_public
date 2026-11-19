@@ -7,14 +7,20 @@
  * (updated in place). Pure, so it can be tested without a browser.
  */
 import type { Layout } from '../../../shared/board/layout';
+import type { Frame } from '../../../shared/board/workspace';
 import type { AgentRoleKind, CanvasElement } from '../../types';
 
 export const BOARD_PREFIX = 'board:';
 
 const base = { strokeColor: '#18181c', strokeWidth: 2, roughness: 1.1, author: 'ai' as const, timestamp: 0 };
 
-export function boardElements(layout: Layout): CanvasElement[] {
+export function boardElements(layout: Layout & { frames?: Frame[] }): CanvasElement[] {
   const out: CanvasElement[] = [];
+
+  // One frame per stage, labelled with the stage, its view and who approved it.
+  for (const f of layout.frames ?? []) {
+    out.push({ ...base, id: `${BOARD_PREFIX}frame:${f.id}`, type: 'shape', shapeKind: 'boundary', x: f.x, y: f.y, width: f.w, height: f.h, label: f.label, strokeColor: '#c4c4ca', strokeWidth: 1.5 });
+  }
 
   if (layout.boundary) {
     const b = layout.boundary;
@@ -108,7 +114,7 @@ export function boardElements(layout: Layout): CanvasElement[] {
 /** Draw order: the boundary at the back, then teams and bands, connectors, cards, then the title and legend. */
 export function boardLayer(id: string): number {
   if (!id.startsWith(BOARD_PREFIX)) return 5;
-  if (id === `${BOARD_PREFIX}boundary`) return 0;
+  if (id === `${BOARD_PREFIX}boundary` || id.startsWith(`${BOARD_PREFIX}frame:`)) return 0;
   if (id.startsWith(`${BOARD_PREFIX}team:`) || id.startsWith(`${BOARD_PREFIX}band:`)) return 1;
   if (id.startsWith(`${BOARD_PREFIX}edge:`)) return 2;
   if (id.startsWith(`${BOARD_PREFIX}node:`)) return 3;

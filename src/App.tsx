@@ -7,7 +7,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { Board } from '../shared/board/schema';
 import { readiness } from '../shared/board/readiness';
-import { layoutBoard } from '../shared/board/layout';
 import { boardElements } from './lib/canvas/boardElements';
 import { getAccessToken } from './lib/access';
 import { Whiteboard } from './components/Whiteboard';
@@ -15,6 +14,10 @@ import { StarterPrompts } from './components/StarterPrompts';
 import { CanvasToolbar } from './components/CanvasToolbar';
 import { CallPanel, type DocumentDraft } from './components/CallPanel';
 import { SpecPanel } from './components/SpecPanel';
+import { StageBar } from './components/StageBar';
+import { currentFrame, layoutWorkspace } from '../shared/board/workspace';
+import { stageOf } from '../shared/board/stages';
+import type { StageId } from '../shared/board/schema';
 import { SessionHistoryModal } from './components/SessionHistoryModal';
 import { SettingsModal } from './components/SettingsModal';
 import { LayerPanel } from './components/LayerPanel';
@@ -74,22 +77,44 @@ export default function App() {
   // The latest board from the server, handed back when a new call starts.
   const lastBoardRef = useRef<Board | null>(null);
   const [board, setBoard] = useState<Board | null>(null);
-  const steps = React.useMemo(() => (board ? readiness(board).steps : undefined), [board]);
+  // The design standard steps of the current stage only.
+  const steps = React.useMemo(() => {
+    if (!board) return undefined;
+    const own = stageOf(board.stage.current).steps;
+    const list = readiness(board).steps.filter((s) => own.includes(s.id));
+    // one step is what the stage bar already shows
+    return list.length > 1 ? list : undefined;
+  }, [board]);
 
-  /** Keeps the drawing clear of the call panel and the specification panel on wide screens. */
-  const fitBoard = (layout: ReturnType<typeof layoutBoard>) => {
-    if (!engine || !layout.nodes.length) return;
+  /**
+   * Keeps the stage being worked on in view, clear of the call panel and the
+   * specification drawer. When a stage is approved the next frame appears
+   * below the last one, and this pans to it.
+   */
+  const fitBoard = (b: Board) => {
+    if (!engine) return;
+    const ws = layoutWorkspace(b);
+    const frame = currentFrame(ws, b);
+    if (!frame) return;
     const wide = window.innerWidth > 900;
     const panel = document.getElementById('call-panel');
     const right = panel && wide ? panel.offsetWidth + 20 : 0;
     const left = specOpenRef.current && wide ? 380 : 0;
-    engine.ensureVisible({ ...layout.bounds, y: layout.bounds.y - 80, h: layout.bounds.h + 80 }, right, left);
+    const box = ws.title && frame === ws.frames[0] ? { ...frame, y: frame.y - 70, h: frame.h + 70 } : frame;
+    engine.ensureVisible(box, right, left);
   };
   useEffect(() => {
     specOpenRef.current = specOpen;
-    if (board) fitBoard(layoutBoard(board));
+    if (board) fitBoard(board);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [specOpen]);
+
+  /** A stage is approved or reopened by the user, in the app; the server records who. */
+  const changeStage = (body: { op: 'approve_stage'; stage: StageId; by: string } | { op: 'reopen_stage'; stage: StageId }) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'board_change', body, reason: body.op === 'approve_stage' ? 'Approved in the app' : 'Reopened in the app' }));
+    }
+  };
 
   const clearBoard = () => {
     engine?.clear();
@@ -220,10 +245,7 @@ export default function App() {
           documents: pastedDoc.text.trim() ? [{ title: pastedDoc.title.trim(), text: pastedDoc.text.trim() }] : undefined,
           level: settings.level,
         }));
-        if (pastedDoc.text.trim()) {
-          setPastedDoc({ title: '', text: '' });
-          setSpecOpen(true);
-        }
+        if (pastedDoc.text.trim()) setPastedDoc({ title: '', text: '' });
 
 
         // Bridge mic audio chunks to WebSocket
@@ -258,10 +280,9 @@ export default function App() {
             setBoard(data.board);
             // The coach may have saved the brief it confirmed with the user.
             if (data.board.brief?.goal) setBrief({ ...data.board.brief, constraints: [...data.board.brief.constraints] });
-            // The board model is the source of truth: lay it out and draw what changed.
-            const layout = layoutBoard(data.board);
-            engine.syncBoardElements(boardElements(layout));
-            fitBoard(layout);
+            // The board model is the source of truth: lay it out, one frame per stage, and draw what changed.
+            engine.syncBoardElements(boardElements(layoutWorkspace(data.board)));
+            fitBoard(data.board);
           } else if (data.type === 'documents' && data.documents) {
             setDocuments(Object.fromEntries(data.documents.map((d) => [d.id, d.title])));
           } else if (data.type === 'tool_call' && data.toolCalls) {
@@ -373,7 +394,6 @@ export default function App() {
   const sendDocument = (d: DocumentDraft) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: 'document', document: d }));
-      setSpecOpen(true);
     }
   };
 
@@ -459,10 +479,18 @@ export default function App() {
         document={pastedDoc}
         onDocumentChange={setPastedDoc}
         onSendDocument={sendDocument}
-        requirementCount={board?.spec.requirements.length ?? 0}
-        specOpen={specOpen}
-        onToggleSpec={() => setSpecOpen(!specOpen)}
       />
+
+      {board && (board.brief.goal || board.spec.requirements.length > 0) && (
+        <StageBar
+          board={board}
+          onApprove={(stage, by) => changeStage({ op: 'approve_stage', stage, by })}
+          onReopen={(stage) => changeStage({ op: 'reopen_stage', stage })}
+          requirementCount={board.spec.requirements.length}
+          specOpen={specOpen}
+          onToggleSpec={() => setSpecOpen(!specOpen)}
+        />
+      )}
 
       {specOpen && board && <SpecPanel board={board} documents={documents} onClose={() => setSpecOpen(false)} />}
 

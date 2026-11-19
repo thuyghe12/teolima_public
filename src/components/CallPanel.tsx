@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronDown, ChevronUp, ClipboardPaste, History, Keyboard, ListChecks, Mic, MicOff, Phone, PhoneOff, Send } from 'lucide-react';
+import { ChevronDown, ChevronUp, ClipboardPaste, History, Keyboard, Mic, MicOff, Phone, PhoneOff, Send } from 'lucide-react';
 import type { LiveTranscriptItem } from '../types';
 import type { Step } from '../../shared/board/readiness';
 import { BRIEF_LIMITS, BriefDraft, constraintsFromText, normalizeBrief } from '../lib/briefs';
@@ -30,10 +30,6 @@ interface CallPanelProps {
   onDocumentChange: (d: DocumentDraft) => void;
   /** Hands a pasted document to the coach during a call. */
   onSendDocument: (d: DocumentDraft) => void;
-  /** Requirements recorded so far, and whether the specification is open. */
-  requirementCount: number;
-  specOpen: boolean;
-  onToggleSpec: () => void;
 }
 
 export interface DocumentDraft {
@@ -410,16 +406,6 @@ export const CallPanel: React.FC<CallPanelProps> = (props) => {
             {props.savedCount > 0 && <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[#18181c]" />}
           </button>
         )}
-        <button
-          onClick={props.onToggleSpec}
-          className={`${quiet} flex items-center gap-1 ${props.specOpen ? 'bg-[#f0f0f2] text-[#18181c]' : ''}`}
-          aria-label="Functional specification"
-          title="Functional specification"
-          aria-pressed={props.specOpen}
-        >
-          <ListChecks className="w-4 h-4" />
-          {props.requirementCount > 0 && <span className="text-xs tabular-nums">{props.requirementCount}</span>}
-        </button>
         <div className="flex-1" />
         {isCallActive ? (
           <button
