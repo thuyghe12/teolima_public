@@ -27,7 +27,7 @@ Option 3.
 
 ## Consequences
 
-- Anyone can clone the repository, add a Gemini key and run it. Supabase stays optional, for saved boards.
+- Anyone can clone the repository, add a Gemini key and run it.
 - Lookups are deterministic and explainable: an agent opened "Well-Architected > Security > Networking" because that is where the answer is, not because of a similarity score.
 - Each worker gets only its own part of the guidance, which keeps its context small and its citations relevant.
 - Keyword search can miss a paraphrase that vector search would catch. The agents query in Microsoft's vocabulary, so this matters little; if an evaluation set shows misses, embeddings can be added on top of the same snapshot.

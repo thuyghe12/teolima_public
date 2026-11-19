@@ -28,7 +28,7 @@ import { BriefDraft, emptyBrief, normalizeBrief, recentBriefs, rememberBrief } f
 
 import { CanvasEngine } from './lib/canvas/canvasEngine';
 import { LiveAudioManager } from './lib/audio/audioManager';
-import { getSavedSessions, saveSession } from './lib/supabase';
+import { getSavedSessions, saveSession } from './lib/sessions';
 import {
   CallSession,
   CanvasElement,
@@ -341,7 +341,7 @@ export default function App() {
   };
 
   /**
-   * Ends the Speech-to-Speech call and archives session to Supabase/Local Storage
+   * Ends the Speech-to-Speech call and saves the session in browser storage
    */
   const endCall = async () => {
     setIsCallActive(false);

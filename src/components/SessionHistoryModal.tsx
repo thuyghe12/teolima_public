@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { CallSession, CanvasElement } from '../types';
-import { getSavedSessions, deleteSavedSession } from '../lib/supabase';
+import { getSavedSessions, deleteSavedSession } from '../lib/sessions';
 import { ConfirmationModal } from './ConfirmationModal';
 import {
   History,
