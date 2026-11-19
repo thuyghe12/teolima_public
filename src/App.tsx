@@ -435,7 +435,10 @@ export default function App() {
   };
 
   return (
-    <main className="relative w-screen h-screen overflow-hidden bg-[#fafafa] flex flex-col font-body text-[#18181c]">
+    <main
+      className="relative w-screen h-screen overflow-hidden bg-[#fafafa] flex flex-col font-body text-[#18181c]"
+      style={{ '--toolbar-top': board && (board.brief.goal || board.spec.items.length > 0) ? '72px' : '16px' } as React.CSSProperties}
+    >
       {/* Top Floating Canvas Toolbar */}
       <CanvasToolbar
         engine={engine}
