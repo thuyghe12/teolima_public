@@ -83,10 +83,11 @@ test('the review belongs to technical design: refused before it, frozen after ap
   refused(solution, ch({ op: 'review', checks: [{ code: 'RE:01', status: 'met' }] }), /technical design/i);
 });
 
-test('resource plan: prompt agents with private networking follow the baseline Foundry architecture', () => {
+test('resource plan: hosted agents with private networking follow the baseline Foundry architecture', () => {
   const p = resourcePlan(designed());
-  assert.equal(p.hosting, 'Prompt agents');
+  assert.equal(p.hosting, 'Hosted agents');
   assert.ok(p.isolated);
+  assert.ok(p.resources.some((r) => r.service === 'Azure Container Registry'), 'hosted agent images');
   const services = p.resources.map((r) => r.service);
   for (const s of ['Azure Application Gateway', 'Azure App Service', 'Foundry Agent Service', 'Microsoft Foundry', 'Azure Cosmos DB for NoSQL', 'Azure Storage', 'Azure AI Search', 'Application Insights', 'Log Analytics workspace', 'Azure Virtual Network', 'Azure Firewall', 'Azure DNS']) {
     assert.ok(services.includes(s), s);
@@ -138,6 +139,7 @@ test('technical design draws the resource plan as a C4 deployment view, below so
   // the request path runs left to right
   const x = (id: string) => w.nodes.find((n) => n.id === `dep-${id}`)!.x;
   assert.ok(x('app-gateway') < x('app-service') && x('app-service') < x('agent-service') && x('agent-service') < x('foundry'));
+  assert.ok(w.nodes.some((n) => n.id === 'dep-container-registry'));
 });
 
 test('the deployment view of the reference shows Container Apps and its registry, and no virtual network when public', async () => {

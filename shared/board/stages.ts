@@ -20,7 +20,7 @@
 import { discovery } from './discovery';
 import { readiness, type StepId } from './readiness';
 import type { Board, StageId } from './schema';
-import { CONCEPTS, DECISION_TOPICS, DEPLOYMENT_SETTINGS } from './arc42';
+import { CONCEPTS, DECISION_TOPICS, DEPLOYMENT_SETTINGS, hostingOf } from './arc42';
 import { resourcePlan } from './deployment';
 import { CHECKLIST } from './waf';
 
@@ -169,6 +169,12 @@ export function traceability(board: Pick<Board, 'spec' | 'components' | 'teams' 
   const decided = new Set(items.filter((i) => i.type === 'decision').map((i) => i.topic));
   const needed: (keyof typeof DECISION_TOPICS)[] = ['platform', 'complexity', 'hosting', ...(board.shape.kind === 'multi' ? (['pattern'] as const) : [])];
   for (const t of needed) if (!decided.has(t)) out.push(`a decision record on ${DECISION_TOPICS[t].label.toLowerCase()}`);
+  // A team's pattern is code: Foundry Agent Service runs prompt agents one at a time, and the
+  // baseline names explicit orchestration patterns as a reason for hosted agents.
+  const hosting = hostingOf(items.find((i) => i.type === 'decision' && i.topic === 'hosting')?.name);
+  if (hosting === 'Prompt agents' && board.teams.length) {
+    out.push(`a hosting decision that runs the ${board.teams.map((t) => t.pattern.replace('_', ' ')).join(' and ')} orchestration in code (hosted agents or self-hosted orchestration): prompt agents run one at a time`);
+  }
   return out;
 }
 

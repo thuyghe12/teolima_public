@@ -94,7 +94,7 @@ test('the solution design document: strategy, building blocks with traceability,
   for (const h of ['## 4. Solution strategy', '## 5. Building block view', '**Traceability**', '## 6. Runtime view', '## 9. Architecture decisions']) assert.ok(md.includes(h), h);
   assert.match(md, /\| system-2 \(Payment service\) \| [^|]*\w/);
   assert.match(md, /^1\. .+ → .+: /m);
-  assert.match(md, /Prompt agents \(chosen\)/);
+  assert.match(md, /Hosted agents \(chosen\)/);
   assert.ok(!md.includes('not covered'));
   assert.ok(!md.includes('Open before approval'));
 });
@@ -161,4 +161,12 @@ test('the dynamic view follows the scenario: removing it removes the view', asyn
   const { layoutWorkspace } = await import('../shared/board/workspace');
   const b = apply(designed(), ch({ op: 'remove_scenario', ref: designed().spec.scenarios[0].id }));
   assert.equal(layoutWorkspace(b).panels.length, 0);
+});
+
+test('a team cannot run on prompt agents: its pattern is code, as the baseline says', () => {
+  const b = designed();
+  const hosting = b.spec.items.find((i) => i.topic === 'hosting')!;
+  const prompt = apply(b, ch({ op: 'record_item', id: hosting.id, section: '9', type: 'decision', topic: 'hosting', name: 'Prompt agents', text: 'Prompt agents', options: ['Prompt agents', 'Hosted agents', 'Self-hosted orchestration'] }, 'coach', said));
+  assert.ok(traceability(prompt).some((g) => g.includes('handoff orchestration in code')));
+  assert.ok(!traceability(b).some((g) => g.includes('orchestration in code')));
 });

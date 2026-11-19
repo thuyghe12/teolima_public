@@ -30,7 +30,7 @@ export const solutionRecords: Change[] = [
   decision('platform', 'Microsoft Foundry', 'Build custom agents in Microsoft Foundry', ['SaaS agents', 'Copilot Studio', 'Microsoft Foundry'], 'Pro-code control over the refund boundary; the team maintains the agents.'),
   decision('complexity', 'Several agents', 'A triage agent with three specialists', ['One agent with tools', 'Several agents'], 'Only the refund agent may move money: a security boundary.'),
   decision('pattern', 'Handoff', 'Handoff from triage to the right specialist', ['Sequential', 'Handoff', 'Group chat'], 'The right specialist is only known after reading the request.'),
-  decision('hosting', 'Prompt agents', 'Prompt agents run by Foundry Agent Service', ['Prompt agents', 'Hosted agents'], 'No custom orchestration code to build and run.'),
+  decision('hosting', 'Hosted agents', 'The handoff team runs as Agent Framework code on Foundry Agent Service', ['Prompt agents', 'Hosted agents', 'Self-hosted orchestration'], 'Deterministic handoff and approval in code; Foundry runs the container.'),
   c(
     { op: 'set_scenario', flow: 'flow-1', title: 'Where is my order', steps: [
       { from: 'person-1', to: 'Customer message', what: 'asks where the order is' },
