@@ -174,50 +174,54 @@ export const Pillar = z.enum(['reliability', 'security', 'cost-optimization', 'o
 export type Pillar = z.infer<typeof Pillar>;
 
 /**
- * What a requirement states, following the functional specification in
- * Microsoft's architect guidance: the problem and the outcome (the why), who
- * uses it and what they do (the what), what a person must decide, the
- * nonfunctional requirements by pillar, the constraints, and the systems and
- * data it touches. Never the implementation.
+ * Where a statement comes from: the brief, the user's words in the session,
+ * a document the user pasted (each quoted), or typed by the user in the app.
  */
-export const REQUIREMENT_KINDS = [
-  'problem',
-  'outcome',
-  'user',
-  'scenario',
-  'functional',
-  'oversight',
-  'nonfunctional',
-  'constraint',
-  'integration',
-] as const;
-export type RequirementKind = (typeof REQUIREMENT_KINDS)[number];
-
-/** Where a statement comes from, quoted: the brief, the user's words in the call, or a document the user pasted. */
-export const SourceRef = z.object({
-  kind: z.enum(['brief', 'user', 'document']),
-  /** The pasted document, for kind document. */
-  document: z.string().trim().max(40).optional(),
-  quote: z.string().trim().min(1).max(300),
-});
+export const SourceRef = z
+  .object({
+    kind: z.enum(['brief', 'user', 'document', 'typed']),
+    /** The pasted document, for kind document. */
+    document: z.string().trim().max(40).optional(),
+    /** The exact words it rests on; not needed for what the user typed. */
+    quote: z.string().trim().min(1).max(300).optional(),
+  })
+  .refine((s) => s.kind === 'typed' || !!s.quote, { message: 'a quoted source needs its quote' });
 export type SourceRef = z.infer<typeof SourceRef>;
 
-export const Requirement = z.object({
+/**
+ * One line in a stage document: a statement in an arc42 section
+ * (shared/board/arc42.ts) or in a section the user added.
+ */
+export const SpecItem = z.object({
   id: Id,
-  kind: z.enum(REQUIREMENT_KINDS),
-  /** The requirement in one plain sentence. */
+  /** arc42 section id ("1.1", "3.2") or the id of a section the user added ("x-..."). */
+  section: z.string().trim().min(1).max(64),
+  /** The item type within its section, e.g. "flow", "stakeholder", "system". */
+  type: z.string().trim().min(1).max(40),
+  /** The statement in one plain sentence. */
   text: z.string().trim().min(1).max(300),
-  /** For users and integrations: a short name for diagrams, e.g. "Order system". */
+  /** A short name, for types that need one: a role, a system. */
   name: z.string().trim().min(1).max(40).optional(),
-  /** The pillar a nonfunctional requirement or a constraint belongs to. */
-  pillar: Pillar.optional(),
+  /** Quality goals: the quality attribute. */
+  attribute: z.enum(['reliability', 'security', 'privacy', 'compliance', 'performance', 'cost', 'operations', 'accessibility']).optional(),
+  /** Constraints: the category. */
+  category: z.enum(['business', 'regulatory', 'technical', 'organizational']).optional(),
   source: SourceRef,
 });
-export type Requirement = z.infer<typeof Requirement>;
+export type SpecItem = z.infer<typeof SpecItem>;
 
-/** The functional specification: what the system must do and why, each statement traced to its source. */
+/** A section the user added to a stage document. */
+export const CustomSection = z.object({
+  id: z.string().regex(/^x-[a-z0-9-]{1,60}$/),
+  stage: z.enum(['discovery', 'solution', 'technical', 'compile']),
+  title: z.string().trim().min(1).max(80),
+});
+export type CustomSection = z.infer<typeof CustomSection>;
+
+/** The stage documents: their items, and the sections the user added. */
 export const Spec = z.object({
-  requirements: z.array(Requirement).max(80).default([]),
+  items: z.array(SpecItem).max(150).default([]),
+  sections: z.array(CustomSection).max(30).default([]),
 });
 export type Spec = z.infer<typeof Spec>;
 
@@ -249,7 +253,7 @@ export const Board = z.object({
   title: z.string().trim().max(120).default(''),
   brief: Brief.default({ goal: '', audience: '', constraints: [] }),
   shape: Shape.default({ kind: 'undecided', reasons: [] }),
-  spec: Spec.default({ requirements: [] }),
+  spec: Spec.default({ items: [], sections: [] }),
   stage: StageState.default({ current: 'discovery', approvals: [] }),
   components: z.array(Component).max(60),
   teams: z.array(Team).max(10),
@@ -262,7 +266,7 @@ export const emptyBoard = (): Board => ({
   title: '',
   brief: { goal: '', audience: '', constraints: [] },
   shape: { kind: 'undecided', reasons: [] },
-  spec: { requirements: [] },
+  spec: { items: [], sections: [] },
   stage: { current: 'discovery', approvals: [] },
   components: [],
   teams: [],

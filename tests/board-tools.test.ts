@@ -99,9 +99,9 @@ test('the coach saves a brief and runs discovery; design starts only after the u
   assert.ok(!('error' in brief));
   assert.deepEqual(s.summary().brief, { goal: 'Route support tickets', audience: 'Support staff', constraints: ['EU data only'] });
   assert.equal(s.summary().discovery.done, false);
-  assert.match(s.summary().stage.gate, /not ready.*problem/);
+  assert.match(s.summary().stage.gate, /not ready.*goals/);
   for (const c of discoveryChanges) s.apply(c.body, 'coach', c.reason, c.basis);
-  assert.deepEqual(s.summary().discovery, { done: true, open_topics: ['Reliability', 'Cost', 'Operations', 'Performance'] });
+  assert.deepEqual(s.summary().discovery, { done: true, open_topics: ['Out of scope', 'Reliability', 'Performance', 'Cost', 'Operations', 'Rollout'] });
   assert.match(s.summary().stage.gate, /ready for the user to approve/);
   // The coach cannot approve, and cannot design before the user does.
   const self = s.apply(approveDiscovery.body, 'coach', 'test');
@@ -111,31 +111,26 @@ test('the coach saves a brief and runs discovery; design starts only after the u
   assert.equal(s.summary().stage.current, 'Solution design');
   assert.ok(!('error' in s.apply(toChangeBody('add_component', { kind: 'agent', name: 'Triage' })!, 'coach', 'test')));
   // The approved specification is frozen until the user reopens discovery.
-  const late = s.apply(toChangeBody('record_requirement', { kind: 'user', text: 'Auditors' })!, 'coach', 'test', { source: 'user', quote: 'auditors too' });
-  assert.ok('error' in late && /Discovery is approved/.test(late.error));
+  const late = s.apply(toChangeBody('record_item', { section: '1.3', type: 'stakeholder', name: 'Auditors', text: 'Review the logs' })!, 'coach', 'test', { source: 'user', quote: 'auditors too' });
+  assert.ok('error' in late && /discovery, which is approved/.test(late.error));
 });
 
-test('record_requirement maps its arguments, and a requirement needs its quoted source', () => {
+test('record_item maps its arguments, and an item from the coach needs its quoted source', () => {
   const s = new BoardSession();
-  const body = toChangeBody('record_requirement', { kind: 'nonfunctional', text: 'Data stays in the EU', pillar: 'security' })!;
-  assert.deepEqual(body, { op: 'record_requirement', id: undefined, kind: 'nonfunctional', text: 'Data stays in the EU', name: undefined, pillar: 'security' });
+  const body = toChangeBody('record_item', { section: '2', type: 'constraint', category: 'regulatory', text: 'Data stays in the EU' })!;
+  assert.deepEqual(body, { op: 'record_item', id: undefined, section: '2', type: 'constraint', text: 'Data stays in the EU', name: undefined, attribute: undefined, category: 'regulatory' });
   const noSource = s.apply(body, 'coach', 'test');
   assert.ok('error' in noSource && /needs its source/.test(noSource.error));
-  const ok = s.apply(body, 'coach', 'test', { source: 'document', document: 'doc-1', quote: 'all data must stay in the EU' });
-  assert.ok(!('error' in ok));
-  assert.deepEqual(s.board.spec.requirements[0], {
-    id: 'nonfunctional-1',
-    kind: 'nonfunctional',
+  assert.ok(!('error' in s.apply(body, 'coach', 'test', { source: 'document', document: 'doc-1', quote: 'all data must stay in the EU' })));
+  assert.deepEqual(s.board.spec.items[0], {
+    id: 'constraint-1',
+    section: '2',
+    type: 'constraint',
     text: 'Data stays in the EU',
-    pillar: 'security',
+    category: 'regulatory',
     source: { kind: 'document', document: 'doc-1', quote: 'all data must stay in the EU' },
   });
-  const noPillar = s.apply(toChangeBody('record_requirement', { kind: 'nonfunctional', text: 'Fast' })!, 'coach', 'test', { source: 'user', quote: 'it must be fast' });
-  assert.ok('error' in noPillar && /pillar/.test(noPillar.error));
-  const corrected = s.apply(toChangeBody('record_requirement', { id: 'nonfunctional-1', kind: 'nonfunctional', text: 'Data stays in the Netherlands', pillar: 'security' })!, 'coach', 'test', { source: 'user', quote: 'stay in the Netherlands' });
-  assert.ok(!('error' in corrected));
-  assert.equal(s.board.spec.requirements.length, 1);
-  assert.equal(s.board.spec.requirements[0].text, 'Data stays in the Netherlands');
-  assert.ok(!('error' in s.apply(toChangeBody('remove_requirement', { id: 'nonfunctional-1' })!, 'coach', 'test')));
-  assert.equal(s.board.spec.requirements.length, 0);
+  assert.match(s.summary().document[0], /^constraint-1 \[2\]: Data stays in the EU$/);
+  assert.ok(!('error' in s.apply(toChangeBody('remove_item', { id: 'constraint-1' })!, 'coach', 'test')));
+  assert.equal(s.board.spec.items.length, 0);
 });

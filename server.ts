@@ -478,6 +478,12 @@ wss.on('connection', async (clientWs: WebSocket) => {
         }
         console.log(`[Board] user: ${result.summary}`);
         sendBoard(result.summary);
+        const documentEdit = ['record_item', 'remove_item', 'add_section', 'rename_section', 'remove_section'].includes(parsed.data.op);
+        if (documentEdit && liveSession && isSessionActive) {
+          // The user's edits to the stage document stand; the coach is told, never asked to redo them.
+          const what = parsed.data.op === 'record_item' ? `: "${parsed.data.name ? `${parsed.data.name}: ` : ''}${parsed.data.text}"` : '';
+          liveSession.sendRealtimeInput({ text: `[DOCUMENT EDITED BY THE USER IN THE APP] ${result.summary}${what}. Treat it as the user's own statement and build on it; do not change it unless they ask.` });
+        }
         if (parsed.data.op === 'approve_stage' || parsed.data.op === 'reopen_stage') {
           guard.audit.record({ kind: 'stage_changed', actor: 'user', summary: result.summary });
           if (liveSession && isSessionActive) liveSession.sendRealtimeInput({ text: stageBriefing(session.board, result.summary) });

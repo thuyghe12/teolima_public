@@ -92,7 +92,7 @@ export const StageBar: React.FC<StageBarProps> = ({ board, onApprove, onReopen, 
           aria-pressed={specOpen}
           className={`text-xs px-2 py-1 -ml-2 rounded-md ${specOpen ? 'bg-[#f0f0f2] text-[#18181c]' : 'text-[#5a5a62] hover:text-[#18181c] hover:bg-[#f0f0f2]'}`}
         >
-          {requirementCount} requirement{requirementCount === 1 ? '' : 's'}
+          Specification · {requirementCount}
         </button>
         {g.ready && !approving && (
           <button onClick={() => setApproving(true)} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#18181c] text-white hover:bg-black">
