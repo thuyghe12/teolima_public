@@ -13,7 +13,9 @@ import { Whiteboard } from './components/Whiteboard';
 import { StarterPrompts } from './components/StarterPrompts';
 import { CanvasToolbar } from './components/CanvasToolbar';
 import { CallPanel, type DocumentDraft } from './components/CallPanel';
-import { SpecPanel } from './components/SpecPanel';
+import { StageDocument } from './components/StageDocument';
+import type { ChangeBody } from '../shared/board/changes';
+import { sectionsOf } from '../shared/board/arc42';
 import { StageBar } from './components/StageBar';
 import { currentFrame, layoutWorkspace } from '../shared/board/workspace';
 import { stageOf } from '../shared/board/stages';
@@ -108,6 +110,13 @@ export default function App() {
     if (board) fitBoard(board);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [specOpen]);
+
+  /** An edit to the stage document, sent as the user's own change. */
+  const editDocument = (body: ChangeBody) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'board_change', body, reason: 'Edited in the app' }));
+    }
+  };
 
   /** A stage is approved or reopened by the user, in the app; the server records who. */
   const changeStage = (body: { op: 'approve_stage'; stage: StageId; by: string } | { op: 'reopen_stage'; stage: StageId }) => {
@@ -481,18 +490,33 @@ export default function App() {
         onSendDocument={sendDocument}
       />
 
-      {board && (board.brief.goal || board.spec.requirements.length > 0) && (
+      {board && (board.brief.goal || board.spec.items.length > 0) && (
         <StageBar
           board={board}
           onApprove={(stage, by) => changeStage({ op: 'approve_stage', stage, by })}
           onReopen={(stage) => changeStage({ op: 'reopen_stage', stage })}
-          requirementCount={board.spec.requirements.length}
+          requirementCount={board.spec.items.length}
           specOpen={specOpen}
           onToggleSpec={() => setSpecOpen(!specOpen)}
         />
       )}
 
-      {specOpen && board && <SpecPanel board={board} documents={documents} onClose={() => setSpecOpen(false)} />}
+      {specOpen && board && (() => {
+        // the current stage's document, or discovery's while later stages have no sections yet
+        const stage = sectionsOf(board.stage.current).length ? board.stage.current : 'discovery';
+        const connected = isCallActive && wsRef.current?.readyState === WebSocket.OPEN;
+        const current = stage === board.stage.current;
+        return (
+          <StageDocument
+            board={board}
+            stage={stage}
+            documents={documents}
+            onEdit={connected && current ? editDocument : undefined}
+            readOnlyReason={!current ? 'Approved. Reopen the stage to edit it.' : !connected ? 'Start a call to edit the document.' : undefined}
+            onClose={() => setSpecOpen(false)}
+          />
+        );
+      })()}
 
       {/* Session History & Review Modal */}
       <SessionHistoryModal

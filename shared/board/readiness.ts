@@ -42,7 +42,8 @@ export function readiness(board: Board): Readiness {
   if (!board.brief.goal) {
     step('discovery', 'Discovery', 'missing', 'Ask what the system must achieve, confirm it back, and save it with set_brief.');
   } else if (!d.done) {
-    step('discovery', 'Discovery', 'missing', `Ask, one question at a time, and record each answer with record_requirement: ${d.missing.map((t) => t.question).join(' ')}`);
+    // the next few questions only: discovery is a conversation, one question at a time
+    step('discovery', 'Discovery', 'missing', `${d.missing.length} topic${d.missing.length === 1 ? '' : 's'} to cover. Ask next, one at a time, and record each answer with record_item: ${d.missing.slice(0, 2).map((t) => `${t.question} (${t.records})`).join(' Then: ')}`);
   } else {
     step('discovery', 'Discovery', 'done',
       d.open.length ? `Requirements recorded. Still open, to confirm later: ${d.open.map((t) => t.title.toLowerCase()).join(', ')}.` : 'Requirements recorded for every topic.');

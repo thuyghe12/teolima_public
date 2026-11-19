@@ -21,10 +21,10 @@ test('after the brief, discovery asks the missing topics; after discovery, singl
   const briefed = apply(emptyBoard(), { op: 'set_brief', goal: 'Route tickets' });
   const next = readiness(briefed).next!;
   assert.equal(next.id, 'discovery');
-  assert.match(next.detail, /What problem does this solve today/);
+  assert.match(next.detail, /^9 topics to cover\. Ask next, one at a time, and record each answer with record_item: What business outcome should this achieve, and why does it matter now\? \(1\.1 Goal\) Then: How will you measure/);
   const b = discovered(briefed);
   assert.equal(readiness(b).next?.id, 'shape');
-  assert.match(readiness(b).steps[0].detail, /Still open, to confirm later: reliability, cost, operations, performance/);
+  assert.match(readiness(b).steps[0].detail, /Still open, to confirm later: out of scope, reliability, performance, cost, operations, rollout/);
 });
 
 test('one agent is the default: a second agent or a team is refused without a reason', () => {

@@ -1,9 +1,10 @@
 /**
  * The whole board as the stages draw it, top to bottom, one frame per stage.
  *
- *   1 Discovery        context diagram: the system as one box, its users on
- *                      the left, the systems and data it touches on the right.
- *                      Internals are deliberately left out.
+ *   1 Discovery        C4 system context: the system as one box, the people
+ *                      who use it on the left, the external systems on the
+ *                      right, each relationship labelled with what is
+ *                      exchanged (arc42 section 3.2). Internals are left out.
  *   2 Solution design  the high-level design (layout.ts), below it.
  *
  * Each stage's frame appears once the stage is reached, so the board grows
@@ -20,7 +21,8 @@ export type Workspace = Layout & { frames: Frame[] };
 const ORIGIN = { x: 80, y: 150 } as const;
 const FRAME = { pad: 40, header: 56, gap: 96 } as const;
 const SYSTEM = { w: 280, h: 150 } as const;
-const COL_GAP = 150;
+// wide enough for a relationship label between the columns
+const COL_GAP = 280;
 const ROW_GAP = 32;
 
 function frameLabel(board: Board, id: StageId, view: string): string {
@@ -34,8 +36,8 @@ const shiftBox = <T extends Box>(b: T, dy: number): T => ({ ...b, y: b.y + dy })
 
 /** The context diagram: users, the system, and the systems and data it touches. */
 function contextDiagram(board: Board, x0: number, y0: number): { nodes: LayoutNode[]; edges: LayoutEdge[]; bottom: number; right: number } {
-  const users = board.spec.requirements.filter((r) => r.kind === 'user');
-  const systems = board.spec.requirements.filter((r) => r.kind === 'integration');
+  const users = board.spec.items.filter((i) => i.section === '3.2' && i.type === 'person');
+  const systems = board.spec.items.filter((i) => i.section === '3.2' && i.type === 'system');
   const colH = (n: number) => n * CARD.h + Math.max(0, n - 1) * ROW_GAP;
   const h = Math.max(SYSTEM.h, colH(users.length), colH(systems.length));
   const midY = y0 + h / 2;
@@ -58,7 +60,7 @@ function contextDiagram(board: Board, x0: number, y0: number): { nodes: LayoutNo
       kind,
       role: kind,
       title: fit(r.name ?? r.text, 40),
-      subtitle: r.name ? fit(r.text, 46) : '',
+      subtitle: '',
       x,
       y: midY - colH(items.length) / 2 + i * (CARD.h + ROW_GAP),
       w: CARD.w,
@@ -68,14 +70,18 @@ function contextDiagram(board: Board, x0: number, y0: number): { nodes: LayoutNo
   const externals = column(systems, sysX + SYSTEM.w + COL_GAP, 'external');
 
   const edges: LayoutEdge[] = [];
-  const route = (a: Box, b: Box): Point[] => {
+  // The fan-out turns close to the system box, so each relationship's long
+  // horizontal run sits at its neighbour's height and carries its own label.
+  const TURN = 36;
+  const route = (a: Box, b: Box, turnX: number): Point[] => {
     const s = { x: a.x + a.w, y: a.y + a.h / 2 };
     const t = { x: b.x, y: b.y + b.h / 2 };
-    const mx = (s.x + t.x) / 2;
-    return Math.abs(s.y - t.y) < 1 ? [s, t] : [s, { x: mx, y: s.y }, { x: mx, y: t.y }, t];
+    return Math.abs(s.y - t.y) < 1 ? [s, t] : [s, { x: turnX, y: s.y }, { x: turnX, y: t.y }, t];
   };
-  for (const a of actors) edges.push({ id: `ctx:${a.id}>system`, points: route(a, system), label: '', style: 'solid', kind: 'flow' });
-  for (const e of externals) edges.push({ id: `ctx:system>${e.id}`, points: route(system, e), label: '', style: 'solid', kind: 'flow' });
+  // C4 labels every relationship with what it is for.
+  const relation = (id: string) => fit(board.spec.items.find((i) => `ctx-${i.id}` === id)?.text ?? '', 34);
+  for (const a of actors) edges.push({ id: `ctx:${a.id}>system`, points: route(a, system, system.x - TURN), label: relation(a.id), style: 'solid', kind: 'flow' });
+  for (const e of externals) edges.push({ id: `ctx:system>${e.id}`, points: route(system, e, system.x + system.w + TURN), label: relation(e.id), style: 'solid', kind: 'flow' });
 
   const nodes = [...actors, system, ...externals];
   return {
@@ -102,13 +108,13 @@ export function layoutWorkspace(board: Board): Workspace {
   let y = ORIGIN.y;
 
   // 1. Discovery: the context diagram, once there is a goal or a requirement.
-  if (board.brief.goal || board.spec.requirements.length) {
+  if (board.brief.goal || board.spec.items.length) {
     const ctx = contextDiagram(board, ORIGIN.x + FRAME.pad, y + FRAME.header);
     out.nodes.push(...ctx.nodes);
     out.edges.push(...ctx.edges);
     const frame: Frame = {
       id: 'discovery',
-      label: frameLabel(board, 'discovery', 'CONTEXT'),
+      label: frameLabel(board, 'discovery', 'SYSTEM CONTEXT'),
       x: ORIGIN.x,
       y,
       w: ctx.right - ORIGIN.x + FRAME.pad,

@@ -14,15 +14,15 @@
 import { z } from 'zod';
 import { discovery, discoveryRefusal } from './discovery';
 import { gate, outOfStage, stageOf, STAGES } from './stages';
+import { CONSTRAINT_CATEGORIES, QUALITY_ATTRIBUTES, sectionDef } from './arc42';
 import {
   Board,
   Component,
   COMPONENT_KINDS,
   GuardrailControl,
   OrchestrationPattern,
-  Pillar,
-  REQUIREMENT_KINDS,
   ShapeReason,
+  SpecItem,
   StageId,
   slug,
   type Id,
@@ -69,15 +69,20 @@ export const ChangeBody = z.discriminatedUnion('op', [
     destination: z.string().optional(),
   }),
   z.object({
-    op: z.literal('record_requirement'),
-    /** An existing requirement to update; omit to add one. */
+    op: z.literal('record_item'),
+    /** An existing item to update; omit to add one. */
     id: Ref.optional(),
-    kind: z.enum(REQUIREMENT_KINDS),
+    section: z.string().trim().min(1).max(64),
+    type: z.string().trim().min(1).max(40),
     text: z.string().trim().min(1).max(300),
     name: z.string().trim().min(1).max(40).optional(),
-    pillar: Pillar.optional(),
+    attribute: SpecItem.shape.attribute,
+    category: SpecItem.shape.category,
   }),
-  z.object({ op: z.literal('remove_requirement'), ref: Ref }),
+  z.object({ op: z.literal('remove_item'), ref: Ref }),
+  z.object({ op: z.literal('add_section'), title: z.string().trim().min(1).max(80) }),
+  z.object({ op: z.literal('rename_section'), ref: z.string().trim().min(1).max(64), title: z.string().trim().min(1).max(80) }),
+  z.object({ op: z.literal('remove_section'), ref: z.string().trim().min(1).max(64) }),
   z.object({ op: z.literal('approve_stage'), stage: StageId, by: z.string().trim().min(1).max(80) }),
   z.object({ op: z.literal('reopen_stage'), stage: StageId }),
   z.object({ op: z.literal('remove_component'), ref: Ref }),
@@ -305,37 +310,103 @@ function setShape(board: Board, kind: 'single' | 'multi', reasons: ShapeReason[]
   };
 }
 
-function recordRequirement(board: Board, body: Extract<ChangeBody, { op: 'record_requirement' }>, basis: Basis | undefined): ApplyResult {
-  if (!basis) return fail('A requirement needs its source: the brief, the user\'s words or a pasted document, quoted.');
-  if (basis.source === 'document' && !basis.document) return fail('Name the document the quote comes from.');
-  if (body.kind === 'nonfunctional' && !body.pillar) {
-    return fail('A nonfunctional requirement belongs to a pillar: reliability, security, cost-optimization, operational-excellence or performance-efficiency.');
+/** The sections of the current stage's document: arc42 sections, then the ones the user added. */
+function sectionOf(board: Board, id: string): { stage: string; custom: boolean } | null {
+  const def = sectionDef(id);
+  if (def) return { stage: def.stage, custom: false };
+  const custom = board.spec.sections.find((s) => s.id === id);
+  return custom ? { stage: custom.stage, custom: true } : null;
+}
+
+const frozen = (board: Board, stage: string) =>
+  stage !== board.stage.current ? `That section belongs to ${stageOf(stage as never).title.toLowerCase()}, which is ${stageOf(stage as never).n < stageOf(board.stage.current).n ? 'approved: the user can reopen it in the app' : 'not started yet'}.` : null;
+
+function recordItem(board: Board, body: Extract<ChangeBody, { op: 'record_item' }>, actor: Actor, basis: Basis | undefined): ApplyResult {
+  const items = board.spec.items;
+  const existing = body.id ? items.find((i) => i.id === body.id) : undefined;
+  if (body.id && !existing) return fail(`Item "${body.id}" is not in the document.`);
+  const section = sectionOf(board, body.section);
+  if (!section) return fail(`There is no section "${body.section}" in the document.`);
+  const locked = frozen(board, section.stage);
+  if (locked) return fail(locked);
+
+  const def = sectionDef(body.section);
+  const type = section.custom ? (body.type === 'note' ? { id: 'note', named: false } : undefined) : def!.types.find((t) => t.id === body.type);
+  if (!type) {
+    return fail(`Section ${body.section} takes ${section.custom ? 'notes' : def!.types.map((t) => `${t.id} (${t.label.toLowerCase()})`).join(', ')}.`);
   }
-  if (body.pillar && body.kind !== 'nonfunctional' && body.kind !== 'constraint') {
-    return fail('Only nonfunctional requirements and constraints take a pillar.');
+  const name = body.name ?? existing?.name;
+  if (type.named && !name) return fail(`A ${def!.types.find((t) => t.id === body.type)!.label.toLowerCase()} needs a short name, e.g. a role or a system.`);
+  const attribute = body.attribute ?? existing?.attribute;
+  if (body.type === 'quality' && !attribute) return fail(`A quality goal names its quality attribute: ${Object.keys(QUALITY_ATTRIBUTES).join(', ')}.`);
+  const category = body.category ?? existing?.category;
+  if (body.type === 'constraint' && !category) return fail(`A constraint names its category: ${Object.keys(CONSTRAINT_CATEGORIES).join(', ')}.`);
+
+  // What the coach records quotes its source; what the user types in the app is the user's own.
+  let source: SpecItem['source'];
+  if (basis) {
+    if (basis.source === 'document' && !basis.document) return fail('Name the document the quote comes from.');
+    source = { kind: basis.source, ...(basis.document ? { document: basis.document } : {}), quote: basis.quote };
+  } else if (actor === 'user') {
+    source = { kind: 'typed' };
+  } else {
+    return fail('An item needs its source: the brief, the user\'s words or a pasted document, quoted.');
   }
-  const reqs = board.spec.requirements;
-  const existing = body.id ? reqs.find((r) => r.id === body.id) : reqs.find((r) => r.kind === body.kind && r.text.toLowerCase() === body.text.toLowerCase());
-  if (body.id && !existing) return fail(`Requirement "${body.id}" is not in the specification.`);
+
   let id = existing?.id;
   if (!id) {
-    let n = reqs.filter((r) => r.kind === body.kind).length + 1;
-    while (reqs.some((r) => r.id === `${body.kind}-${n}`)) n++;
-    id = `${body.kind}-${n}`;
+    const dup = items.find((i) => i.section === body.section && i.type === body.type && i.text.toLowerCase() === body.text.toLowerCase());
+    id = dup?.id;
   }
-  const requirement = {
+  if (!id) {
+    // ids are slugs: in_scope items become in-scope-1, in-scope-2, ...
+    const prefix = body.type.replace(/_/g, '-');
+    let n = items.filter((i) => i.type === body.type).length + 1;
+    while (items.some((i) => i.id === `${prefix}-${n}`)) n++;
+    id = `${prefix}-${n}`;
+  }
+  const item: SpecItem = {
     id,
-    kind: body.kind,
+    section: body.section,
+    type: body.type,
     text: body.text,
-    ...(body.name ? { name: body.name } : existing?.name ? { name: existing.name } : {}),
-    ...(body.pillar ? { pillar: body.pillar } : {}),
-    source: { kind: basis.source, ...(basis.document ? { document: basis.document } : {}), quote: basis.quote },
+    ...(type.named && name ? { name } : {}),
+    ...(body.type === 'quality' && attribute ? { attribute } : {}),
+    ...(body.type === 'constraint' && category ? { category } : {}),
+    source,
   };
-  const requirements = existing ? reqs.map((r) => (r.id === id ? requirement : r)) : [...reqs, requirement];
+  const known = items.some((i) => i.id === id);
   return {
     ok: true,
-    board: { ...board, spec: { requirements } },
-    summary: `${existing ? 'Updated' : 'Recorded'} ${body.kind} requirement ${id}`,
+    board: { ...board, spec: { ...board.spec, items: known ? items.map((i) => (i.id === id ? item : i)) : [...items, item] } },
+    summary: `${known ? 'Updated' : 'Recorded'} ${id} in section ${body.section}`,
+    warnings: [],
+  };
+}
+
+function editSections(board: Board, body: Extract<ChangeBody, { op: 'add_section' | 'rename_section' | 'remove_section' }>): ApplyResult {
+  const sections = board.spec.sections;
+  if (body.op === 'add_section') {
+    let id = `x-${slug(body.title)}`.slice(0, 62);
+    for (let n = 2; sections.some((s) => s.id === id); n++) id = `x-${slug(body.title)}-${n}`.slice(0, 62);
+    return {
+      ok: true,
+      board: { ...board, spec: { ...board.spec, sections: [...sections, { id, stage: board.stage.current, title: body.title }] } },
+      summary: `Added section "${body.title}"`,
+      warnings: [],
+    };
+  }
+  const target = sections.find((s) => s.id === body.ref);
+  if (!target) return fail(sectionDef(body.ref) ? 'The arc42 sections are part of the template; add a section of your own instead.' : `There is no section "${body.ref}".`);
+  const locked = frozen(board, target.stage);
+  if (locked) return fail(locked);
+  if (body.op === 'rename_section') {
+    return { ok: true, board: { ...board, spec: { ...board.spec, sections: sections.map((s) => (s.id === target.id ? { ...s, title: body.title } : s)) } }, summary: `Renamed section to "${body.title}"`, warnings: [] };
+  }
+  return {
+    ok: true,
+    board: { ...board, spec: { items: board.spec.items.filter((i) => i.section !== target.id), sections: sections.filter((s) => s.id !== target.id) } },
+    summary: `Removed section "${target.title}"`,
     warnings: [],
   };
 }
@@ -353,11 +424,14 @@ export function applyChange(board: Board, change: Change): ApplyResult {
   if ((body.op === 'approve_stage' || body.op === 'reopen_stage') && checked.data.actor !== 'user') {
     return fail('Only a person can approve or reopen a stage, in the app. Tell the user what this stage produced and ask them to approve it.');
   }
+  if ((body.op === 'add_section' || body.op === 'rename_section' || body.op === 'remove_section') && checked.data.actor !== 'user') {
+    return fail('Sections are the arc42 template plus the ones the user adds in the app. Record items in the template sections.');
+  }
   const stageRefusal = outOfStage(board, body.op);
   if (stageRefusal) return fail(stageRefusal);
 
   // Nothing is designed before the goal is known.
-  const needsGoal = !['set_brief', 'set_title', 'clear', 'remove_component', 'remove_team', 'disconnect', 'record_requirement', 'remove_requirement', 'approve_stage', 'reopen_stage'].includes(body.op);
+  const needsGoal = !['set_brief', 'set_title', 'clear', 'remove_component', 'remove_team', 'disconnect', 'record_item', 'remove_item', 'add_section', 'rename_section', 'remove_section', 'approve_stage', 'reopen_stage'].includes(body.op);
   if (needsGoal && !board.brief.goal) {
     return fail('No goal yet. Ask the user what the system must achieve, who uses it and its constraints, confirm it back, then save it with set_brief.');
   }
@@ -424,16 +498,25 @@ export function applyChange(board: Board, change: Change): ApplyResult {
       result = { ok: true, board: { ...board, stage: { current: body.stage, approvals } }, summary: `Reopened ${target.title.toLowerCase()}`, warnings: [] };
       break;
     }
-    case 'record_requirement':
-      result = recordRequirement(board, body, checked.data.basis);
+    case 'record_item':
+      result = recordItem(board, body, checked.data.actor, checked.data.basis);
       break;
-    case 'remove_requirement': {
-      const target = board.spec.requirements.find((r) => r.id === body.ref);
-      result = target
-        ? { ok: true, board: { ...board, spec: { requirements: board.spec.requirements.filter((r) => r.id !== target.id) } }, summary: `Removed requirement ${target.id}`, warnings: [] }
-        : fail(`Requirement "${body.ref}" is not in the specification.`);
+    case 'remove_item': {
+      const target = board.spec.items.find((i) => i.id === body.ref);
+      const where = target ? sectionOf(board, target.section) : null;
+      const locked = where ? frozen(board, where.stage) : null;
+      result = !target
+        ? fail(`Item "${body.ref}" is not in the document.`)
+        : locked
+          ? fail(locked)
+          : { ok: true, board: { ...board, spec: { ...board.spec, items: board.spec.items.filter((i) => i.id !== target.id) } }, summary: `Removed ${target.id}`, warnings: [] };
       break;
     }
+    case 'add_section':
+    case 'rename_section':
+    case 'remove_section':
+      result = editSections(board, body);
+      break;
     case 'upsert_component':
       result = upsertComponent(board, body);
       break;

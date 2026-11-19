@@ -6,7 +6,8 @@
  * validates every edit, and the layout is computed from the result.
  */
 import { Type, type FunctionDeclaration } from '@google/genai';
-import { Board, emptyBoard, Pillar, REQUIREMENT_KINDS, ShapeReason } from '../shared/board/schema';
+import { Board, emptyBoard, ShapeReason } from '../shared/board/schema';
+import { CONSTRAINT_CATEGORIES, QUALITY_ATTRIBUTES, SECTIONS } from '../shared/board/arc42';
 import { readiness } from '../shared/board/readiness';
 import { discovery } from '../shared/board/discovery';
 import { gate, stageOf } from '../shared/board/stages';
@@ -33,30 +34,34 @@ const basisDocument = { type: Type.STRING, description: 'document only: the id t
 const basis = { basis_source: basisSource, basis_quote: basisQuote, basis_document: basisDocument };
 
 /** Tools that add to the design and so must name their basis. */
-export const GROUNDED_TOOLS = new Set(['set_brief', 'record_requirement', 'set_shape', 'add_component', 'set_team', 'connect']);
+export const GROUNDED_TOOLS = new Set(['set_brief', 'record_item', 'set_shape', 'add_component', 'set_team', 'connect']);
 
 export const boardToolDeclarations: FunctionDeclaration[] = [
   {
-    name: 'record_requirement',
+    name: 'record_item',
     description:
-      'Record one requirement in the functional specification: what the system must do and why, never how. One statement per call, in plain words, quoting where it comes from. Kinds: problem (what is wrong today), outcome (what it must achieve and how success shows), user (who uses it or is affected), scenario (what a user does, start to finish), functional (something it must do), oversight (an action a person must approve, or something it must never do on its own), nonfunctional (a quality, with its pillar), constraint (a limit it must respect: budget, region, policy, technology; with a pillar when one applies), integration (a system or data it reads or changes). Pass id to correct an existing requirement.',
+      'Record one item in the current stage\'s document, structured as arc42. One statement per call, plain words, faithful to its source, quoting it. What the system must do and why, never how. Sections and their types: ' +
+      SECTIONS.map((sec) => `${sec.id} ${sec.title}: ${sec.types.map((t) => `${t.id}${t.named ? ' (with name)' : ''}`).join(', ')}`).join('; ') +
+      '. A quality goal names its attribute; a constraint names its category. Pass id to correct an existing item.',
     parameters: {
       type: Type.OBJECT,
       properties: {
-        kind: { type: Type.STRING, enum: [...REQUIREMENT_KINDS] },
-        text: { type: Type.STRING, description: 'The requirement in one plain sentence, faithful to the source.' },
-        name: { type: Type.STRING, description: 'user and integration: a short name for the context diagram, two or three words, e.g. "Planners" or "Order system".' },
-        pillar: { type: Type.STRING, enum: [...Pillar.options], description: 'nonfunctional (required) and constraint (when one applies): the Well-Architected pillar.' },
-        id: { type: Type.STRING, description: 'To correct an existing requirement: its id, e.g. "scenario-2".' },
+        section: { type: Type.STRING, enum: SECTIONS.map((sec) => sec.id), description: 'The arc42 section.' },
+        type: { type: Type.STRING, enum: [...new Set(SECTIONS.flatMap((sec) => sec.types.map((t) => t.id)))], description: 'The item type within its section.' },
+        text: { type: Type.STRING, description: 'The statement in one plain sentence. For a person or external system: what it exchanges with the system, which labels the line on the context diagram.' },
+        name: { type: Type.STRING, description: 'stakeholder, person, system: a short name of two or three words, e.g. "Planners" or "Order system".' },
+        attribute: { type: Type.STRING, enum: Object.keys(QUALITY_ATTRIBUTES), description: 'quality: the quality attribute.' },
+        category: { type: Type.STRING, enum: Object.keys(CONSTRAINT_CATEGORIES), description: 'constraint: business (budget or timeline), regulatory, technical or organizational.' },
+        id: { type: Type.STRING, description: 'To correct an existing item: its id, e.g. "flow-2".' },
         reason,
         ...basis,
       },
-      required: ['kind', 'text', 'basis_source', 'basis_quote'],
+      required: ['section', 'type', 'text', 'basis_source', 'basis_quote'],
     },
   },
   {
-    name: 'remove_requirement',
-    description: 'Remove a requirement the user withdrew or that was recorded by mistake.',
+    name: 'remove_item',
+    description: 'Remove an item the user withdrew or that was recorded by mistake.',
     parameters: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, reason }, required: ['id'] },
   },
   {
@@ -195,10 +200,19 @@ export function toChangeBody(name: string, args: Record<string, unknown> = {}): 
   switch (name) {
     case 'set_brief':
       return { op: 'set_brief', goal: str(args.goal), audience: str(args.audience), constraints: list(args.constraints) };
-    case 'record_requirement':
-      return { op: 'record_requirement', id: str(args.id), kind: String(args.kind ?? '') as never, text: String(args.text ?? ''), name: str(args.name), pillar: str(args.pillar) as never };
-    case 'remove_requirement':
-      return { op: 'remove_requirement', ref: String(args.id ?? '') };
+    case 'record_item':
+      return {
+        op: 'record_item',
+        id: str(args.id),
+        section: String(args.section ?? ''),
+        type: String(args.type ?? ''),
+        text: String(args.text ?? ''),
+        name: str(args.name),
+        attribute: str(args.attribute) as never,
+        category: str(args.category) as never,
+      };
+    case 'remove_item':
+      return { op: 'remove_item', ref: String(args.id ?? '') };
     case 'set_shape':
       return { op: 'set_shape', shape: args.shape as never, reasons: list(args.reasons) as never };
     case 'set_title':
@@ -295,7 +309,7 @@ export class BoardSession {
           : `${stage.title} is not ready for approval. Still missing: ${g.missing.join(', ')}.`,
       },
       brief: this.board.brief,
-      requirements: this.board.spec.requirements.map((r) => `${r.id}: ${r.text}${r.pillar ? ` [${r.pillar}]` : ''}`),
+      document: this.board.spec.items.map((i) => `${i.id} [${i.section}]: ${i.name ? `${i.name}: ` : ''}${i.text}`),
       discovery: d.done
         ? { done: true, open_topics: d.open.map((t) => t.title) }
         : { done: false, ask_next: d.missing.map((t) => t.question) },

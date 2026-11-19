@@ -1148,7 +1148,7 @@ function drawRoleBadge(ctx: CanvasRenderingContext2D, badgeX: number, badgeY: nu
   ctx.save();
   let bg = '#18181c';
   let textCol = '#ffffff';
-  const LABELS: Record<string, string> = { actor: 'USER', system: 'THIS SYSTEM', external: 'EXTERNAL SYSTEM' };
+  const LABELS: Record<string, string> = { actor: 'PERSON', system: 'THIS SYSTEM', external: 'EXTERNAL SYSTEM' };
   let label = LABELS[role] ?? role.toUpperCase();
 
   if (role === 'router' || role === 'manager') {

@@ -45,7 +45,7 @@ export const STAGES: Stage[] = [
     artifact: 'Context diagram and functional specification',
     audience: 'Business sponsor, product owner and presales architect',
     approver: 'Business sponsor',
-    ops: ['set_brief', 'set_title', 'record_requirement', 'remove_requirement'],
+    ops: ['set_brief', 'set_title'],
     steps: ['discovery'],
   },
   {
@@ -96,8 +96,11 @@ export function gate(board: Board, id: StageId): { ready: boolean; missing: stri
 }
 
 /** The refusal for a change that does not belong to the current stage. */
+/** Changes to the stage documents: accepted in every stage, for the current stage's sections only (checked in changes.ts). */
+export const DOCUMENT_OPS = ['record_item', 'remove_item', 'add_section', 'rename_section', 'remove_section'];
+
 export function outOfStage(board: Board, op: string): string | null {
-  if (op === 'approve_stage' || op === 'reopen_stage') return null;
+  if (op === 'approve_stage' || op === 'reopen_stage' || DOCUMENT_OPS.includes(op)) return null;
   const stage = stageOf(board.stage.current);
   if (stage.ops.includes(op)) return null;
   const home = STAGES.find((s) => s.ops.includes(op));

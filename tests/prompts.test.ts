@@ -5,8 +5,8 @@ import { COACH_PROMPT, COACH_PROMPT_VERSION, openingPrompt } from '../server/pro
 test('the prompt keeps its core rules', () => {
   assert.match(COACH_PROMPT_VERSION, /^coach\.v\d+$/);
   for (const rule of [
-    /cannot build anything until the brief has a goal and discovery is done/,
-    /record_requirement/,
+    /cannot build anything until the brief has a goal and discovery is approved/,
+    /record_item/,
     /basis_source document/,
     /Every requirement and element you add must come from the brief, from something the user said or explicitly agreed to, or from a document they pasted/,
     /Anything else is a proposal/,
@@ -67,5 +67,5 @@ test('a stage briefing names the new stage and hands over the approved specifica
   const text = stageBriefing(b, 'Discovery approved by Business sponsor');
   assert.match(text, /^\[STAGE BRIEFING FROM THE SERVER\] Discovery approved by Business sponsor\./);
   assert.match(text, /stage is now 2, Solution design, for architect and the client's tech lead/);
-  assert.match(text, /- Refunds over 100 EUR need a person/);
+  assert.match(text, /- \[1\.1\] Refunds over 100 EUR need a person/);
 });

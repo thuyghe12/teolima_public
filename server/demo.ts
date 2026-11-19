@@ -7,7 +7,6 @@
  * script doubles as a fixture for the tests.
  */
 import type { Basis, ChangeBody } from '../shared/board/changes';
-import type { Requirement } from '../shared/board/schema';
 
 export type DemoStep =
   | { say: string; pauseMs?: number }
@@ -15,21 +14,25 @@ export type DemoStep =
 
 export const DEMO_GOAL = 'A customer support system that answers order questions and handles refunds safely';
 
-/** What the user tells the coach in the recorded session; every requirement quotes it. */
+/** What the user tells the coach in the recorded session; every item quotes it. */
 export const DEMO_USER_WORDS = [
   DEMO_GOAL,
-  'Today customers of our web shop wait two days for an answer. Most questions are where is my order or can I get a refund.',
-  'I want most order questions answered without a person, around the clock.',
-  'It reads our order system and issues refunds through the refund API. Policies are in our FAQ and terms.',
-  'Refunds over 100 EUR need a person. Returning customers should not have to repeat themselves.',
+  'Today customers of our web shop wait two days for an answer, and we cannot keep hiring support staff.',
+  'Success means 70 percent of order questions answered without a person, within a minute.',
+  'A customer asks where their order is or asks for a refund. If the order is not found, a person takes over.',
+  'Refunds over 100 EUR need a person.',
   'Customer data must stay in the EU, and only logged-in customers can see their orders.',
+  'The head of support owns this, and the support team handles what the system cannot.',
+  'It reads our order system and issues refunds through the payment service. Policies are in our FAQ and terms.',
+  'The first version covers order status and refunds. Returns and exchanges are not part of it.',
 ];
 
-const req = (kind: Requirement['kind'], text: string, quote: string, pillar?: Requirement['pillar'], name?: string): DemoStep => ({
-  change: { op: 'record_requirement', kind, text, ...(pillar ? { pillar } : {}), ...(name ? { name } : {}) },
+type ItemFields = Omit<Extract<ChangeBody, { op: 'record_item' }>, 'op' | 'id'>;
+const item = (fields: ItemFields, quote: string): DemoStep => ({
+  change: { op: 'record_item', ...fields },
   reason: 'Stated by the user',
   basis: { source: 'user', quote },
-  pauseMs: 500,
+  pauseMs: 450,
 });
 
 const add = (change: Omit<Extract<ChangeBody, { op: 'upsert_component' }>, 'op'>, reason: string): DemoStep => ({
@@ -49,17 +52,22 @@ export const DEMO_SCRIPT: DemoStep[] = [
     reason: 'The brief the user gave',
   },
   { change: { op: 'set_title', title: 'Customer support' }, reason: 'Name the system' },
-  { say: 'Before drawing anything, the specification. I am recording what you told me, each point with your own words as its source.' },
-  req('problem', 'Customers wait two days for an answer', 'wait two days for an answer'),
-  req('outcome', 'Most order questions are answered without a person, around the clock', 'answered without a person'),
-  req('user', 'Customers of the web shop', 'customers of our web shop', undefined, 'Customers'),
-  req('scenario', 'A customer asks where an order is, or asks for a refund', 'where is my order'),
-  req('integration', 'Reads orders and issues refunds through the refund API', 'issues refunds through the refund API', undefined, 'Order system'),
-  req('integration', 'Policies come from the FAQ and terms', 'policies are in our FAQ', undefined, 'FAQ and terms'),
-  req('oversight', 'Refunds over 100 EUR need a person', 'refunds over 100 EUR need a person'),
-  req('nonfunctional', 'Customer data stays in the EU; only logged-in customers see their orders', 'customer data must stay in the EU', 'security'),
-  req('functional', 'Returning customers do not have to repeat themselves', 'should not have to repeat themselves'),
-  { say: 'Discovery is complete. Reliability, cost, operations and performance stay open; we confirm them in the technical design. Shall we approve the scope?' },
+  { say: 'Before drawing anything, the functional specification, structured as arc42. I am recording what you told me, each point with your own words as its source.' },
+  item({ section: '1.1', type: 'goal', text: 'Customers get an answer within minutes instead of two days, without growing the support team' }, 'wait two days for an answer'),
+  item({ section: '1.1', type: 'metric', text: '70% of order questions answered without a person, within a minute' }, '70 percent of order questions answered without a person'),
+  item({ section: '1.1', type: 'flow', text: 'A customer asks where an order is or asks for a refund; if the order is not found, a person takes over' }, 'if the order is not found, a person takes over'),
+  item({ section: '1.1', type: 'oversight', text: 'Refunds over 100 EUR need a person to approve them' }, 'refunds over 100 EUR need a person'),
+  item({ section: '1.2', type: 'quality', attribute: 'privacy', text: 'Only logged-in customers can see their own orders' }, 'only logged-in customers can see their orders'),
+  item({ section: '2', type: 'constraint', category: 'regulatory', text: 'Customer data stays in the EU' }, 'customer data must stay in the EU'),
+  item({ section: '1.3', type: 'stakeholder', name: 'Head of support', text: 'Owns the system and its results' }, 'the head of support owns this'),
+  item({ section: '1.3', type: 'stakeholder', name: 'Support team', text: 'Handles what the system cannot' }, 'the support team handles what the system cannot'),
+  item({ section: '3.1', type: 'in_scope', text: 'Order status and refunds' }, 'covers order status and refunds'),
+  item({ section: '3.1', type: 'out_of_scope', text: 'Returns and exchanges' }, 'returns and exchanges are not part of it'),
+  item({ section: '3.2', type: 'person', name: 'Customer', text: 'Asks about orders and refunds' }, 'customer asks where their order is'),
+  item({ section: '3.2', type: 'system', name: 'Order system', text: 'Order status and history' }, 'it reads our order system'),
+  item({ section: '3.2', type: 'system', name: 'Payment service', text: 'Issues refunds' }, 'issues refunds through the payment service'),
+  item({ section: '3.2', type: 'system', name: 'FAQ and terms', text: 'Policy answers' }, 'policies are in our FAQ'),
+  { say: 'That covers what discovery needs. Reliability, performance, cost, operations and rollout stay open; we confirm them in the technical design. Shall we approve the scope?' },
   { change: { op: 'approve_stage', stage: 'discovery', by: 'Business sponsor' }, reason: 'Approved in the app', actor: 'user', pauseMs: 1400 },
   { say: 'Approved. Now the solution design, below the context diagram, starting with where messages come in.' },
   add({ kind: 'trigger', name: 'Customer message', source: 'chat', description: 'Chat and web form' }, 'Where work enters'),

@@ -97,7 +97,7 @@ test('documentation screening: withheld on attack and when it cannot be checked 
 test('output: reciting the instructions is flagged once', () => {
   const g = guardWith(null);
   assert.equal(g.checkOutput('A refund agent handles the money side.'), false);
-  const leak = 'Sure. You cannot build anything until the brief has a goal and discovery is done. The server refuses every design change';
+  const leak = 'Sure. You cannot build anything until the brief has a goal and discovery is approved. The server refuses every design change';
   assert.equal(g.checkOutput(leak.slice(0, 40)) || g.checkOutput(leak.slice(40)), true);
   assert.equal(g.audit.events.at(-1)?.kind, 'output_flagged');
 });
@@ -159,6 +159,6 @@ test('documents: one with instructions for the assistant is refused when Prompt 
 });
 
 test('basis from tool arguments: a document basis needs the document id', () => {
-  assert.deepEqual(basisFrom('record_requirement', { basis_source: 'document', basis_document: 'doc-1', basis_quote: 'data must stay' }), { source: 'document', document: 'doc-1', quote: 'data must stay' });
-  assert.equal(basisFrom('record_requirement', { basis_source: 'document', basis_quote: 'data must stay' }), null);
+  assert.deepEqual(basisFrom('record_item', { basis_source: 'document', basis_document: 'doc-1', basis_quote: 'data must stay' }), { source: 'document', document: 'doc-1', quote: 'data must stay' });
+  assert.equal(basisFrom('record_item', { basis_source: 'document', basis_quote: 'data must stay' }), null);
 });

@@ -25,14 +25,14 @@ test('every demo change is accepted by the change log', () => {
   replayDemo();
 });
 
-test('the demo runs discovery first, and every requirement quotes what the user said', () => {
+test('the demo runs discovery first, and every item quotes what the user said', () => {
   const b = replayDemo();
   const firstDesign = DEMO_SCRIPT.findIndex((s) => 'change' in s && s.change.op === 'upsert_component');
-  const lastRequirement = DEMO_SCRIPT.map((s) => 'change' in s && s.change.op === 'record_requirement').lastIndexOf(true);
+  const lastRequirement = DEMO_SCRIPT.map((s) => 'change' in s && s.change.op === 'record_item').lastIndexOf(true);
   assert.ok(lastRequirement < firstDesign, 'requirements come before design');
-  assert.ok(b.spec.requirements.length >= 7);
+  assert.ok(b.spec.items.length >= 9);
   const said = DEMO_USER_WORDS.join('\n');
-  for (const r of b.spec.requirements) assert.ok(quoteFound(r.source.quote, said), `${r.id} quotes the user: "${r.source.quote}"`);
+  for (const i of b.spec.items) assert.ok(quoteFound(i.source.quote ?? '', said), `${i.id} quotes the user: "${i.source.quote}"`);
 });
 
 test('the demo builds a handoff team with an approval and a guardrail', () => {

@@ -1,21 +1,23 @@
 import { replay, type Basis, type Change, type ChangeBody } from '../../shared/board/changes';
-import { emptyBoard, type Board, type Requirement } from '../../shared/board/schema';
+import { emptyBoard, type Board } from '../../shared/board/schema';
 
 const at = '2026-11-18T12:00:00.000Z';
 const c = (body: ChangeBody, reason: string, basis?: Basis): Change => ({ body, actor: 'coach', reason, at, ...(basis ? { basis } : {}) });
 
-const req = (kind: Requirement['kind'], text: string, quote: string, pillar?: Requirement['pillar']): Change =>
-  c({ op: 'record_requirement', kind, text, ...(pillar ? { pillar } : {}) }, 'Stated by the user', { source: 'user', quote });
+type ItemFields = Omit<Extract<ChangeBody, { op: 'record_item' }>, 'op' | 'id'>;
+const item = (fields: ItemFields, quote: string): Change => c({ op: 'record_item', ...fields }, 'Stated by the user', { source: 'user', quote });
 
 /** A discovery that covers every required topic: what every test design needs before it can be built. */
 export const discoveryChanges: Change[] = [
-  req('problem', 'Customers wait days for answers about orders and refunds', 'wait days for answers'),
-  req('outcome', 'Most order questions are answered without a person', 'answered without a person'),
-  req('user', 'Customers of a web shop', 'customers of a web shop'),
-  req('scenario', 'A customer asks where an order is and gets its status', 'where is my order'),
-  req('integration', 'Reads the order system and issues refunds through the refund API', 'order system and refund API'),
-  req('oversight', 'Refunds over 100 EUR need a person', 'refunds over 100 EUR need a person'),
-  req('nonfunctional', 'Customer data stays in the EU', 'data stays in the EU', 'security'),
+  item({ section: '1.1', type: 'goal', text: 'Customers get answers in minutes instead of days' }, 'wait days for answers'),
+  item({ section: '1.1', type: 'metric', text: 'Most order questions are answered without a person' }, 'answered without a person'),
+  item({ section: '1.1', type: 'flow', text: 'A customer asks where an order is and gets its status' }, 'where is my order'),
+  item({ section: '1.1', type: 'oversight', text: 'Refunds over 100 EUR need a person' }, 'refunds over 100 EUR need a person'),
+  item({ section: '2', type: 'constraint', category: 'regulatory', text: 'Customer data stays in the EU' }, 'data stays in the EU'),
+  item({ section: '1.3', type: 'stakeholder', name: 'Head of support', text: 'Owns the results' }, 'head of support owns it'),
+  item({ section: '3.1', type: 'in_scope', text: 'Order status and refunds' }, 'order status and refunds'),
+  item({ section: '3.2', type: 'person', name: 'Customer', text: 'Asks about orders' }, 'customers of a web shop'),
+  item({ section: '3.2', type: 'system', name: 'Order system', text: 'Order status' }, 'order system and refund API'),
 ];
 
 /** The user approving discovery in the app, which opens solution design. */
