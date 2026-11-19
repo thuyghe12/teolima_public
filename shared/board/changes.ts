@@ -14,7 +14,7 @@
 import { z } from 'zod';
 import { discovery, discoveryRefusal } from './discovery';
 import { gate, outOfStage, stageOf, STAGES } from './stages';
-import { CONSTRAINT_CATEGORIES, QUALITY_ATTRIBUTES, sectionDef } from './arc42';
+import { CONSTRAINT_CATEGORIES, HOSTING, hostingOf, QUALITY_ATTRIBUTES, sectionDef } from './arc42';
 import {
   Board,
   Component,
@@ -373,6 +373,7 @@ function recordItem(board: Board, body: Extract<ChangeBody, { op: 'record_item' 
   }
   const topic = body.topic ?? existing?.topic;
   if (body.type === 'decision' && !topic) return fail('A decision record names its topic: platform, complexity, pattern, hosting or other.');
+  if (topic === 'hosting' && body.type === 'decision' && !hostingOf(name)) return fail(`A hosting decision is one of: ${HOSTING.join(', ')}. Pass it as the name.`);
   const options = body.options ?? existing?.options;
   if (body.type === 'decision' && options?.length && !options.some((o) => o.toLowerCase() === name?.toLowerCase())) {
     return fail(`A decision's name is the option chosen, and it is one of the options weighed (${options.join(', ')}).`);

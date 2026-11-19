@@ -63,7 +63,9 @@ test('a block cannot serve an item that does not exist', () => {
 test('a decision names its topic, and its name is the option chosen', () => {
   const b = designed();
   refused(b, ch({ op: 'record_item', section: '9', type: 'decision', name: 'Prompt agents', text: 'x' }, 'coach', said), /topic/);
-  refused(b, ch({ op: 'record_item', section: '9', type: 'decision', topic: 'hosting', name: 'Containers', text: 'x', options: ['Prompt agents', 'Hosted agents'] }, 'coach', said), /option chosen/);
+  refused(b, ch({ op: 'record_item', section: '9', type: 'decision', topic: 'pattern', name: 'Magentic', text: 'x', options: ['Sequential', 'Handoff'] }, 'coach', said), /option chosen/);
+  // hosting is read by the compiler, so it is one of the baseline's three options
+  refused(b, ch({ op: 'record_item', section: '9', type: 'decision', topic: 'hosting', name: 'Containers', text: 'x' }, 'coach', said), /Prompt agents, Hosted agents, Self-hosted orchestration/);
 });
 
 test('a quality approach names the quality goal it meets', () => {

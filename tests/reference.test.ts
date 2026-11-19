@@ -49,7 +49,7 @@ test('solution design reaches an approvable state with the decisions Microsoft m
   const b = designed();
   assert.deepEqual(gate(b, 'solution'), { ready: true, missing: [] });
   const decided = Object.fromEntries(b.spec.items.filter((i) => i.type === 'decision').map((i) => [i.topic, i.name]));
-  assert.deepEqual(decided, { platform: 'Microsoft Foundry', complexity: 'Several agents', pattern: 'Sequential', hosting: 'Hosted agents' });
+  assert.deepEqual(decided, { platform: 'Microsoft Foundry', complexity: 'Several agents', pattern: 'Sequential', hosting: 'Self-hosted orchestration' });
   const page = referenceText();
   for (const i of b.spec.items.filter((x) => x.section === '9' || x.section === '4')) assert.ok(quoteFound(i.source.quote ?? '', page), `${i.id} quotes the page`);
   assert.ok(quoteFound(b.spec.scenarios[0].source.quote ?? '', page));
@@ -76,5 +76,5 @@ test('the reference draws cleanly in every view, and its document has no open ga
   const md = stageMarkdown(b, 'solution');
   assert.ok(!md.includes('not covered'));
   assert.ok(!md.includes('Open before approval'));
-  assert.match(md, /Hosted agents \(chosen\)/);
+  assert.match(md, /Self-hosted orchestration \(chosen\)/);
 });

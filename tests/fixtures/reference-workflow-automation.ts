@@ -8,7 +8,8 @@
  *
  * The page decides: Microsoft Foundry with GPT-4.1, specialised agents for
  * analysis, translation, validation and documentation, a dependent workflow,
- * custom Agent Framework code hosted in Container Apps, and Azure Cosmos DB
+ * custom Agent Framework code run in Container Apps (self-hosted orchestration,
+ * in the baseline Foundry architecture's terms), and Azure Cosmos DB
  * for plans, history and agent decisions.
  */
 import { readFileSync } from 'node:fs';
@@ -62,7 +63,7 @@ export const referenceSolution: Change[] = [
   decide('platform', 'Microsoft Foundry', 'Build the agents on Microsoft Foundry with a GPT-4.1 model', ['SaaS agents', 'Copilot Studio', 'Microsoft Foundry'], 'Foundry provides the models and Foundry Tools; the software team owns the agents.', 'connects to a Microsoft Foundry-hosted GPT-4.1 model'),
   decide('complexity', 'Several agents', 'Four specialised agents: analysis, translation, validation and documentation', ['One agent with tools', 'Several agents'], 'Each agent applies its own expertise; more agents to evaluate and monitor.', 'tasks that span multiple areas of expertise'),
   decide('pattern', 'Sequential', 'Each agent builds on the previous one: analyse, translate, validate, document', ['Sequential', 'Concurrent', 'Handoff', 'Group chat'], 'A fixed order, easy to audit; no step runs in parallel.', 'Sequential patterns suit dependent tasks'),
-  decide('hosting', 'Hosted agents', 'Custom Agent Framework code, hosted in Azure Container Apps', ['Prompt agents', 'Hosted agents'], 'Deterministic orchestration and control of compute; the team builds and runs the orchestration code.', 'This code-first solution provides maximum control over agent behavior, orchestration logic, and compute scale'),
+  decide('hosting', 'Self-hosted orchestration', 'Custom Agent Framework code, run in Azure Container Apps', ['Prompt agents', 'Hosted agents', 'Self-hosted orchestration'], 'Deterministic orchestration and full control of compute; the team builds, runs and scales the orchestration code.', 'you deploy the agents in Azure Container Apps where they use Foundry Tools'),
   c({ op: 'set_shape', shape: 'multi', reasons: ['prompt_complexity'] }, page('tasks that span multiple areas of expertise')),
   add({ kind: 'trigger', name: 'Web front end', source: 'api', description: 'App Service website', serves: ['person-1'] }),
   add({ kind: 'tool', name: 'Source schema', toolType: 'function', description: 'Reads queries and dialect from the source', serves: ['system-1'] }),

@@ -17,14 +17,14 @@ azure.yaml                        the project, one service per agent, tools and 
 infra/main.bicep                  composes the AI Landing Zone modules and the system's own resources
 infra/main.parameters.json        every value a person may change, named and described
 infra/modules/                    foundry, security, data, network
-src/agents/<agent>/               only for hosted agents: main.py, Dockerfile, requirements.txt
+src/agents/<agent>/               only for code: main.py, Dockerfile, requirements.txt
 evals/azure.eval.yaml             one evaluation per runtime scenario and quality scenario
 .github/workflows/azure-dev.yml   provision and deploy with federated credentials
 docs/                             the arc42 export of stages 1 to 3, one diagram per stage,
                                   docs/adr/ from section 9, the audit trail, cost and statement of work
 ```
 
-- **Agents.** Prompt agents are declared in `azure.yaml` by default; a hosted agent, with source and a Dockerfile, only when solution design decided on code-driven orchestration (decision on agent hosting). Tools and knowledge sources become connections. Environment variables go in each service's env map; the project endpoint is provided by azd and never declared.
+- **Agents.** The hosting decision of solution design sets the shape, following the three options of the baseline Foundry architecture: prompt agents are declared in `azure.yaml`; hosted agents get source and a Dockerfile, built into an image in an Azure Container Registry the team owns and run by Foundry Agent Service; self-hosted orchestration gets source and a Dockerfile deployed to Azure Container Apps. Tools and knowledge sources become connections. Environment variables go in each service's env map; the project endpoint is provided by azd and never declared.
 - **Infrastructure from the AI Landing Zone.** The Bicep composes the [AI Landing Zone](https://github.com/Azure/AI-Landing-Zones) Bicep implementation, which wraps Azure Verified Modules, instead of generating resources from scratch. Network isolation, identity, private endpoints and monitoring follow from the security answers in discovery and technical design. The Bicep is explicit, although azd can run Foundry agents without it, because the infrastructure team reviews and owns it.
 - **Traceability.** Every resource, connection, agent and evaluation carries the ids of the specification items it serves, in a comment in the file and in `docs/audit-trail.json`.
 - **Validation.** The project must pass `bicep build`, `bicep lint` and validation against the `azure.yaml` schema, and every evaluation board in CI must compile. The AI Landing Zone design checklist is run against the result, and each check it cannot pass is listed, never hidden.

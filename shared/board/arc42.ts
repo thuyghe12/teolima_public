@@ -157,10 +157,21 @@ export const DECISION_TOPICS = {
   platform: { label: 'Platform', question: 'Do SaaS agents meet the need, or do we build, and on which platform?', guidance: CAF_TREE },
   complexity: { label: 'Level of complexity', question: 'Direct model call, one agent with tools, or several agents?', guidance: `${PATTERNS}#start-with-the-right-level-of-complexity` },
   pattern: { label: 'Orchestration pattern', question: 'Which orchestration pattern, and why not a simpler one?', guidance: `${PATTERNS}#choose-a-pattern` },
-  hosting: { label: 'Agent hosting', question: 'Prompt agents run by Foundry Agent Service, or hosted agents with our own code?', guidance: BASELINE },
+  hosting: { label: 'Agent hosting', question: 'Prompt agents run by Foundry Agent Service, hosted agents (our code in a container on Foundry Agent Service), or self-hosted orchestration on compute we operate?', guidance: BASELINE },
   other: { label: 'Other', question: '', guidance: `${DISCOVERY}#recommend-propose-the-technical-strategy` },
 } as const;
 export type DecisionTopic = keyof typeof DECISION_TOPICS;
+
+/**
+ * The three ways to run the agents, as the baseline Foundry architecture
+ * describes them. A hosting decision names one of these exactly, because the
+ * compiler reads it: prompt agents are declared in azure.yaml, hosted agents
+ * are container images in a registry the team owns that Foundry Agent Service
+ * runs, and self-hosted orchestration runs on compute the team operates.
+ */
+export const HOSTING = ['Prompt agents', 'Hosted agents', 'Self-hosted orchestration'] as const;
+export type Hosting = (typeof HOSTING)[number];
+export const hostingOf = (name: string | undefined): Hosting | undefined => HOSTING.find((h) => h.toLowerCase() === name?.toLowerCase());
 
 /**
  * Stage 2 (solution design) owns arc42 sections 4, 5, 6 and 9: the
