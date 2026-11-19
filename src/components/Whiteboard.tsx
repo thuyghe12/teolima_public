@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { CanvasEngine } from '../lib/canvas/canvasEngine';
 import { CanvasElement, CanvasLayer, VoiceSettings } from '../types';
-import { ZoomIn, ZoomOut, Maximize2, Sparkles } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 
 interface WhiteboardProps {
   /** Shown over the canvas while it has no elements. */
@@ -336,17 +336,6 @@ export const Whiteboard: React.FC<WhiteboardProps> = ({
               fontFamily: "'Nanum Pen Script', cursive, sans-serif",
             }}
           />
-        </div>
-      )}
-
-      {/* Floating Status Badge when Coach is dynamically doodling */}
-      {isAiDrawing && (
-        <div
-          id="ai-drawing-status-pill"
-          className="absolute top-4 left-4 z-20 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#18181c] text-[#c8f13a] text-xs font-mono-code font-bold shadow-lg shadow-black/10 backdrop-blur-md animate-pulse border border-[#c8f13a]/30"
-        >
-          <Sparkles className="w-3.5 h-3.5 animate-spin text-[#c8f13a]" />
-          <span>Teolima Coach Doodling Architecture...</span>
         </div>
       )}
 

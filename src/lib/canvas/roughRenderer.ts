@@ -517,6 +517,10 @@ export function renderCanvasElement(
           ? 'rgba(224, 231, 255, 0.45)'
           : agentRole === 'approval' || agentRole === 'human_approval'
           ? 'rgba(254, 243, 199, 0.5)'
+          : agentRole === 'system'
+          ? 'rgba(200, 241, 58, 0.22)'
+          : agentRole === 'actor' || agentRole === 'external'
+          ? '#ffffff'
           : fillColor || 'rgba(244, 244, 247, 0.85)';
 
         const cardOptions = {
@@ -1144,7 +1148,8 @@ function drawRoleBadge(ctx: CanvasRenderingContext2D, badgeX: number, badgeY: nu
   ctx.save();
   let bg = '#18181c';
   let textCol = '#ffffff';
-  let label = role.toUpperCase();
+  const LABELS: Record<string, string> = { actor: 'USER', system: 'THIS SYSTEM', external: 'EXTERNAL SYSTEM' };
+  let label = LABELS[role] ?? role.toUpperCase();
 
   if (role === 'router' || role === 'manager') {
     bg = '#c8f13a';
@@ -1173,6 +1178,9 @@ function drawRoleBadge(ctx: CanvasRenderingContext2D, badgeX: number, badgeY: nu
   } else if (role === 'human_approval') {
     bg = '#fef3c7';
     textCol = '#92400e';
+  } else if (role === 'actor' || role === 'external') {
+    bg = '#ffffff';
+    textCol = '#5a5a62';
   }
 
   ctx.font = `600 10px 'IBM Plex Mono', monospace`;

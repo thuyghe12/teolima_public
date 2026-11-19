@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Check, Copy, Download, X } from 'lucide-react';
-import type { Board } from '../../shared/board/schema';
+import { Check, ChevronRight, Copy, Download, FileText, Mic, PenLine, X } from 'lucide-react';
+import type { Board, Requirement } from '../../shared/board/schema';
 import { discovery } from '../../shared/board/discovery';
 import { grouped, sourceLabel, specMarkdown } from '../../shared/board/spec-document';
 
@@ -19,11 +19,45 @@ const PILLARS: Record<string, string> = {
   'performance-efficiency': 'Performance',
 };
 
-/** The functional specification: discovery topics, then every requirement with its quoted source. */
+const SourceIcon: React.FC<{ r: Requirement }> = ({ r }) => {
+  const Icon = r.source.kind === 'document' ? FileText : r.source.kind === 'brief' ? PenLine : Mic;
+  return <Icon className="w-3.5 h-3.5 shrink-0 text-[#a1a0a8]" aria-hidden />;
+};
+
+/** One requirement: a single line; its source and quote one click away. */
+const Item: React.FC<{ r: Requirement; documents: Record<string, string> }> = ({ r, documents }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <li>
+      <button onClick={() => setOpen(!open)} className="w-full flex items-start gap-2 py-1.5 text-left group" aria-expanded={open}>
+        <span className="flex-1 text-sm leading-snug">
+          {r.text}
+          {r.pillar && <span className="ml-1.5 text-xs text-[#87868e]">{PILLARS[r.pillar]}</span>}
+        </span>
+        <SourceIcon r={r} />
+      </button>
+      {open && (
+        <blockquote className="mb-2 ml-0.5 pl-3 border-l-2 border-[#e2e2e6] text-xs text-[#5a5a62]">
+          "{r.source.quote}"
+          <span className="block mt-0.5 text-[#a1a0a8]">
+            {sourceLabel(r, documents)} · {r.id}
+          </span>
+        </blockquote>
+      )}
+    </li>
+  );
+};
+
+/** The functional specification, opened on demand: grouped, one line per requirement, sources on request. */
 export const SpecPanel: React.FC<SpecPanelProps> = ({ board, documents, onClose }) => {
   const d = useMemo(() => discovery(board), [board]);
   const groups = useMemo(() => grouped(board), [board]);
+  const [closed, setClosed] = useState<Set<string>>(new Set());
+  const [showTopics, setShowTopics] = useState(false);
   const [copied, setCopied] = useState(false);
+  const required = d.topics.filter((t) => t.topic.required);
+  const covered = required.filter((t) => t.covered).length;
+  const approval = board.stage.approvals.find((a) => a.stage === 'discovery');
   const markdown = () => specMarkdown(board, documents);
 
   const copy = async () => {
@@ -43,18 +77,22 @@ export const SpecPanel: React.FC<SpecPanelProps> = ({ board, documents, onClose 
     a.click();
     URL.revokeObjectURL(url);
   };
+  const toggle = (kind: string) =>
+    setClosed((prev) => {
+      const next = new Set(prev);
+      if (next.has(kind)) next.delete(kind);
+      else next.add(kind);
+      return next;
+    });
 
   return (
     <aside
       aria-label="Functional specification"
-      className="fixed top-20 left-5 bottom-5 z-30 w-[360px] max-w-[calc(100vw-2.5rem)] flex flex-col rounded-2xl bg-white border border-[#e2e2e6] shadow-[0_8px_30px_rgba(24,24,28,0.08)] text-[#18181c] font-body"
+      className="fixed top-[150px] left-5 bottom-5 z-20 w-[340px] max-w-[calc(100vw-2.5rem)] flex flex-col rounded-2xl bg-white border border-[#e2e2e6] shadow-[0_8px_30px_rgba(24,24,28,0.06)] text-[#18181c] font-body"
     >
-      <header className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-[#f0f0f2]">
-        <div>
-          <h2 className="text-sm font-semibold">Functional specification</h2>
-          <p className="text-xs text-[#87868e]">What it must do and why. Every line quotes its source.</p>
-        </div>
-        <div className="flex items-center gap-1">
+      <header className="flex items-center justify-between pl-4 pr-2 py-2.5 border-b border-[#f0f0f2]">
+        <h2 className="text-sm font-semibold">Specification</h2>
+        <div className="flex items-center">
           <button onClick={copy} className="p-2 rounded-lg text-[#5a5a62] hover:bg-[#f0f0f2]" aria-label="Copy as Markdown" title="Copy as Markdown">
             {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
           </button>
@@ -67,50 +105,39 @@ export const SpecPanel: React.FC<SpecPanelProps> = ({ board, documents, onClose 
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
-        <section aria-label="Discovery">
-          <div className="text-xs font-medium text-[#5a5a62] mb-1.5">
-            Discovery {d.done ? 'done' : `: ${d.missing.length} required topic${d.missing.length === 1 ? '' : 's'} missing`}
-          </div>
-          <ul className="flex flex-wrap gap-1">
-            {d.topics.map(({ topic, covered }) => (
-              <li
-                key={topic.id}
-                title={covered ? topic.title : topic.question}
-                className={`px-2 py-0.5 rounded-full text-xs border ${
-                  covered
-                    ? 'bg-[#18181c] border-[#18181c] text-white'
-                    : topic.required
-                      ? 'border-[#18181c] text-[#18181c]'
-                      : 'border-dashed border-[#c4c4ca] text-[#87868e]'
-                }`}
-              >
-                {covered ? '✓ ' : ''}
-                {topic.title}
+      <div className="px-4 py-2.5 border-b border-[#f0f0f2]">
+        <button onClick={() => setShowTopics(!showTopics)} className="w-full flex items-center justify-between text-xs text-[#5a5a62]" aria-expanded={showTopics}>
+          <span>{approval ? `Approved by ${approval.by}` : `${covered} of ${required.length} required topics covered`}</span>
+          <ChevronRight className={`w-3.5 h-3.5 transition-transform ${showTopics ? 'rotate-90' : ''}`} />
+        </button>
+        {showTopics && (
+          <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
+            {d.topics.map(({ topic, covered: c }) => (
+              <li key={topic.id} title={c ? undefined : topic.question} className={`text-xs ${c ? 'text-[#18181c]' : topic.required ? 'text-[#5a5a62]' : 'text-[#a1a0a8]'}`}>
+                {c ? '✓' : topic.required ? '○' : '·'} {topic.title}
               </li>
             ))}
           </ul>
-          {!d.done && <p className="mt-1.5 text-xs text-[#87868e]">Design starts when every solid topic is covered. Dashed topics can stay open and are confirmed later.</p>}
-        </section>
+        )}
+      </div>
 
-        {groups.length === 0 && <p className="text-xs text-[#87868e]">No requirements yet. Talk the system through, or paste a transcript or notes.</p>}
-
+      <div className="flex-1 overflow-y-auto px-4 py-2">
+        {groups.length === 0 && <p className="py-2 text-xs text-[#87868e]">No requirements yet. Talk it through, or paste a transcript or notes.</p>}
         {groups.map((g) => (
-          <section key={g.kind} aria-label={g.title}>
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-[#5a5a62] mb-1.5">{g.title}</h3>
-            <ul className="space-y-2">
-              {g.items.map((r) => (
-                <li key={r.id} className="text-sm">
-                  <p>
-                    {r.text}
-                    {r.pillar && <span className="ml-1.5 text-xs text-[#5a5a62]">· {PILLARS[r.pillar]}</span>}
-                  </p>
-                  <p className="text-xs text-[#87868e]">
-                    <span className="font-mono">{r.id}</span> · "{r.source.quote}" · {sourceLabel(r, documents)}
-                  </p>
-                </li>
-              ))}
-            </ul>
+          <section key={g.kind} className="py-1.5">
+            <button onClick={() => toggle(g.kind)} className="w-full flex items-center justify-between py-1 text-xs font-medium text-[#5a5a62]" aria-expanded={!closed.has(g.kind)}>
+              <span>
+                {g.title} <span className="text-[#a1a0a8] tabular-nums">{g.items.length}</span>
+              </span>
+              <ChevronRight className={`w-3.5 h-3.5 transition-transform ${closed.has(g.kind) ? '' : 'rotate-90'}`} />
+            </button>
+            {!closed.has(g.kind) && (
+              <ul className="divide-y divide-[#f4f4f6]">
+                {g.items.map((r) => (
+                  <Item key={r.id} r={r} documents={documents} />
+                ))}
+              </ul>
+            )}
           </section>
         ))}
       </div>

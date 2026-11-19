@@ -1837,7 +1837,7 @@ export class CanvasEngine {
     const dpr = window.devicePixelRatio || 1;
     const cssW = this.canvas.width / dpr;
     const cssH = this.canvas.height / dpr;
-    const pad = { top: 110, right: 40 + reservedRight, bottom: 150, left: 40 + reservedLeft };
+    const pad = { top: 160, right: 40 + reservedRight, bottom: 120, left: 40 + reservedLeft };
     const t = this.transform;
     const sx = box.x * t.scale + t.x;
     const sy = box.y * t.scale + t.y;

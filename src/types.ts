@@ -49,7 +49,11 @@ export type AgentRoleKind =
   | 'knowledge'
   | 'approval'
   | 'output'
-  | 'manager';
+  | 'manager'
+  // context diagram roles
+  | 'actor'
+  | 'system'
+  | 'external';
 
 export type FillStyle = 'hachure' | 'solid' | 'zigzag' | 'cross-hatch' | 'dots' | 'dashed' | 'none';
 
