@@ -24,3 +24,22 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+
+  compiled-bicep:
+    # The compiled project's infrastructure must build. The landing zone pulls
+    # Azure Verified Modules from the public Bicep registry, which this job can reach.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Compile the demo design
+        run: npm run compile:example
+      - name: Build and lint the compiled Bicep
+        run: |
+          az bicep install
+          az bicep build --file out/customer-support/infra/main.bicep --stdout > /dev/null
+          az bicep lint --file out/customer-support/infra/main.bicep
