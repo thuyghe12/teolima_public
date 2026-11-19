@@ -7,7 +7,9 @@
  */
 import { Type, type FunctionDeclaration } from '@google/genai';
 import { Board, emptyBoard, ShapeReason } from '../shared/board/schema';
-import { CONSTRAINT_CATEGORIES, DECISION_TOPICS, QUALITY_ATTRIBUTES, SECTIONS } from '../shared/board/arc42';
+import { DECISION_TOPICS, HOSTING, QUALITY_ATTRIBUTES, SECTIONS } from '../shared/board/arc42';
+import { CHECKLIST } from '../shared/board/waf';
+import { resourcePlan } from '../shared/board/deployment';
 import { readiness } from '../shared/board/readiness';
 import { discovery } from '../shared/board/discovery';
 import { gate, stageOf } from '../shared/board/stages';
@@ -34,7 +36,7 @@ const basisDocument = { type: Type.STRING, description: 'document only: the id t
 const basis = { basis_source: basisSource, basis_quote: basisQuote, basis_document: basisDocument };
 
 /** Tools that add to the design and so must name their basis. */
-export const GROUNDED_TOOLS = new Set(['set_brief', 'record_item', 'set_scenario', 'set_shape', 'add_component', 'set_team', 'connect']);
+export const GROUNDED_TOOLS = new Set(['set_brief', 'record_item', 'set_scenario', 'review', 'set_shape', 'add_component', 'set_team', 'connect']);
 
 export const boardToolDeclarations: FunctionDeclaration[] = [
   {
@@ -42,17 +44,24 @@ export const boardToolDeclarations: FunctionDeclaration[] = [
     description:
       'Record one item in the current stage\'s document, structured as arc42. One statement per call, plain words, faithful to its source, quoting it. What the system must do and why, never how. Sections and their types: ' +
       SECTIONS.map((sec) => `${sec.id} ${sec.title}: ${sec.types.map((t) => `${t.id}${t.named ? ' (with name)' : ''}`).join(', ')}`).join('; ') +
-      '. A quality goal names its attribute; a constraint names its category. Pass id to correct an existing item.',
+      '. A quality goal names its attribute. Types with a category: ' +
+      SECTIONS.flatMap((sec) => sec.types.filter((t) => t.categories).map((t) => `${t.id} (${Object.keys(t.categories!).join(', ')})`)).join('; ') +
+      '. Pass id to correct an existing item.',
     parameters: {
       type: Type.OBJECT,
       properties: {
         section: { type: Type.STRING, enum: SECTIONS.map((sec) => sec.id), description: 'The arc42 section.' },
         type: { type: Type.STRING, enum: [...new Set(SECTIONS.flatMap((sec) => sec.types.map((t) => t.id)))], description: 'The item type within its section.' },
         text: { type: Type.STRING, description: 'The statement in one plain sentence. For a person or external system: what it exchanges with the system, which labels the line on the context diagram.' },
-        name: { type: Type.STRING, description: 'stakeholder, person, system: a short name of two or three words, e.g. "Planners" or "Order system". decision: the option chosen, exactly as it appears in options.' },
+        name: { type: Type.STRING, description: 'stakeholder, person, system: a short name of two or three words, e.g. "Planners" or "Order system". decision: the option chosen, exactly as it appears in options; for hosting one of: Prompt agents, Hosted agents, Self-hosted orchestration. setting: the value, e.g. "Sweden Central", "Private networking" or "Standalone". environment: e.g. "Production".' },
         attribute: { type: Type.STRING, enum: Object.keys(QUALITY_ATTRIBUTES), description: 'quality: the quality attribute.' },
-        category: { type: Type.STRING, enum: Object.keys(CONSTRAINT_CATEGORIES), description: 'constraint: business (budget or timeline), regulatory, technical or organizational.' },
-        serves: names('Stage 2 items: ids of the stage 1 items this answers, e.g. ["quality-1"] for a quality approach, ["oversight-1"] for a decision on how a rule is met.'),
+        category: {
+          type: Type.STRING,
+          enum: [...new Set(SECTIONS.flatMap((sec) => sec.types.flatMap((t) => Object.keys(t.categories ?? {}))))],
+          description: "constraint, setting, concept, assumption: the category, from the type's own list.",
+        },
+        measure: { type: Type.STRING, description: 'quality_scenario: how the response is measured, e.g. "p95 under 4 seconds".' },
+        serves: names('Ids of the earlier items this answers, e.g. ["quality-1"] for a quality approach or quality scenario, ["oversight-1"] for a decision on how a rule is met.'),
         topic: { type: Type.STRING, enum: Object.keys(DECISION_TOPICS), description: 'decision: platform, complexity, pattern, hosting or other.' },
         options: names('decision: the options that were weighed, including the one chosen.'),
         consequences: { type: Type.STRING, description: 'decision: what follows from it, good and bad.' },
@@ -82,6 +91,31 @@ export const boardToolDeclarations: FunctionDeclaration[] = [
         ...basis,
       },
       required: ['flow', 'title', 'steps', 'basis_source', 'basis_quote'],
+    },
+  },
+  {
+    name: 'review',
+    description:
+      'Technical design: record the Well-Architected design review, one or more recommendations at a time, by code (RE:01 to RE:10, SE:01 to SE:12, CO:01 to CO:14, OE:01 to OE:11, PE:01 to PE:12). Status met, partly, not_met or not_applicable; anything but met says why in note. Base each status on what the design and the user state; ask when you cannot tell.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        checks: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              code: { type: Type.STRING, enum: CHECKLIST.map((r) => r.code) },
+              status: { type: Type.STRING, enum: ['met', 'partly', 'not_met', 'not_applicable'] },
+              note: { type: Type.STRING },
+            },
+            required: ['code', 'status'],
+          },
+        },
+        reason,
+        ...basis,
+      },
+      required: ['checks', 'basis_source', 'basis_quote'],
     },
   },
   {
@@ -235,11 +269,19 @@ export function toChangeBody(name: string, args: Record<string, unknown> = {}): 
         text: String(args.text ?? ''),
         name: str(args.name),
         attribute: str(args.attribute) as never,
-        category: str(args.category) as never,
+        category: str(args.category),
+        measure: str(args.measure),
         serves: list(args.serves),
         topic: str(args.topic) as never,
         options: list(args.options),
         consequences: str(args.consequences),
+      };
+    case 'review':
+      return {
+        op: 'review',
+        checks: Array.isArray(args.checks)
+          ? (args.checks as Record<string, unknown>[]).map((c) => ({ code: String(c?.code ?? ''), status: String(c?.status ?? '') as never, note: str(c?.note) }))
+          : [],
       };
     case 'set_scenario':
       return {
@@ -360,6 +402,12 @@ export class BoardSession {
       components: this.board.components.map((c) => `${c.name} (${c.kind})`),
       teams: this.board.teams.map((t) => `${t.name}: ${t.pattern} [${t.members.map(name).join(', ')}]`),
       connections: this.board.connections.map((c) => `${name(c.from)} -> ${name(c.to)}${c.label ? ` (${c.label})` : ''}`),
+      ...(stage.id === 'technical'
+        ? {
+            resources: resourcePlan(this.board).resources.map((r) => `${r.service}: ${r.purpose}${r.private ? ' (private)' : ''}${r.reused ? ' (platform landing zone)' : ''}`),
+            review: { reviewed: this.board.spec.reviews.length, of: CHECKLIST.length, not_met: this.board.spec.reviews.filter((r) => r.status !== 'met' && r.status !== 'not_applicable').map((r) => r.code) },
+          }
+        : {}),
     };
   }
 }

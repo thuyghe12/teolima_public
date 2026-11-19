@@ -44,12 +44,19 @@ test('the demo builds a handoff team with an approval and a guardrail', () => {
   assert.ok(b.components.some((c) => c.kind === 'guardrail'));
 });
 
-test('the demo ends with a solution design the architect can approve', () => {
+test('the demo passes each gate: solution design is approved, technical design is ready to approve', () => {
   const b = replayDemo();
-  assert.equal(b.stage.current, 'solution');
-  assert.deepEqual(gate(b, 'solution').missing, []);
+  assert.equal(b.stage.current, 'technical');
+  assert.deepEqual(b.stage.approvals.map((a) => a.stage), ['discovery', 'solution']);
+  assert.deepEqual(gate(b, 'technical').missing, []);
   assert.equal(b.spec.scenarios.length, 1);
   assert.deepEqual(b.spec.items.filter((i) => i.type === 'decision').map((i) => i.topic).sort(), ['complexity', 'hosting', 'pattern', 'platform']);
+  assert.equal(b.spec.reviews.length, 59);
+  const said = DEMO_USER_WORDS.join('\n');
+  for (const r of b.spec.reviews) assert.ok(quoteFound(r.source.quote ?? '', said), `${r.code} quotes the user`);
+  // an honest first review: what was not discussed stays open, with its reason
+  assert.ok(b.spec.reviews.filter((r) => r.status === 'met').length < 20);
+  for (const r of b.spec.reviews.filter((r) => r.status !== 'met')) assert.ok(r.note, r.code);
 });
 
 test('the demo board lays out cleanly', () => {
