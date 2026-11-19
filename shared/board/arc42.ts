@@ -68,7 +68,8 @@ export const CONSTRAINT_CATEGORIES = {
 } as const;
 export type ConstraintCategory = keyof typeof CONSTRAINT_CATEGORIES;
 
-export const SECTIONS: SectionDef[] = [
+/** Stage 1 (discovery): arc42 sections 1 to 3. */
+export const DISCOVERY_SECTIONS: SectionDef[] = [
   {
     id: '1.1',
     stage: 'discovery',
@@ -138,7 +139,75 @@ export const CHAPTERS: Record<string, string> = {
   '1': 'Introduction and goals',
   '2': 'Constraints',
   '3': 'Context and scope',
+  '4': 'Solution strategy',
+  '5': 'Building block view',
+  '6': 'Runtime view',
+  '9': 'Architecture decisions',
 };
+
+const PATTERNS = 'https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/ai-agent-design-patterns';
+const CAF_TREE = 'https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents#ai-agent-decision-tree-and-architecture';
+const BASELINE = 'https://learn.microsoft.com/en-us/azure/architecture/ai-ml/architecture/baseline-microsoft-foundry-chat#alternatives';
+
+/**
+ * What a decision record decides. The first ones are required before solution
+ * design can be approved; Microsoft's guidance names the question for each.
+ */
+export const DECISION_TOPICS = {
+  platform: { label: 'Platform', question: 'Do SaaS agents meet the need, or do we build, and on which platform?', guidance: CAF_TREE },
+  complexity: { label: 'Level of complexity', question: 'Direct model call, one agent with tools, or several agents?', guidance: `${PATTERNS}#start-with-the-right-level-of-complexity` },
+  pattern: { label: 'Orchestration pattern', question: 'Which orchestration pattern, and why not a simpler one?', guidance: `${PATTERNS}#choose-a-pattern` },
+  hosting: { label: 'Agent hosting', question: 'Prompt agents run by Foundry Agent Service, or hosted agents with our own code?', guidance: BASELINE },
+  other: { label: 'Other', question: '', guidance: `${DISCOVERY}#recommend-propose-the-technical-strategy` },
+} as const;
+export type DecisionTopic = keyof typeof DECISION_TOPICS;
+
+/**
+ * Stage 2 (solution design) owns arc42 sections 4, 5, 6 and 9: the
+ * recommendation that closes Microsoft's discovery process, the building
+ * blocks (the agents, tools, knowledge, memory and controls on the board),
+ * one runtime scenario per user flow, and the decisions with the options
+ * that were weighed. Section 5 is the board itself, so it holds no items.
+ */
+export const SOLUTION_SECTIONS: SectionDef[] = [
+  {
+    id: '4',
+    stage: 'solution',
+    title: 'Solution strategy',
+    hint: 'The recommendation in a few lines: the approach, and how each top quality goal is met.',
+    types: [
+      { id: 'strategy', label: 'Approach', placeholder: 'A fundamental choice, e.g. one agent with tools in Microsoft Foundry' },
+      { id: 'quality_approach', label: 'Quality goal', placeholder: 'How a quality goal from 1.2 is met' },
+    ],
+    guidance: [`${DISCOVERY}#recommend-propose-the-technical-strategy`, `${PATTERNS}#start-with-the-right-level-of-complexity`],
+  },
+  {
+    id: '5',
+    stage: 'solution',
+    title: 'Building block view',
+    hint: 'The agents, tools, knowledge, memory and controls on the board, each with what it is for and which requirements it serves.',
+    types: [],
+    guidance: [`${WAF}/architect-role/design-diagrams#high-level-system-or-container-diagram`],
+  },
+  {
+    id: '6',
+    stage: 'solution',
+    title: 'Runtime view',
+    hint: 'For each user flow in 1.1, the numbered steps through the building blocks, including approvals and what happens on failure.',
+    types: [],
+    guidance: [`${WAF}/architect-role/design-diagrams#sequence-diagram`, `${PATTERNS}#human-participation`],
+  },
+  {
+    id: '9',
+    stage: 'solution',
+    title: 'Architecture decisions',
+    hint: 'Each significant decision: the question, the options weighed, the choice and its consequences.',
+    types: [{ id: 'decision', label: 'Decision', named: true, placeholder: 'What was decided' }],
+    guidance: [`${DISCOVERY}#recommend-propose-the-technical-strategy`, CAF_TREE, BASELINE],
+  },
+];
+/** Every arc42 section Teolima uses, in arc42 order. */
+export const SECTIONS: SectionDef[] = [...DISCOVERY_SECTIONS, ...SOLUTION_SECTIONS];
 
 export const sectionDef = (id: string): SectionDef | undefined => SECTIONS.find((s) => s.id === id);
 export const sectionsOf = (stage: StageId): SectionDef[] => SECTIONS.filter((s) => s.stage === stage);

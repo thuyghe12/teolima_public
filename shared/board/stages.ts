@@ -20,6 +20,7 @@
 import { discovery } from './discovery';
 import { readiness, type StepId } from './readiness';
 import type { Board, StageId } from './schema';
+import { DECISION_TOPICS } from './arc42';
 
 export interface Stage {
   id: StageId;
@@ -55,7 +56,7 @@ export const STAGES: Stage[] = [
     artifact: 'High-level design: agents, teams, tools, knowledge, memory, guardrails and flow',
     audience: "Architect and the client's tech lead",
     approver: 'Architect',
-    ops: ['set_title', 'set_shape', 'upsert_component', 'remove_component', 'upsert_team', 'remove_team', 'connect', 'disconnect', 'clear'],
+    ops: ['set_title', 'set_shape', 'upsert_component', 'remove_component', 'upsert_team', 'remove_team', 'connect', 'disconnect', 'clear', 'set_scenario', 'remove_scenario'],
     steps: ['shape', 'pattern', 'tools', 'guardrails', 'approvals', 'flow'],
   },
   {
@@ -90,15 +91,55 @@ export function gate(board: Board, id: StageId): { ready: boolean; missing: stri
   }
   if (id === 'solution') {
     const steps = readiness(board).steps.filter((s) => stageOf('solution').steps.includes(s.id) && s.status !== 'done' && s.status !== 'later');
-    return { ready: steps.length === 0, missing: steps.map((s) => s.title.toLowerCase()) };
+    const missing = [...steps.map((s) => s.title.toLowerCase()), ...traceability(board)];
+    return { ready: missing.length === 0, missing };
   }
   return { ready: false, missing: ['this stage is not built yet'] };
 }
 
-/** The refusal for a change that does not belong to the current stage. */
+/**
+ * What solution design must trace back to discovery before it can be
+ * approved, so the compiler never has to guess: every user flow has a
+ * runtime scenario, every oversight rule an approval that enforces it, every
+ * external system a tool or knowledge source that reaches it, every agent at
+ * least one item it serves, and the required decisions are on record.
+ */
+export function traceability(board: Pick<Board, 'spec' | 'components' | 'teams' | 'shape'>): string[] {
+  const items = board.spec.items;
+  const out: string[] = [];
+  const exists = (id: string) => items.some((i) => i.id === id) || board.components.some((c) => c.id === id) || board.teams.some((t) => t.id === id);
+  for (const sc of board.spec.scenarios) {
+    const gone = [...new Set(sc.steps.flatMap((st) => [st.from, st.to]).filter((id) => !exists(id)))];
+    if (gone.length) out.push(`${sc.id}: steps that refer to ${gone.join(', ')}, which is no longer on the board`);
+  }
+  for (const c of board.components) {
+    const gone = c.serves.filter((id) => !items.some((i) => i.id === id));
+    if (gone.length) out.push(`"${c.name}" serves ${gone.join(', ')}, which is no longer in the specification`);
+  }
+  for (const flow of items.filter((i) => i.type === 'flow')) {
+    if (!board.spec.scenarios.some((s) => s.flow === flow.id)) out.push(`a runtime scenario for ${flow.id}`);
+  }
+  for (const rule of items.filter((i) => i.type === 'oversight')) {
+    if (!board.components.some((c) => c.kind === 'approval' && c.serves.includes(rule.id)) && !items.some((i) => i.type === 'decision' && i.serves?.includes(rule.id))) {
+      out.push(`an approval that enforces ${rule.id}, or a decision on how it is met`);
+    }
+  }
+  for (const sys of items.filter((i) => i.section === '3.2' && i.type === 'system')) {
+    if (!board.components.some((c) => (c.kind === 'tool' || c.kind === 'knowledge') && c.serves.includes(sys.id))) out.push(`a tool or knowledge source that reaches ${sys.name ?? sys.id}`);
+  }
+  for (const agent of board.components.filter((c) => c.kind === 'agent')) {
+    if (!agent.serves.length) out.push(`what agent "${agent.name}" serves`);
+  }
+  const decided = new Set(items.filter((i) => i.type === 'decision').map((i) => i.topic));
+  const needed: (keyof typeof DECISION_TOPICS)[] = ['platform', 'complexity', 'hosting', ...(board.shape.kind === 'multi' ? (['pattern'] as const) : [])];
+  for (const t of needed) if (!decided.has(t)) out.push(`a decision record on ${DECISION_TOPICS[t].label.toLowerCase()}`);
+  return out;
+}
+
 /** Changes to the stage documents: accepted in every stage, for the current stage's sections only (checked in changes.ts). */
 export const DOCUMENT_OPS = ['record_item', 'remove_item', 'add_section', 'rename_section', 'remove_section'];
 
+/** The refusal for a change that does not belong to the current stage. */
 export function outOfStage(board: Board, op: string): string | null {
   if (op === 'approve_stage' || op === 'reopen_stage' || DOCUMENT_OPS.includes(op)) return null;
   const stage = stageOf(board.stage.current);

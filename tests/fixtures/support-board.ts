@@ -18,6 +18,30 @@ export const discoveryChanges: Change[] = [
   item({ section: '3.1', type: 'in_scope', text: 'Order status and refunds' }, 'order status and refunds'),
   item({ section: '3.2', type: 'person', name: 'Customer', text: 'Asks about orders' }, 'customers of a web shop'),
   item({ section: '3.2', type: 'system', name: 'Order system', text: 'Order status' }, 'order system and refund API'),
+  item({ section: '3.2', type: 'system', name: 'Payment service', text: 'Issues refunds' }, 'order system and refund API'),
+];
+
+const decision = (topic: 'platform' | 'complexity' | 'pattern' | 'hosting', name: string, text: string, options: string[], consequences: string): Change =>
+  c({ op: 'record_item', section: '9', type: 'decision', topic, name, text, options, consequences }, 'Agreed with the user', { source: 'user', quote: 'sounds right' });
+
+/** The decisions and the runtime scenario that make the support design traceable. */
+export const solutionRecords: Change[] = [
+  decision('platform', 'Microsoft Foundry', 'Build custom agents in Microsoft Foundry', ['SaaS agents', 'Copilot Studio', 'Microsoft Foundry'], 'Pro-code control over the refund boundary; the team maintains the agents.'),
+  decision('complexity', 'Several agents', 'A triage agent with three specialists', ['One agent with tools', 'Several agents'], 'Only the refund agent may move money: a security boundary.'),
+  decision('pattern', 'Handoff', 'Handoff from triage to the right specialist', ['Sequential', 'Handoff', 'Group chat'], 'The right specialist is only known after reading the request.'),
+  decision('hosting', 'Prompt agents', 'Prompt agents run by Foundry Agent Service', ['Prompt agents', 'Hosted agents'], 'No custom orchestration code to build and run.'),
+  c(
+    { op: 'set_scenario', flow: 'flow-1', title: 'Where is my order', steps: [
+      { from: 'person-1', to: 'Customer message', what: 'asks where the order is' },
+      { from: 'Customer message', to: 'Triage', what: 'passes the message' },
+      { from: 'Triage', to: 'Order Status', what: 'hands off an order question' },
+      { from: 'Order Status', to: 'Order lookup', what: 'looks up the order' },
+      { from: 'Order lookup', to: 'system-1', what: 'reads the order status' },
+      { from: 'Order Status', to: 'Reply to customer', what: 'answers with the status' },
+    ] },
+    'Realises the user flow',
+    { source: 'user', quote: 'where is my order' },
+  ),
 ];
 
 /** The user approving discovery in the app, which opens solution design. */
@@ -47,18 +71,19 @@ export const supportChanges: Change[] = [
   approveDiscovery,
   c({ op: 'set_title', title: 'Customer support' }, 'Name the system'),
   c({ op: 'set_shape', shape: 'multi', reasons: ['security_or_compliance_boundary'] }, 'Only the refund agent may move money'),
-  c({ op: 'upsert_component', kind: 'trigger', name: 'Customer message', source: 'chat' }, 'Where work enters'),
-  c({ op: 'upsert_component', kind: 'tool', name: 'Order lookup', toolType: 'openapi' }, 'Order data'),
-  c({ op: 'upsert_component', kind: 'tool', name: 'Refund API', toolType: 'openapi' }, 'Issues refunds'),
-  c({ op: 'upsert_component', kind: 'knowledge', name: 'Policy docs', source: 'ai_search' }, 'Grounding for policy answers'),
-  c({ op: 'upsert_component', kind: 'agent', name: 'Triage', instructions: 'Classify intent and hand off.' }, 'Routes requests'),
-  c({ op: 'upsert_component', kind: 'agent', name: 'Order Status', tools: ['Order lookup'] }, 'Answers order questions'),
-  c({ op: 'upsert_component', kind: 'agent', name: 'Refunds', tools: ['Refund API'] }, 'Prepares refunds'),
-  c({ op: 'upsert_component', kind: 'agent', name: 'Policy', knowledge: ['Policy docs'] }, 'Answers policy questions'),
+  c({ op: 'upsert_component', kind: 'trigger', name: 'Customer message', source: 'chat', serves: ['person-1'] }, 'Where work enters'),
+  c({ op: 'upsert_component', kind: 'tool', name: 'Order lookup', toolType: 'openapi', serves: ['system-1'] }, 'Order data'),
+  c({ op: 'upsert_component', kind: 'tool', name: 'Refund API', toolType: 'openapi', serves: ['system-2'] }, 'Issues refunds'),
+  c({ op: 'upsert_component', kind: 'knowledge', name: 'Policy docs', source: 'ai_search', serves: ['goal-1'] }, 'Grounding for policy answers'),
+  c({ op: 'upsert_component', kind: 'agent', name: 'Triage', instructions: 'Classify intent and hand off.', serves: ['flow-1'] }, 'Routes requests'),
+  c({ op: 'upsert_component', kind: 'agent', name: 'Order Status', tools: ['Order lookup'], serves: ['flow-1'] }, 'Answers order questions'),
+  c({ op: 'upsert_component', kind: 'agent', name: 'Refunds', tools: ['Refund API'], serves: ['in-scope-1'] }, 'Prepares refunds'),
+  c({ op: 'upsert_component', kind: 'agent', name: 'Policy', knowledge: ['Policy docs'], serves: ['goal-1'] }, 'Answers policy questions'),
   c({ op: 'upsert_team', name: 'Support desk', pattern: 'handoff', members: ['Triage', 'Order Status', 'Refunds', 'Policy'], startAgent: 'Triage' }, 'Triage hands off to specialists'),
-  c({ op: 'upsert_component', kind: 'approval', name: 'Refund approval', gates: 'Refund API', condition: 'refunds over 100 EUR' }, 'Money movement is irreversible'),
+  c({ op: 'upsert_component', kind: 'approval', name: 'Refund approval', gates: 'Refund API', condition: 'refunds over 100 EUR', serves: ['oversight-1'] }, 'Money movement is irreversible'),
   c({ op: 'upsert_component', kind: 'guardrail', name: 'Safety', controls: ['prompt_shields', 'harm_filters'] }, 'Protect every agent'),
   c({ op: 'upsert_component', kind: 'output', name: 'Reply to customer', destination: 'chat' }, 'Where answers go'),
   c({ op: 'connect', from: 'Customer message', to: 'Triage', label: 'message' }, 'Entry point'),
   c({ op: 'connect', from: 'Support desk', to: 'Reply to customer', label: 'answer' }, 'Team output'),
+  ...solutionRecords,
 ];

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { discovery, discoveryRefusal, TOPICS } from '../shared/board/discovery';
-import { SECTIONS, sectionsOf } from '../shared/board/arc42';
+import { DECISION_TOPICS, SECTIONS, sectionsOf } from '../shared/board/arc42';
 import { applyChange, type Change, type ChangeBody } from '../shared/board/changes';
 import { emptyBoard, type Board } from '../shared/board/schema';
 import { stageDocument, stageMarkdown } from '../shared/board/spec-document';
@@ -60,7 +60,7 @@ test('each section takes only its own types, with the fields they need', () => {
   refuse(item({ section: '1.3', type: 'stakeholder', text: 'Owns it' }), /needs a short name/);
   refuse(item({ section: '1.2', type: 'quality', text: 'Fast' }), /names its quality attribute/);
   refuse(item({ section: '2', type: 'constraint', text: 'EU only' }), /names its category/);
-  refuse(item({ section: '9', type: 'goal', text: 'x' }), /no section "9"/);
+  refuse(item({ section: '7', type: 'goal', text: 'x' }), /no section "7"/);
   const noSource = applyChange(emptyBoard(), ch(item({ section: '1.1', type: 'goal', text: 'x' }), 'coach', null));
   assert.ok('error' in noSource && /needs its source/.test(noSource.error));
 });
@@ -106,7 +106,7 @@ test('design is refused until discovery is approved', () => {
   assert.ok('error' in early && /current stage is discovery/.test(early.error));
   assert.ok(discovery(discovered(emptyBoard())).done, 'the fixture covers every required topic');
   assert.ok(applyChange(approved(briefed.board), ch({ op: 'set_shape', shape: 'single' }, 'coach', null)).ok);
-  assert.equal(discoveryChanges.length, 9);
+  assert.equal(discoveryChanges.length, 10);
 });
 
 test('the stage document lists the template sections, then the user’s, and exports as arc42 Markdown', () => {
@@ -135,7 +135,7 @@ test('every topic and section cites guidance that exists in the guidance snapsho
       for (const s of p.sections) ids.add(s.id);
     }
   }
-  const cited = [...TOPICS.flatMap((t) => t.guidance), ...SECTIONS.flatMap((s) => s.guidance)];
+  const cited = [...TOPICS.flatMap((t) => t.guidance), ...SECTIONS.flatMap((s) => s.guidance), ...Object.values(DECISION_TOPICS).map((d) => d.guidance)];
   for (const url of cited) assert.ok(ids.has(url), `${url} is in the snapshot`);
   for (const t of TOPICS) assert.match(t.question, /\?$/, t.id);
 });

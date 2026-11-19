@@ -75,9 +75,9 @@ test('the workspace draws discovery as a context diagram, and solution design in
   const disc = layoutWorkspace(approved(briefed()));
   // discovery: one actor, the system, one external system, joined left to right
   const ctx = disc.nodes.filter((n) => n.id.startsWith('ctx-'));
-  assert.deepEqual(ctx.map((n) => n.kind), ['actor', 'system', 'external']);
+  assert.deepEqual(ctx.map((n) => n.kind), ['actor', 'system', 'external', 'external']);
   assert.ok(ctx[0].x < ctx[1].x && ctx[1].x < ctx[2].x);
-  assert.equal(disc.edges.filter((e) => e.id.startsWith('ctx:')).length, 2);
+  assert.equal(disc.edges.filter((e) => e.id.startsWith('ctx:')).length, 3);
   assert.deepEqual(disc.frames.map((f) => f.id), ['discovery', 'solution']);
   assert.match(disc.frames[0].label, /^1 · DISCOVERY · SYSTEM CONTEXT · APPROVED BY BUSINESS SPONSOR$/);
 

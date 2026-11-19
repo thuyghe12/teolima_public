@@ -67,6 +67,8 @@ export const ChangeBody = z.discriminatedUnion('op', [
     gates: Ref.optional(),
     condition: z.string().optional(),
     destination: z.string().optional(),
+    /** Ids of the stage document items this block serves. */
+    serves: Refs.optional(),
   }),
   z.object({
     op: z.literal('record_item'),
@@ -78,8 +80,21 @@ export const ChangeBody = z.discriminatedUnion('op', [
     name: z.string().trim().min(1).max(40).optional(),
     attribute: SpecItem.shape.attribute,
     category: SpecItem.shape.category,
+    serves: Refs.optional(),
+    topic: SpecItem.shape.topic,
+    options: SpecItem.shape.options,
+    consequences: SpecItem.shape.consequences,
   }),
   z.object({ op: z.literal('remove_item'), ref: Ref }),
+  z.object({
+    op: z.literal('set_scenario'),
+    /** An existing scenario to update; omit to add one. */
+    id: Ref.optional(),
+    flow: Ref,
+    title: z.string().trim().min(1).max(100),
+    steps: z.array(z.object({ from: Ref, to: Ref, what: z.string().trim().min(1).max(100) })).min(1).max(20),
+  }),
+  z.object({ op: z.literal('remove_scenario'), ref: Ref }),
   z.object({ op: z.literal('add_section'), title: z.string().trim().min(1).max(80) }),
   z.object({ op: z.literal('rename_section'), ref: z.string().trim().min(1).max(64), title: z.string().trim().min(1).max(80) }),
   z.object({ op: z.literal('remove_section'), ref: z.string().trim().min(1).max(64) }),
@@ -185,6 +200,12 @@ function upsertComponent(board: Board, body: Extract<ChangeBody, { op: 'upsert_c
       return fail(`An approval gates a tool or an agent on the board; "${body.gates}" is neither.`);
     }
     refs.gates = target.id;
+  }
+
+  if (body.serves) {
+    const missing = body.serves.find((ref) => !board.spec.items.some((i) => i.id === ref));
+    if (missing) return fail(`"${missing}" is not an item in the stage documents. A building block serves items such as flow-1, system-2 or oversight-1.`);
+    refs.serves = [...new Set(body.serves)];
   }
 
   const { op: _op, kind, ...fields } = body;
@@ -342,6 +363,21 @@ function recordItem(board: Board, body: Extract<ChangeBody, { op: 'record_item' 
   const category = body.category ?? existing?.category;
   if (body.type === 'constraint' && !category) return fail(`A constraint names its category: ${Object.keys(CONSTRAINT_CATEGORIES).join(', ')}.`);
 
+  const serves = body.serves ?? existing?.serves;
+  if (serves) {
+    const missing = serves.find((ref) => !items.some((i) => i.id === ref));
+    if (missing) return fail(`"${missing}" is not an item in the stage documents.`);
+  }
+  if (body.type === 'quality_approach' && !serves?.some((ref) => items.find((i) => i.id === ref)?.section === '1.2')) {
+    return fail('Name the quality goal from 1.2 this approach meets, in serves (e.g. quality-1).');
+  }
+  const topic = body.topic ?? existing?.topic;
+  if (body.type === 'decision' && !topic) return fail('A decision record names its topic: platform, complexity, pattern, hosting or other.');
+  const options = body.options ?? existing?.options;
+  if (body.type === 'decision' && options?.length && !options.some((o) => o.toLowerCase() === name?.toLowerCase())) {
+    return fail(`A decision's name is the option chosen, and it is one of the options weighed (${options.join(', ')}).`);
+  }
+
   // What the coach records quotes its source; what the user types in the app is the user's own.
   let source: SpecItem['source'];
   if (basis) {
@@ -373,6 +409,10 @@ function recordItem(board: Board, body: Extract<ChangeBody, { op: 'record_item' 
     ...(type.named && name ? { name } : {}),
     ...(body.type === 'quality' && attribute ? { attribute } : {}),
     ...(body.type === 'constraint' && category ? { category } : {}),
+    ...(serves?.length ? { serves: [...new Set(serves)] } : {}),
+    ...(body.type === 'decision' && topic ? { topic } : {}),
+    ...(body.type === 'decision' && (body.options ?? existing?.options) ? { options: body.options ?? existing?.options } : {}),
+    ...(body.type === 'decision' && (body.consequences ?? existing?.consequences) ? { consequences: body.consequences ?? existing?.consequences } : {}),
     source,
   };
   const known = items.some((i) => i.id === id);
@@ -405,8 +445,44 @@ function editSections(board: Board, body: Extract<ChangeBody, { op: 'add_section
   }
   return {
     ok: true,
-    board: { ...board, spec: { items: board.spec.items.filter((i) => i.section !== target.id), sections: sections.filter((s) => s.id !== target.id) } },
+    board: { ...board, spec: { ...board.spec, items: board.spec.items.filter((i) => i.section !== target.id), sections: sections.filter((s) => s.id !== target.id) } },
     summary: `Removed section "${target.title}"`,
+    warnings: [],
+  };
+}
+
+/** A runtime scenario: one user flow as numbered steps between people, building blocks and external systems. */
+function setScenario(board: Board, body: Extract<ChangeBody, { op: 'set_scenario' }>, actor: Actor, basis: Basis | undefined): ApplyResult {
+  const flow = board.spec.items.find((i) => i.id === body.flow);
+  if (!flow || flow.type !== 'flow') return fail(`"${body.flow}" is not a user flow from 1.1. A runtime scenario realises one, e.g. flow-1.`);
+  const participant = (ref: string): string | null => {
+    const item = board.spec.items.find((i) => (i.id === ref || i.name?.toLowerCase() === ref.toLowerCase()) && i.section === '3.2');
+    if (item) return item.id;
+    return findComponent(board, ref)?.id ?? findTeam(board, ref)?.id ?? null;
+  };
+  const steps = [];
+  for (const [n, st] of body.steps.entries()) {
+    const from = participant(st.from);
+    const to = participant(st.to);
+    if (!from || !to) {
+      return fail(`Step ${n + 1}: "${!from ? st.from : st.to}" is neither a person or system from 3.2 nor a building block on the board.`);
+    }
+    steps.push({ from, to, what: st.what });
+  }
+  let source: SpecItem['source'];
+  if (basis) source = { kind: basis.source, ...(basis.document ? { document: basis.document } : {}), quote: basis.quote };
+  else if (actor === 'user') source = { kind: 'typed' };
+  else return fail('A runtime scenario needs its source: the flow it realises was stated by the user; quote them.');
+  const scenarios = board.spec.scenarios;
+  const existing = body.id ? scenarios.find((x) => x.id === body.id) : scenarios.find((x) => x.flow === body.flow && x.title.toLowerCase() === body.title.toLowerCase());
+  if (body.id && !existing) return fail(`Scenario "${body.id}" does not exist.`);
+  let id = existing?.id;
+  for (let n = scenarios.length + 1; !id; n++) if (!scenarios.some((x) => x.id === `scenario-${n}`)) id = `scenario-${n}`;
+  const scenario = { id, flow: body.flow, title: body.title, steps, source };
+  return {
+    ok: true,
+    board: { ...board, spec: { ...board.spec, scenarios: existing ? scenarios.map((x) => (x.id === id ? scenario : x)) : [...scenarios, scenario] } },
+    summary: `${existing ? 'Updated' : 'Added'} runtime scenario ${id} for ${body.flow}`,
     warnings: [],
   };
 }
@@ -517,6 +593,16 @@ export function applyChange(board: Board, change: Change): ApplyResult {
     case 'remove_section':
       result = editSections(board, body);
       break;
+    case 'set_scenario':
+      result = setScenario(board, body, checked.data.actor, checked.data.basis);
+      break;
+    case 'remove_scenario': {
+      const target = board.spec.scenarios.find((x) => x.id === body.ref);
+      result = target
+        ? { ok: true, board: { ...board, spec: { ...board.spec, scenarios: board.spec.scenarios.filter((x) => x.id !== target.id) } }, summary: `Removed ${target.id}`, warnings: [] }
+        : fail(`Scenario "${body.ref}" does not exist.`);
+      break;
+    }
     case 'upsert_component':
       result = upsertComponent(board, body);
       break;
