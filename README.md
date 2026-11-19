@@ -1,14 +1,16 @@
 # Teolima
 
-A voice-first studio for designing multi-agent systems for Microsoft Agent Framework and Azure AI Foundry. You give a short brief and talk the design through with a coach on the Gemini Live API. The coach builds it on a hand-drawn board as you speak: triggers, teams of agents in an orchestration pattern, tools, knowledge, guardrails and human approvals.
+A voice-first studio for scoping AI agent solutions on Microsoft Foundry and Microsoft Agent Framework. You give a short brief and talk the design through with a coach on the Gemini Live API. The coach builds it on a hand-drawn board as you speak: triggers, teams of agents in an orchestration pattern, tools, knowledge, guardrails and human approvals.
 
 ![Demo session: a customer support system built by the coach](docs/demo.png)
 
-**Where it is going:** one unified git tree as the source of truth, many actors committing to it, two views of the same tree, and one compile target.
+**Where it is going:** from a scoping conversation to a reviewed, deployable package ([ADR 0007](docs/adr/0007-scope-to-iac.md)).
 
-> You speak a multi-agent system into being. The coach, the memory workers and you all commit to one git tree, colour-coded by actor. Flip between the whiteboard and the code view of the same tree. Click Compile and it becomes a reviewed Azure AI Foundry deployment package: Bicep for the infrastructure, agent definitions for the agents.
+> A solutions architect talks a client's AI agent solution through, or pastes the discovery call transcript. Teolima follows Microsoft's architect process, draws the solution per audience with a cited source for every decision, and compiles it into an Azure Developer CLI project: Bicep for the infrastructure, declarative definitions for the agents, with a design specification, a cost estimate and a draft statement of work.
 
-The voice coach, the whiteboard and the hardening below are built. The unified tree, the memory workers and the compiler are designed in [docs/ROADMAP.md](docs/ROADMAP.md) with one decision record each.
+**Who it is for:** AI and cloud solutions architects and technical presales leads at Microsoft partners, who turn client conversations into designs, estimates and statements of work; and the heads of cloud and AI practices who want that work faster and of the same quality across their team. The engineers who deploy the result are the reviewers it has to satisfy.
+
+The voice coach, the whiteboard, the hardening below and the guidance snapshot are built. What comes next, in order, is in [docs/ROADMAP.md](docs/ROADMAP.md), with a decision record for each step.
 
 ## Try it
 

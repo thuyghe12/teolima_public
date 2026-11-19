@@ -1,6 +1,6 @@
 # ADR 0002: Memory is written by narrow workers to branches of the same tree
 
-**Status:** Accepted, not yet implemented
+**Status:** Withdrawn (2026-11-19). Teolima keeps no memory of its own about users or boards; this was removed from scope to keep the product focused on design and compilation ([ADR 0007](0007-scope-to-iac.md)). Memory as a component of the systems Teolima designs is unaffected ([ADR 0005](0005-high-level-board-exact-meaning.md)). The record is kept for history.
 
 ## Context
 
