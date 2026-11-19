@@ -73,21 +73,20 @@ export function readiness(board: Board): Readiness {
     step('pattern', 'Orchestration pattern', 'done', 'Not needed for a single agent.');
   }
 
-  // A team's start agent or manager routes work to others, so it may need no tools of its own.
-  const routers = new Set(board.teams.flatMap((t) => [t.startAgent, t.manager].filter(Boolean) as string[]));
-  const bare = agents.filter((a) => !routers.has(a.id) && a.tools.length === 0 && a.knowledge.length === 0).map((a) => a.name);
+  // An agent with no tools or knowledge works from the model and the input it is given, such as
+  // the previous agent's output in a sequential team. Least privilege favours that, and every
+  // external system already needs a tool or knowledge source that reaches it (stages.ts), so it
+  // is noted, not blocked. Tools, knowledge or memory that no agent uses are a mistake.
+  const bare = agents.filter((a) => a.tools.length === 0 && a.knowledge.length === 0).map((a) => a.name);
   const memories = of(board, 'memory');
   const used = new Set(agents.flatMap((a) => [...a.tools, ...a.knowledge, ...a.memory]));
   const unused = [...tools, ...knowledge, ...memories].filter((c) => !used.has(c.id)).map((c) => c.name);
   if (agents.length === 0) {
     step('tools', 'Tools and knowledge', 'missing', 'Add the tools and knowledge the agents need, then the agents that use them.');
-  } else if (bare.length || unused.length) {
-    step('tools', 'Tools and knowledge', 'open', [
-      bare.length ? `No tools or knowledge yet: ${list(bare)}. Confirm with the user that they need none, or add them.` : '',
-      unused.length ? `Not used by any agent: ${list(unused)}.` : '',
-    ].filter(Boolean).join(' '));
+  } else if (unused.length) {
+    step('tools', 'Tools and knowledge', 'open', `Not used by any agent: ${list(unused)}.`);
   } else {
-    step('tools', 'Tools and knowledge', 'done', 'Each agent has the tools or knowledge it needs, and nothing is unused.');
+    step('tools', 'Tools and knowledge', 'done', bare.length ? `Every tool, knowledge source and memory is used. ${list(bare)} ${bare.length === 1 ? "works from the model and its" : "work from the model and their"} input only.` : 'Every tool, knowledge source and memory is used.');
   }
 
   const covered = (agentId: string) =>
