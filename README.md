@@ -72,7 +72,11 @@ server/guard/          Guard pipeline: provenance, Prompt Shields, audit trail
 server/demo.ts         Recorded session for demo mode
 server/board-tools.ts  The coach's board tools and per-session board
 server/prompts/        Versioned coach prompt
+server/knowledge.ts    Loads the guidance snapshot at startup
 shared/board/          Typed board model, change log and layout (docs/BOARD_MODEL.md)
+shared/knowledge/      Guidance snapshot: sources, parser, and the outline/page/section/find library
+scripts/knowledge/     Builds the snapshot from Microsoft Learn and checks it
+data/knowledge/        The snapshot: Microsoft's architecture guidance as pages and sections (CC BY 4.0)
 src/lib/canvas/        Canvas engine and hand-drawn renderer
 src/lib/audio/         Microphone capture and playback
 src/components/        Whiteboard, toolbar, call panel with the brief, settings, history
@@ -90,8 +94,10 @@ docs/                  Architecture, design standard, roadmap, decision records,
 | `npm run build` | Production build of client and server into `dist/` |
 | `npm start` | Run the production build |
 | `npm run check:docs` | Run one real Microsoft Learn search from this machine |
+| `npm run knowledge:build` | Rebuild the guidance snapshot in `data/knowledge/` from Microsoft Learn |
+| `npm run knowledge:verify` | Check the snapshot (page counts, sections, links, checklist items per pillar) |
 
-CI runs typecheck, tests and build on every push and pull request.
+CI runs typecheck, tests and build on every push and pull request. A weekly workflow rebuilds the guidance snapshot and proposes any change as a pull request.
 
 ## Configuration
 
