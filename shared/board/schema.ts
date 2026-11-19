@@ -207,6 +207,8 @@ export const Requirement = z.object({
   kind: z.enum(REQUIREMENT_KINDS),
   /** The requirement in one plain sentence. */
   text: z.string().trim().min(1).max(300),
+  /** For users and integrations: a short name for diagrams, e.g. "Order system". */
+  name: z.string().trim().min(1).max(40).optional(),
   /** The pillar a nonfunctional requirement or a constraint belongs to. */
   pillar: Pillar.optional(),
   source: SourceRef,
@@ -219,12 +221,36 @@ export const Spec = z.object({
 });
 export type Spec = z.infer<typeof Spec>;
 
+/**
+ * The stages of the architect's process, each for its own audience and with
+ * its own diagram (docs/DESIGN_STANDARD.md). A stage is approved by a person
+ * in the app, never by the coach; the approval records who approved it.
+ */
+export const STAGE_IDS = ['discovery', 'solution', 'technical', 'compile'] as const;
+export const StageId = z.enum(STAGE_IDS);
+export type StageId = z.infer<typeof StageId>;
+
+export const StageApproval = z.object({
+  stage: StageId,
+  /** The name or role of the person who approved it. */
+  by: z.string().trim().min(1).max(80),
+  at: z.string().datetime(),
+});
+export type StageApproval = z.infer<typeof StageApproval>;
+
+export const StageState = z.object({
+  current: StageId.default('discovery'),
+  approvals: z.array(StageApproval).max(8).default([]),
+});
+export type StageState = z.infer<typeof StageState>;
+
 export const Board = z.object({
   version: z.literal(1),
   title: z.string().trim().max(120).default(''),
   brief: Brief.default({ goal: '', audience: '', constraints: [] }),
   shape: Shape.default({ kind: 'undecided', reasons: [] }),
   spec: Spec.default({ requirements: [] }),
+  stage: StageState.default({ current: 'discovery', approvals: [] }),
   components: z.array(Component).max(60),
   teams: z.array(Team).max(10),
   connections: z.array(Connection).max(150),
@@ -237,6 +263,7 @@ export const emptyBoard = (): Board => ({
   brief: { goal: '', audience: '', constraints: [] },
   shape: { kind: 'undecided', reasons: [] },
   spec: { requirements: [] },
+  stage: { current: 'discovery', approvals: [] },
   components: [],
   teams: [],
   connections: [],

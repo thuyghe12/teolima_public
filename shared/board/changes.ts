@@ -13,6 +13,7 @@
  */
 import { z } from 'zod';
 import { discovery, discoveryRefusal } from './discovery';
+import { gate, outOfStage, stageOf, STAGES } from './stages';
 import {
   Board,
   Component,
@@ -22,6 +23,7 @@ import {
   Pillar,
   REQUIREMENT_KINDS,
   ShapeReason,
+  StageId,
   slug,
   type Id,
   type Team,
@@ -72,9 +74,12 @@ export const ChangeBody = z.discriminatedUnion('op', [
     id: Ref.optional(),
     kind: z.enum(REQUIREMENT_KINDS),
     text: z.string().trim().min(1).max(300),
+    name: z.string().trim().min(1).max(40).optional(),
     pillar: Pillar.optional(),
   }),
   z.object({ op: z.literal('remove_requirement'), ref: Ref }),
+  z.object({ op: z.literal('approve_stage'), stage: StageId, by: z.string().trim().min(1).max(80) }),
+  z.object({ op: z.literal('reopen_stage'), stage: StageId }),
   z.object({ op: z.literal('remove_component'), ref: Ref }),
   z.object({
     op: z.literal('upsert_team'),
@@ -322,6 +327,7 @@ function recordRequirement(board: Board, body: Extract<ChangeBody, { op: 'record
     id,
     kind: body.kind,
     text: body.text,
+    ...(body.name ? { name: body.name } : existing?.name ? { name: existing.name } : {}),
     ...(body.pillar ? { pillar: body.pillar } : {}),
     source: { kind: basis.source, ...(basis.document ? { document: basis.document } : {}), quote: basis.quote },
   };
@@ -343,8 +349,15 @@ export function applyChange(board: Board, change: Change): ApplyResult {
   if (!checked.success) return fail(`Invalid change: ${checked.error.issues.map((i) => `${i.path.join('.')} ${i.message}`).join('; ')}`);
   const body = checked.data.body;
 
+  // Stages: approvals come from a person, and each stage accepts only its own changes.
+  if ((body.op === 'approve_stage' || body.op === 'reopen_stage') && checked.data.actor !== 'user') {
+    return fail('Only a person can approve or reopen a stage, in the app. Tell the user what this stage produced and ask them to approve it.');
+  }
+  const stageRefusal = outOfStage(board, body.op);
+  if (stageRefusal) return fail(stageRefusal);
+
   // Nothing is designed before the goal is known.
-  const needsGoal = !['set_brief', 'set_title', 'clear', 'remove_component', 'remove_team', 'disconnect', 'record_requirement', 'remove_requirement'].includes(body.op);
+  const needsGoal = !['set_brief', 'set_title', 'clear', 'remove_component', 'remove_team', 'disconnect', 'record_requirement', 'remove_requirement', 'approve_stage', 'reopen_stage'].includes(body.op);
   if (needsGoal && !board.brief.goal) {
     return fail('No goal yet. Ask the user what the system must achieve, who uses it and its constraints, confirm it back, then save it with set_brief.');
   }
@@ -391,6 +404,26 @@ export function applyChange(board: Board, change: Change): ApplyResult {
     case 'set_shape':
       result = setShape(board, body.shape, body.reasons ?? []);
       break;
+    case 'approve_stage': {
+      if (body.stage !== board.stage.current) return fail(`The current stage is ${stageOf(board.stage.current).title.toLowerCase()}; only it can be approved.`);
+      const g = gate(board, body.stage);
+      if (!g.ready) return fail(`${stageOf(body.stage).title} is not ready for approval. Still missing: ${g.missing.join(', ')}.`);
+      const next = STAGES[stageOf(body.stage).n]?.id ?? body.stage;
+      result = {
+        ok: true,
+        board: { ...board, stage: { current: next, approvals: [...board.stage.approvals, { stage: body.stage, by: body.by, at: checked.data.at }] } },
+        summary: `${stageOf(body.stage).title} approved by ${body.by}`,
+        warnings: [],
+      };
+      break;
+    }
+    case 'reopen_stage': {
+      const target = stageOf(body.stage);
+      if (target.n > stageOf(board.stage.current).n) return fail(`${target.title} has not started yet.`);
+      const approvals = board.stage.approvals.filter((a) => stageOf(a.stage).n < target.n);
+      result = { ok: true, board: { ...board, stage: { current: body.stage, approvals } }, summary: `Reopened ${target.title.toLowerCase()}`, warnings: [] };
+      break;
+    }
     case 'record_requirement':
       result = recordRequirement(board, body, checked.data.basis);
       break;

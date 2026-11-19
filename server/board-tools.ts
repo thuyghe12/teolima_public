@@ -9,6 +9,7 @@ import { Type, type FunctionDeclaration } from '@google/genai';
 import { Board, emptyBoard, Pillar, REQUIREMENT_KINDS, ShapeReason } from '../shared/board/schema';
 import { readiness } from '../shared/board/readiness';
 import { discovery } from '../shared/board/discovery';
+import { gate, stageOf } from '../shared/board/stages';
 import { applyChange, type Actor, type ApplyResult, type Basis, type ChangeBody, type Change } from '../shared/board/changes';
 
 const reason = { type: Type.STRING, description: 'Why, in one short sentence. Stored with the change.' };
@@ -44,6 +45,7 @@ export const boardToolDeclarations: FunctionDeclaration[] = [
       properties: {
         kind: { type: Type.STRING, enum: [...REQUIREMENT_KINDS] },
         text: { type: Type.STRING, description: 'The requirement in one plain sentence, faithful to the source.' },
+        name: { type: Type.STRING, description: 'user and integration: a short name for the context diagram, two or three words, e.g. "Planners" or "Order system".' },
         pillar: { type: Type.STRING, enum: [...Pillar.options], description: 'nonfunctional (required) and constraint (when one applies): the Well-Architected pillar.' },
         id: { type: Type.STRING, description: 'To correct an existing requirement: its id, e.g. "scenario-2".' },
         reason,
@@ -194,7 +196,7 @@ export function toChangeBody(name: string, args: Record<string, unknown> = {}): 
     case 'set_brief':
       return { op: 'set_brief', goal: str(args.goal), audience: str(args.audience), constraints: list(args.constraints) };
     case 'record_requirement':
-      return { op: 'record_requirement', id: str(args.id), kind: String(args.kind ?? '') as never, text: String(args.text ?? ''), pillar: str(args.pillar) as never };
+      return { op: 'record_requirement', id: str(args.id), kind: String(args.kind ?? '') as never, text: String(args.text ?? ''), name: str(args.name), pillar: str(args.pillar) as never };
     case 'remove_requirement':
       return { op: 'remove_requirement', ref: String(args.id ?? '') };
     case 'set_shape':
@@ -281,7 +283,17 @@ export class BoardSession {
       this.board.components.find((c) => c.id === id)?.name ?? this.board.teams.find((t) => t.id === id)?.name ?? id;
     const ready = readiness(this.board);
     const d = discovery(this.board);
+    const stage = stageOf(this.board.stage.current);
+    const g = gate(this.board, stage.id);
     return {
+      stage: {
+        current: stage.title,
+        audience: stage.audience,
+        produces: stage.artifact,
+        gate: g.ready
+          ? `${stage.title} is ready for the user to approve in the app. Summarise what it produced and ask the ${stage.approver.toLowerCase()} to approve; you cannot approve it yourself.`
+          : `${stage.title} is not ready for approval. Still missing: ${g.missing.join(', ')}.`,
+      },
       brief: this.board.brief,
       requirements: this.board.spec.requirements.map((r) => `${r.id}: ${r.text}${r.pillar ? ` [${r.pillar}]` : ''}`),
       discovery: d.done

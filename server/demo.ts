@@ -11,7 +11,7 @@ import type { Requirement } from '../shared/board/schema';
 
 export type DemoStep =
   | { say: string; pauseMs?: number }
-  | { change: ChangeBody; reason: string; basis?: Basis; pauseMs?: number };
+  | { change: ChangeBody; reason: string; basis?: Basis; actor?: 'user'; pauseMs?: number };
 
 export const DEMO_GOAL = 'A customer support system that answers order questions and handles refunds safely';
 
@@ -25,8 +25,8 @@ export const DEMO_USER_WORDS = [
   'Customer data must stay in the EU, and only logged-in customers can see their orders.',
 ];
 
-const req = (kind: Requirement['kind'], text: string, quote: string, pillar?: Requirement['pillar']): DemoStep => ({
-  change: { op: 'record_requirement', kind, text, ...(pillar ? { pillar } : {}) },
+const req = (kind: Requirement['kind'], text: string, quote: string, pillar?: Requirement['pillar'], name?: string): DemoStep => ({
+  change: { op: 'record_requirement', kind, text, ...(pillar ? { pillar } : {}), ...(name ? { name } : {}) },
   reason: 'Stated by the user',
   basis: { source: 'user', quote },
   pauseMs: 500,
@@ -52,14 +52,16 @@ export const DEMO_SCRIPT: DemoStep[] = [
   { say: 'Before drawing anything, the specification. I am recording what you told me, each point with your own words as its source.' },
   req('problem', 'Customers wait two days for an answer', 'wait two days for an answer'),
   req('outcome', 'Most order questions are answered without a person, around the clock', 'answered without a person'),
-  req('user', 'Customers of the web shop', 'customers of our web shop'),
+  req('user', 'Customers of the web shop', 'customers of our web shop', undefined, 'Customers'),
   req('scenario', 'A customer asks where an order is, or asks for a refund', 'where is my order'),
-  req('integration', 'Reads the order system and issues refunds through the refund API', 'issues refunds through the refund API'),
-  req('integration', 'Policies come from the FAQ and terms', 'policies are in our FAQ'),
+  req('integration', 'Reads orders and issues refunds through the refund API', 'issues refunds through the refund API', undefined, 'Order system'),
+  req('integration', 'Policies come from the FAQ and terms', 'policies are in our FAQ', undefined, 'FAQ and terms'),
   req('oversight', 'Refunds over 100 EUR need a person', 'refunds over 100 EUR need a person'),
   req('nonfunctional', 'Customer data stays in the EU; only logged-in customers see their orders', 'customer data must stay in the EU', 'security'),
   req('functional', 'Returning customers do not have to repeat themselves', 'should not have to repeat themselves'),
-  { say: 'Reliability, cost, operations and performance are still open; we confirm them in the design specification. Now the design, starting with where messages come in.' },
+  { say: 'Discovery is complete. Reliability, cost, operations and performance stay open; we confirm them in the technical design. Shall we approve the scope?' },
+  { change: { op: 'approve_stage', stage: 'discovery', by: 'Business sponsor' }, reason: 'Approved in the app', actor: 'user', pauseMs: 1400 },
+  { say: 'Approved. Now the solution design, below the context diagram, starting with where messages come in.' },
   add({ kind: 'trigger', name: 'Customer message', source: 'chat', description: 'Chat and web form' }, 'Where work enters'),
   { say: 'Specialists need the right tools. One looks up orders, one issues refunds, and policy answers come from your own documents.' },
   add({ kind: 'tool', name: 'Order lookup', toolType: 'openapi', description: 'Reads the order system' }, 'Order data'),

@@ -30,7 +30,8 @@ import type { Board, Component, OrchestrationPattern, Team } from './schema';
 export type Point = { x: number; y: number };
 export type Box = { x: number; y: number; w: number; h: number };
 
-export type LayoutNode = Box & { id: string; kind: Component['kind']; role: string; title: string; subtitle: string };
+/** A card: a board component, or on the context diagram a user ('actor'), the system, or an external system. */
+export type LayoutNode = Box & { id: string; kind: Component['kind'] | 'actor' | 'system' | 'external'; role: string; title: string; subtitle: string };
 export type LayoutTeam = Box & { id: string; title: string; pattern: OrchestrationPattern | 'none'; label: string };
 export type LayoutEdge = {
   id: string;

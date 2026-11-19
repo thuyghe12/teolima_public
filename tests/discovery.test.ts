@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { discovery, discoveryRefusal, TOPICS } from '../shared/board/discovery';
 import { applyChange, type ChangeBody } from '../shared/board/changes';
 import { emptyBoard, type Board } from '../shared/board/schema';
-import { discovered, discoveryChanges } from './fixtures/support-board';
+import { approved, discovered, discoveryChanges } from './fixtures/support-board';
 
 const at = '2026-11-19T12:00:00.000Z';
 const record = (b: Board, body: ChangeBody, quote = 'as the user said it') => {
@@ -38,9 +38,9 @@ test('design is refused until discovery is done; requirements are recorded befor
   const briefed = applyChange(emptyBoard(), { body: { op: 'set_brief', goal: 'Rebook deliveries' }, actor: 'user', reason: 'test', at });
   assert.ok(briefed.ok);
   const early = applyChange(briefed.board, { body: { op: 'set_shape', shape: 'single' }, actor: 'coach', reason: 'test', at });
-  assert.ok('error' in early && /Discovery is not done/.test(early.error));
+  assert.ok('error' in early && /current stage is discovery/.test(early.error));
   assert.ok(discovery(discovered(emptyBoard())).done, 'requirements can come before the brief');
-  const ready = applyChange(discovered(briefed.board), { body: { op: 'set_shape', shape: 'single' }, actor: 'coach', reason: 'test', at });
+  const ready = applyChange(approved(briefed.board), { body: { op: 'set_shape', shape: 'single' }, actor: 'coach', reason: 'test', at });
   assert.ok(ready.ok);
 });
 
@@ -52,7 +52,7 @@ test('requirement ids are stable per kind, the same statement updates in place, 
   assert.equal(b.spec.requirements.find((r) => r.id === 'scenario-1')?.source.quote, 'a newer quote');
   b = record(b, { op: 'record_requirement', kind: 'scenario', text: 'A customer asks for a refund' });
   assert.equal(b.spec.requirements.at(-1)?.id, 'scenario-2');
-  const cleared = applyChange({ ...b, brief: { goal: 'x', audience: '', constraints: [] } }, { body: { op: 'clear' }, actor: 'user', reason: 'test', at });
+  const cleared = applyChange(approved({ ...b, brief: { goal: 'x', audience: '', constraints: [] } }), { body: { op: 'clear' }, actor: 'user', reason: 'test', at });
   assert.ok(cleared.ok && cleared.board.spec.requirements.length === b.spec.requirements.length);
   assert.equal(discoveryChanges.length, 7);
 });

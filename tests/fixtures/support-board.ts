@@ -18,8 +18,14 @@ export const discoveryChanges: Change[] = [
   req('nonfunctional', 'Customer data stays in the EU', 'data stays in the EU', 'security'),
 ];
 
+/** The user approving discovery in the app, which opens solution design. */
+export const approveDiscovery: Change = { body: { op: 'approve_stage', stage: 'discovery', by: 'Business sponsor' }, actor: 'user', reason: 'Approved in the app', at };
+
 /** Records the discovery on a board. */
 export const discovered = (board: Board): Board => replay(board, discoveryChanges);
+
+/** Records the discovery and approves it, so solution design can start. Needs a goal. */
+export const approved = (board: Board): Board => replay(board, [...discoveryChanges, approveDiscovery]);
 
 export const DISCOVERED_SPEC = discovered(emptyBoard()).spec;
 
@@ -29,12 +35,14 @@ export const briefedBoard = (): Board => ({
   ...emptyBoard(),
   brief: { goal: 'Test system', audience: '', constraints: [] },
   spec: DISCOVERED_SPEC,
+  stage: { current: 'solution', approvals: [{ stage: 'discovery', by: 'Business sponsor', at }] },
   shape: { kind: 'multi', reasons: ['security_or_compliance_boundary'] },
 });
 
 export const supportChanges: Change[] = [
   c({ op: 'set_brief', goal: 'Answer order questions and handle refunds safely', audience: 'Customers of a web shop', constraints: ['Refunds over 100 EUR need a person'] }, 'Brief from the user'),
   ...discoveryChanges,
+  approveDiscovery,
   c({ op: 'set_title', title: 'Customer support' }, 'Name the system'),
   c({ op: 'set_shape', shape: 'multi', reasons: ['security_or_compliance_boundary'] }, 'Only the refund agent may move money'),
   c({ op: 'upsert_component', kind: 'trigger', name: 'Customer message', source: 'chat' }, 'Where work enters'),

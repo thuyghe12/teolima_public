@@ -51,3 +51,21 @@ test('levels are clamped', () => {
   assert.match(openingPrompt({ goal: '', audience: '', constraints: [], level: 99 }), /staff-level architect/);
   assert.match(openingPrompt({ goal: '', audience: '', constraints: [], level: Number.NaN }), /familiar with LLMs/);
 });
+
+test('the prompt keeps the coach in one stage, and only the user approves', () => {
+  assert.match(COACH_PROMPT, /You work in one stage at a time/);
+  assert.match(COACH_PROMPT, /Only the user can approve a stage, in the app; you cannot/);
+  assert.match(COACH_PROMPT, /Never say a stage is approved until you are told so/);
+});
+
+test('a stage briefing names the new stage and hands over the approved specification', async () => {
+  const { stageBriefing } = await import('../server/prompts/coach');
+  const { replay } = await import('../shared/board/changes');
+  const { emptyBoard } = await import('../shared/board/schema');
+  const { supportChanges } = await import('./fixtures/support-board');
+  const b = replay(emptyBoard(), supportChanges);
+  const text = stageBriefing(b, 'Discovery approved by Business sponsor');
+  assert.match(text, /^\[STAGE BRIEFING FROM THE SERVER\] Discovery approved by Business sponsor\./);
+  assert.match(text, /stage is now 2, Solution design, for architect and the client's tech lead/);
+  assert.match(text, /- Refunds over 100 EUR need a person/);
+});

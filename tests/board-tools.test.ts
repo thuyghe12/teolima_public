@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BOARD_TOOLS, BoardSession, boardToolDeclarations, toChangeBody } from '../server/board-tools';
-import { discoveryChanges } from './fixtures/support-board';
+import { approveDiscovery, discoveryChanges } from './fixtures/support-board';
 
 const discover = (s: BoardSession) => {
   for (const c of discoveryChanges) s.apply(c.body, 'coach', c.reason, c.basis);
+  s.apply(approveDiscovery.body, 'user', 'Approved in the app');
 };
 
 const briefed = () => {
@@ -36,15 +37,15 @@ test('a session builds a board from tool calls, using snake_case arguments', () 
   run('add_component', { kind: 'guardrail', name: 'Safety', controls: ['prompt_shields'], applies_to: ['Triage'] });
   const summary = s.summary();
   assert.deepEqual(summary.teams, ['Desk: handoff [Triage, Refunds]']);
-  assert.equal(s.changes.length, 8 + discoveryChanges.length);
-  assert.ok(s.changes.slice(2 + discoveryChanges.length).every((c) => c.actor === 'coach'));
+  assert.equal(s.changes.length, 9 + discoveryChanges.length);
+  assert.ok(s.changes.slice(3 + discoveryChanges.length).every((c) => c.actor === 'coach'));
 });
 
 test('a refused change leaves the session untouched and explains why', () => {
   const s = briefed();
   const r = s.apply(toChangeBody('set_team', { name: 'T', pattern: 'sequential', members: ['Ghost'] })!, 'coach', 'test');
   assert.ok('error' in r && /not on the board/.test(r.error));
-  assert.equal(s.changes.length, 2 + discoveryChanges.length);
+  assert.equal(s.changes.length, 3 + discoveryChanges.length);
 });
 
 test('an invalid enum from the model is refused, not stored', () => {
@@ -90,25 +91,34 @@ test('a new session restores the board the browser kept, once and only if valid'
   assert.equal(second.restore({ version: 1, title: '', components: [], teams: [], connections: [] }), false, 'a non-empty board is never overwritten');
 });
 
-test('the coach saves a brief and runs discovery before building; the server refuses to build before either', () => {
+test('the coach saves a brief and runs discovery; design starts only after the user approves discovery', () => {
   const s = new BoardSession();
   const early = s.apply(toChangeBody('add_component', { kind: 'agent', name: 'Eager' })!, 'coach', 'test');
-  assert.ok('error' in early && /No goal yet/.test(early.error));
+  assert.ok('error' in early && /current stage is discovery/.test(early.error));
   const brief = s.apply(toChangeBody('set_brief', { goal: 'Route support tickets', audience: 'Support staff', constraints: ['EU data only'] })!, 'coach', 'Confirmed with the user');
   assert.ok(!('error' in brief));
   assert.deepEqual(s.summary().brief, { goal: 'Route support tickets', audience: 'Support staff', constraints: ['EU data only'] });
-  const beforeDiscovery = s.apply(toChangeBody('add_component', { kind: 'agent', name: 'Triage' })!, 'coach', 'test');
-  assert.ok('error' in beforeDiscovery && /Discovery is not done/.test(beforeDiscovery.error) && /Human oversight/.test(beforeDiscovery.error));
   assert.equal(s.summary().discovery.done, false);
-  discover(s);
+  assert.match(s.summary().stage.gate, /not ready.*problem/);
+  for (const c of discoveryChanges) s.apply(c.body, 'coach', c.reason, c.basis);
   assert.deepEqual(s.summary().discovery, { done: true, open_topics: ['Reliability', 'Cost', 'Operations', 'Performance'] });
+  assert.match(s.summary().stage.gate, /ready for the user to approve/);
+  // The coach cannot approve, and cannot design before the user does.
+  const self = s.apply(approveDiscovery.body, 'coach', 'test');
+  assert.ok('error' in self && /Only a person can approve/.test(self.error));
+  assert.ok('error' in s.apply(toChangeBody('add_component', { kind: 'agent', name: 'Triage' })!, 'coach', 'test'));
+  assert.ok(!('error' in s.apply(approveDiscovery.body, 'user', 'Approved in the app')));
+  assert.equal(s.summary().stage.current, 'Solution design');
   assert.ok(!('error' in s.apply(toChangeBody('add_component', { kind: 'agent', name: 'Triage' })!, 'coach', 'test')));
+  // The approved specification is frozen until the user reopens discovery.
+  const late = s.apply(toChangeBody('record_requirement', { kind: 'user', text: 'Auditors' })!, 'coach', 'test', { source: 'user', quote: 'auditors too' });
+  assert.ok('error' in late && /Discovery is approved/.test(late.error));
 });
 
 test('record_requirement maps its arguments, and a requirement needs its quoted source', () => {
   const s = new BoardSession();
   const body = toChangeBody('record_requirement', { kind: 'nonfunctional', text: 'Data stays in the EU', pillar: 'security' })!;
-  assert.deepEqual(body, { op: 'record_requirement', id: undefined, kind: 'nonfunctional', text: 'Data stays in the EU', pillar: 'security' });
+  assert.deepEqual(body, { op: 'record_requirement', id: undefined, kind: 'nonfunctional', text: 'Data stays in the EU', name: undefined, pillar: 'security' });
   const noSource = s.apply(body, 'coach', 'test');
   assert.ok('error' in noSource && /needs its source/.test(noSource.error));
   const ok = s.apply(body, 'coach', 'test', { source: 'document', document: 'doc-1', quote: 'all data must stay in the EU' });
