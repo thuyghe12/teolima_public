@@ -12,6 +12,7 @@ Teolima follows Microsoft's architect process: discovery, functional specificati
 | Design standard | Designs follow a written standard anchored in Microsoft's guidance, checked in code | [ADR 0004](adr/0004-design-standard.md) |
 | Exact board model | Every element has one compile meaning in Agent Framework, Foundry or Azure, with its source; per agent: model, tools, knowledge, memory, conversation history | [ADR 0005](adr/0005-high-level-board-exact-meaning.md) |
 | Guidance snapshot | Microsoft's architecture guidance ships as a versioned map of pages and sections, read by progressive disclosure, with quotes checked against the text and a weekly reviewed refresh | [ADR 0006](adr/0006-guidance-snapshot.md) |
+| Stages and gates | Four stages (discovery, solution design, technical design, compile), each for its own audience with its own diagram, drawn below the last on one board; only a person approves a stage | [ADR 0007](adr/0007-scope-to-iac.md) |
 | Architect process: discovery | A functional specification on the board, from voice or a pasted transcript, RFP or notes; every requirement quotes its source; design waits until the required discovery topics are covered | [ADR 0007](adr/0007-scope-to-iac.md) |
 
 ## Next, in order

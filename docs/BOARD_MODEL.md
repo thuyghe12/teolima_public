@@ -8,6 +8,10 @@ Every board carries a brief: the goal, who uses the system, and the constraints 
 
 The change log refuses every design change while the goal is empty or a required discovery topic is uncovered (`shared/board/discovery.ts`), so nothing is designed before the purpose and the requirements are known, and every element can be traced back to a stated requirement. Clearing the board keeps the brief and the specification. See [DESIGN_STANDARD.md](DESIGN_STANDARD.md), step 1.
 
+## Stages
+
+Every board records its current stage (`stage.current`: discovery, solution, technical, compile) and the approvals so far, each with who approved it and when. Each stage accepts only its own changes, and `approve_stage` and `reopen_stage` are accepted only from the user. See [DESIGN_STANDARD.md](DESIGN_STANDARD.md#stages).
+
 ## One agent or several
 
 Every board records whether the design is one agent with tools or several agents (`shape`), and for several, the reasons from Microsoft's guidance that justify them: `security_or_compliance_boundary`, `multiple_teams`, `future_growth`, `prompt_complexity`, `tool_overload`. The change log refuses a second agent or a team until the shape is `multi`. Clearing the board resets the shape. See [DESIGN_STANDARD.md](DESIGN_STANDARD.md) for the full procedure and `shared/board/readiness.ts` for the checks.
@@ -55,7 +59,7 @@ Orchestrations support human-in-the-loop through tool approval and request info 
 
 Nothing edits the board directly. Every edit is a change (`shared/board/changes.ts`) with:
 
-- **body:** one of `set_brief`, `record_requirement`, `remove_requirement`, `set_shape`, `set_title`, `clear`, `upsert_component`, `remove_component`, `upsert_team`, `remove_team`, `connect`, `disconnect`
+- **body:** one of `set_brief`, `record_requirement`, `remove_requirement`, `approve_stage`, `reopen_stage`, `set_shape`, `set_title`, `clear`, `upsert_component`, `remove_component`, `upsert_team`, `remove_team`, `connect`, `disconnect`
 - **actor:** `coach`, `user`, or a named worker (`worker:<name>`)
 - **reason:** why, in a sentence
 - **basis:** for requirements and for coach changes that add to the design, what it rests on: `brief`, `user` or `document` (with the document id), and the exact words quoted. The guard checks the quote before the change is applied (`server/guard/provenance.ts`); a requirement without a basis is refused by the change log itself

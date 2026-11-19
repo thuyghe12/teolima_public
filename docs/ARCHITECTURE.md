@@ -45,6 +45,9 @@ flowchart LR
 
 ## Layout model
 
+The board is drawn as a workspace of stage frames (`shared/board/workspace.ts`): discovery's context diagram on top, the solution design below it, and later stages below that. The app pans to the frame of the current stage, so approving a stage moves the view to where the next one is drawn.
+
+
 The layout is computed from the board, never chosen by the model, and follows the notation in [DESIGN_STANDARD.md](DESIGN_STANDARD.md#notation). Left to right: triggers, then the system boundary, then outputs. Inside the boundary, each guardrail is a band across the system, above one container per team. Inside a team, agents are placed by orchestration pattern:
 
 | Pattern | Placement |
