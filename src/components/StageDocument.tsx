@@ -23,6 +23,8 @@ interface StageDocumentProps {
   /** Why it cannot be edited, when onEdit is undefined. */
   readOnlyReason?: string;
   onClose: () => void;
+  /** The gate at the foot: what is left, the approval, or who approved. */
+  footer?: React.ReactNode;
 }
 
 const NOTE: ItemType = { id: 'note', label: '', placeholder: 'Write something' };
@@ -515,7 +517,7 @@ const SectionTitle: React.FC<{ section: DocSection; onEdit?: (b: ChangeBody) => 
 };
 
 /** A stage document as an editable page: arc42 sections, items one line each, add and edit inline. */
-export const StageDocument: React.FC<StageDocumentProps> = ({ board, stage, stages, onSelectStage, documents, onEdit, readOnlyReason, onClose }) => {
+export const StageDocument: React.FC<StageDocumentProps> = ({ board, stage, stages, onSelectStage, documents, onEdit, readOnlyReason, onClose, footer }) => {
   const sections = useMemo(() => stageDocument(board, stage), [board, stage]);
   const d = useMemo(() => discovery(board), [board]);
   const st = stageOf(stage);
@@ -552,7 +554,7 @@ export const StageDocument: React.FC<StageDocumentProps> = ({ board, stage, stag
   return (
     <aside
       aria-label={`${st.title} document`}
-      className="fixed top-[128px] left-5 bottom-5 z-20 w-[440px] max-w-[calc(100vw-2.5rem)] flex flex-col rounded-2xl bg-white border border-[#e2e2e6] shadow-[0_8px_30px_rgba(24,24,28,0.06)] text-[#18181c] font-body"
+      className="fixed top-14 left-0 bottom-0 z-30 w-[440px] max-w-[100vw] flex flex-col bg-white border-r border-[#e2e2e6] shadow-[8px_0_30px_rgba(24,24,28,0.04)] text-[#18181c] font-body"
     >
       <header className="flex items-start justify-between pl-5 pr-2 pt-3 pb-2.5 border-b border-[#f0f0f2]">
         <div>
@@ -575,7 +577,7 @@ export const StageDocument: React.FC<StageDocumentProps> = ({ board, stage, stag
         </div>
       </header>
 
-      {stages.length > 1 && (
+      {stages.length > 0 && (
         <div className="flex gap-1 px-4 py-1.5 border-b border-[#f0f0f2]" role="tablist" aria-label="Stage documents">
           {stages.map((id) => (
             <button
@@ -694,6 +696,7 @@ export const StageDocument: React.FC<StageDocumentProps> = ({ board, stage, stag
             />
           ))}
       </div>
+      {footer}
     </aside>
   );
 };
