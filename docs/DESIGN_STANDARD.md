@@ -15,6 +15,21 @@ Teolima designs multi-agent systems the way Microsoft's own guidance says to des
 | Diagrams | Well-Architected Framework, [Architecture design diagrams](https://learn.microsoft.com/azure/well-architected/architect-role/design-diagrams) |
 | Specification | Well-Architected Framework, [Architecture design specification](https://learn.microsoft.com/azure/well-architected/architect-role/architecture-design-specification) and the [architect's checklist](https://learn.microsoft.com/azure/well-architected/architect-role/checklist) |
 
+## Stages
+
+The architect chooses diagram types that match the message, the audience and the lifecycle stage, and discloses progressively: a context diagram first, then more detailed views (Diagrams). Teolima works in four stages, each with its own people in the room, its own diagram and its own gate (`shared/board/stages.ts`):
+
+| Stage | For | Draws | Approved by |
+|---|---|---|---|
+| 1. Discovery | Business sponsor, product owner, presales architect | Context diagram: the system as one box, its users, the systems and data it touches. Plus the functional specification | Business sponsor |
+| 2. Solution design | Architect and the client's tech lead | High-level design: agents, teams, tools, knowledge, memory, guardrails, approvals and flow | Architect |
+| 3. Technical design | Platform, security and operations engineers | Deployment diagram and design specification (not built yet) | Security and platform leads |
+| 4. Compile | Delivery engineer | The deployment package (not built yet) | Delivery owner |
+
+Each stage draws in its own frame, below the one before, so an approved stage stays readable above the one being worked on.
+
+**Enforced:** each stage accepts only its own changes; an approved stage is frozen until the user reopens it, and reopening it drops the approvals of every later stage. Only the user can approve or reopen a stage, in the app, and only once the stage's gate is met: the change log refuses an approval from the coach or a worker. The approval records who approved and when.
+
 ## The procedure
 
 The coach works through these steps in order. `shared/board/readiness.ts` checks each one against the board, and every tool result tells the coach the first step that is not done (`next_step`).
