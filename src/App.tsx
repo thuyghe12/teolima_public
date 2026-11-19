@@ -204,7 +204,6 @@ export default function App() {
     if (!engine) return;
 
     for (const call of toolCalls) {
-      console.log('[App] Executing Coach Tool Call:', call.name, call.args);
       const instruction: DrawingInstruction = {
         tool: call.name as any,
         params: call.args || {},
@@ -248,7 +247,6 @@ export default function App() {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('[App] WebSocket opened, starting Live Coach session...');
         // Only what the user typed goes to the server; it is saved as the user's change.
         const typed = normalizeBrief(brief);
         if (typed.goal) setRecent(rememberBrief(typed));
@@ -289,7 +287,6 @@ export default function App() {
           if (data.type === 'audio' && data.audio) {
             audio.playChunk(data.audio);
           } else if (data.type === 'interrupted') {
-            console.log('[App] Interruption signal received, stopping audio playback');
             audio.interrupt();
           } else if (data.type === 'board' && data.board && engine) {
             lastBoardRef.current = data.board;
@@ -315,7 +312,6 @@ export default function App() {
             ]);
           } else if (data.type === 'status') {
             if (data.status?.message) {
-              console.log('[App] Status update:', data.status.message);
               setStatusMessage(data.status.message);
               if (data.status.state === 'searching') {
                 // Auto-clear searching status after 4 seconds if not replaced
@@ -333,7 +329,6 @@ export default function App() {
       };
 
       ws.onclose = () => {
-        console.log('[App] WebSocket closed');
         if (isCallActiveRef.current) {
           endCall();
         }
