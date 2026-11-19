@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronDown, ChevronUp, History, Keyboard, Mic, MicOff, Phone, PhoneOff, Send } from 'lucide-react';
+import { ChevronDown, ChevronUp, ClipboardPaste, History, Keyboard, ListChecks, Mic, MicOff, Phone, PhoneOff, Send } from 'lucide-react';
 import type { LiveTranscriptItem } from '../types';
 import type { Step } from '../../shared/board/readiness';
 import { BRIEF_LIMITS, BriefDraft, constraintsFromText, normalizeBrief } from '../lib/briefs';
@@ -25,7 +25,47 @@ interface CallPanelProps {
   savedCount: number;
   /** Where the board stands against the design standard (shared/board/readiness.ts). */
   steps?: Step[];
+  /** A transcript or notes to hand the coach when the call starts. */
+  document: DocumentDraft;
+  onDocumentChange: (d: DocumentDraft) => void;
+  /** Hands a pasted document to the coach during a call. */
+  onSendDocument: (d: DocumentDraft) => void;
+  /** Requirements recorded so far, and whether the specification is open. */
+  requirementCount: number;
+  specOpen: boolean;
+  onToggleSpec: () => void;
 }
+
+export interface DocumentDraft {
+  title: string;
+  text: string;
+}
+
+export const MAX_DOCUMENT_CHARS = 60_000;
+
+/** A pasted transcript, RFP or notes: the coach records the requirements it states, each quoted. */
+const DocumentFields: React.FC<{ doc: DocumentDraft; onChange: (d: DocumentDraft) => void; autoFocus?: boolean }> = ({ doc, onChange, autoFocus }) => (
+  <div className="space-y-2">
+    <input
+      aria-label="Document title"
+      maxLength={80}
+      value={doc.title}
+      onChange={(e) => onChange({ ...doc, title: e.target.value })}
+      placeholder="Title, e.g. Discovery call with Contoso"
+      className={field}
+    />
+    <textarea
+      aria-label="Transcript or notes"
+      autoFocus={autoFocus}
+      rows={5}
+      maxLength={MAX_DOCUMENT_CHARS}
+      value={doc.text}
+      onChange={(e) => onChange({ ...doc, text: e.target.value })}
+      placeholder="Paste a discovery call transcript, an RFP or notes. The coach records the requirements it states, each with a quote."
+      className={`${field} resize-y`}
+    />
+  </div>
+);
 
 /** The steps of the design standard as a row of segments, with the next one named. */
 const DesignSteps: React.FC<{ steps: Step[] }> = ({ steps }) => {
@@ -145,6 +185,9 @@ export const CallPanel: React.FC<CallPanelProps> = (props) => {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<BriefDraft>(brief);
   const [typing, setTyping] = useState(false);
+  const [pasting, setPasting] = useState(false);
+  const [showDocument, setShowDocument] = useState(false);
+  const [callDoc, setCallDoc] = useState<DocumentDraft>({ title: '', text: '' });
   const [text, setText] = useState('');
   const [seconds, setSeconds] = useState(0);
 
@@ -153,6 +196,7 @@ export const CallPanel: React.FC<CallPanelProps> = (props) => {
       setSeconds(0);
       setEditing(false);
       setTyping(false);
+      setPasting(false);
       return;
     }
     const t = setInterval(() => setSeconds((s) => s + 1), 1000);
@@ -210,6 +254,20 @@ export const CallPanel: React.FC<CallPanelProps> = (props) => {
               {!brief.goal.trim() && (
                 <p className="text-xs text-[#87868e]">Without a goal, the coach asks for one before it builds anything.</p>
               )}
+              <div>
+                <button
+                  onClick={() => setShowDocument(!showDocument)}
+                  className="text-xs text-[#5a5a62] hover:text-[#18181c] underline underline-offset-2"
+                  aria-expanded={showDocument || !!props.document.text}
+                >
+                  {props.document.text ? 'Transcript or notes added' : 'Add a transcript or notes'}
+                </button>
+                {(showDocument || !!props.document.text) && (
+                  <div className="mt-2">
+                    <DocumentFields doc={props.document} onChange={props.onDocumentChange} />
+                  </div>
+                )}
+              </div>
               {props.recentBriefs.length > 0 && (
                 <div>
                   <div className={label}>Recent</div>
@@ -282,6 +340,29 @@ export const CallPanel: React.FC<CallPanelProps> = (props) => {
             </form>
           )}
 
+          {isCallActive && pasting && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!callDoc.text.trim()) return;
+                props.onSendDocument({ title: callDoc.title.trim(), text: callDoc.text.trim() });
+                setCallDoc({ title: '', text: '' });
+                setPasting(false);
+              }}
+              className="space-y-2"
+            >
+              <DocumentFields doc={callDoc} onChange={setCallDoc} autoFocus />
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setPasting(false)} className="px-3 py-1.5 rounded-lg text-xs text-[#5a5a62] hover:bg-[#f0f0f2]">
+                  Cancel
+                </button>
+                <button type="submit" disabled={!callDoc.text.trim()} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[#18181c] text-white disabled:opacity-40">
+                  Give to the coach
+                </button>
+              </div>
+            </form>
+          )}
+
           {isCallActive && typing && (
             <form onSubmit={send} className="flex gap-2">
               <input
@@ -314,6 +395,14 @@ export const CallPanel: React.FC<CallPanelProps> = (props) => {
             >
               <Keyboard className="w-4 h-4" />
             </button>
+            <button
+              onClick={() => setPasting(!pasting)}
+              className={`${quiet} ${pasting ? 'bg-[#f0f0f2] text-[#18181c]' : ''}`}
+              aria-label="Paste a transcript or notes"
+              title="Paste a transcript or notes"
+            >
+              <ClipboardPaste className="w-4 h-4" />
+            </button>
           </>
         ) : (
           <button onClick={props.onOpenHistory} className={`${quiet} relative`} aria-label="Saved sessions" title="Saved sessions">
@@ -321,6 +410,16 @@ export const CallPanel: React.FC<CallPanelProps> = (props) => {
             {props.savedCount > 0 && <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-[#18181c]" />}
           </button>
         )}
+        <button
+          onClick={props.onToggleSpec}
+          className={`${quiet} flex items-center gap-1 ${props.specOpen ? 'bg-[#f0f0f2] text-[#18181c]' : ''}`}
+          aria-label="Functional specification"
+          title="Functional specification"
+          aria-pressed={props.specOpen}
+        >
+          <ListChecks className="w-4 h-4" />
+          {props.requirementCount > 0 && <span className="text-xs tabular-nums">{props.requirementCount}</span>}
+        </button>
         <div className="flex-1" />
         {isCallActive ? (
           <button

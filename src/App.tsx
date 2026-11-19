@@ -13,7 +13,8 @@ import { getAccessToken } from './lib/access';
 import { Whiteboard } from './components/Whiteboard';
 import { StarterPrompts } from './components/StarterPrompts';
 import { CanvasToolbar } from './components/CanvasToolbar';
-import { CallPanel } from './components/CallPanel';
+import { CallPanel, type DocumentDraft } from './components/CallPanel';
+import { SpecPanel } from './components/SpecPanel';
 import { SessionHistoryModal } from './components/SessionHistoryModal';
 import { SettingsModal } from './components/SettingsModal';
 import { LayerPanel } from './components/LayerPanel';
@@ -56,6 +57,11 @@ export default function App() {
   // The brief: written in the panel before a call, or saved by the coach during one.
   const [brief, setBrief] = useState<BriefDraft>(emptyBrief);
   const [recent, setRecent] = useState<BriefDraft[]>(() => recentBriefs());
+  // A transcript or notes pasted before the call, and the documents the server has accepted.
+  const [pastedDoc, setPastedDoc] = useState<DocumentDraft>({ title: '', text: '' });
+  const [documents, setDocuments] = useState<Record<string, string>>({});
+  const [specOpen, setSpecOpen] = useState(false);
+  const specOpenRef = useRef(false);
 
   // Session & Transcripts
   const [transcripts, setTranscripts] = useState<LiveTranscriptItem[]>([]);
@@ -68,7 +74,22 @@ export default function App() {
   // The latest board from the server, handed back when a new call starts.
   const lastBoardRef = useRef<Board | null>(null);
   const [board, setBoard] = useState<Board | null>(null);
-  const steps = React.useMemo(() => (board?.brief.goal ? readiness(board).steps : undefined), [board]);
+  const steps = React.useMemo(() => (board ? readiness(board).steps : undefined), [board]);
+
+  /** Keeps the drawing clear of the call panel and the specification panel on wide screens. */
+  const fitBoard = (layout: ReturnType<typeof layoutBoard>) => {
+    if (!engine || !layout.nodes.length) return;
+    const wide = window.innerWidth > 900;
+    const panel = document.getElementById('call-panel');
+    const right = panel && wide ? panel.offsetWidth + 20 : 0;
+    const left = specOpenRef.current && wide ? 380 : 0;
+    engine.ensureVisible({ ...layout.bounds, y: layout.bounds.y - 80, h: layout.bounds.h + 80 }, right, left);
+  };
+  useEffect(() => {
+    specOpenRef.current = specOpen;
+    if (board) fitBoard(layoutBoard(board));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [specOpen]);
 
   const clearBoard = () => {
     engine?.clear();
@@ -196,8 +217,13 @@ export default function App() {
           // hand the board back, so a new connection continues the same design
           board: lastBoardRef.current,
           brief: typed.goal ? typed : undefined,
+          documents: pastedDoc.text.trim() ? [{ title: pastedDoc.title.trim(), text: pastedDoc.text.trim() }] : undefined,
           level: settings.level,
         }));
+        if (pastedDoc.text.trim()) {
+          setPastedDoc({ title: '', text: '' });
+          setSpecOpen(true);
+        }
 
 
         // Bridge mic audio chunks to WebSocket
@@ -235,10 +261,9 @@ export default function App() {
             // The board model is the source of truth: lay it out and draw what changed.
             const layout = layoutBoard(data.board);
             engine.syncBoardElements(boardElements(layout));
-            // keep the drawing clear of the call panel on wide screens
-            const panel = document.getElementById('call-panel');
-            const reserved = panel && window.innerWidth > 900 ? panel.offsetWidth + 20 : 0;
-            engine.ensureVisible({ ...layout.bounds, y: layout.bounds.y - 80, h: layout.bounds.h + 80 }, reserved);
+            fitBoard(layout);
+          } else if (data.type === 'documents' && data.documents) {
+            setDocuments(Object.fromEntries(data.documents.map((d) => [d.id, d.title])));
           } else if (data.type === 'tool_call' && data.toolCalls) {
             handleToolCalls(data.toolCalls);
           } else if (data.type === 'transcript' && data.transcript) {
@@ -344,6 +369,14 @@ export default function App() {
     }
   };
 
+  /** Hands a transcript or notes to the coach during a call. */
+  const sendDocument = (d: DocumentDraft) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'document', document: d }));
+      setSpecOpen(true);
+    }
+  };
+
   const sendPromptText = (text: string) => {
     setTranscripts((prev) => [
       ...prev,
@@ -423,7 +456,15 @@ export default function App() {
         onOpenHistory={() => setIsHistoryOpen(true)}
         savedCount={savedSessions.length}
         steps={steps}
+        document={pastedDoc}
+        onDocumentChange={setPastedDoc}
+        onSendDocument={sendDocument}
+        requirementCount={board?.spec.requirements.length ?? 0}
+        specOpen={specOpen}
+        onToggleSpec={() => setSpecOpen(!specOpen)}
       />
+
+      {specOpen && board && <SpecPanel board={board} documents={documents} onClose={() => setSpecOpen(false)} />}
 
       {/* Session History & Review Modal */}
       <SessionHistoryModal

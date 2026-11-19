@@ -1832,11 +1832,12 @@ export class CanvasEngine {
    * off screen, so the view does not jump on every small change.
    */
   /** Brings `box` into view. `reservedRight` keeps room for a panel docked on the right. */
-  public ensureVisible(box: { x: number; y: number; w: number; h: number }, reservedRight = 0): void {
+  /** Brings the box into view, keeping clear of panels that cover the right or left edge. */
+  public ensureVisible(box: { x: number; y: number; w: number; h: number }, reservedRight = 0, reservedLeft = 0): void {
     const dpr = window.devicePixelRatio || 1;
     const cssW = this.canvas.width / dpr;
     const cssH = this.canvas.height / dpr;
-    const pad = { top: 110, right: 40 + reservedRight, bottom: 150, left: 40 };
+    const pad = { top: 110, right: 40 + reservedRight, bottom: 150, left: 40 + reservedLeft };
     const t = this.transform;
     const sx = box.x * t.scale + t.x;
     const sy = box.y * t.scale + t.y;
