@@ -2,9 +2,11 @@
 
 The board is a typed document (`shared/board/schema.ts`). Every element maps onto something the compiler will emit for Microsoft Agent Framework and Foundry, so a design that is valid on the board is never ambiguous at compile time. The board holds no coordinates; layout is computed from it.
 
-## The brief
+## The brief and the functional specification
 
-Every board carries a brief: the goal, who uses the system, and the constraints the user stated. The change log refuses every building change while the goal is empty, so nothing is designed before the purpose is known, and every element can be traced back to the brief or to something the user said.
+Every board carries a brief: the goal, who uses the system, and the constraints the user stated. It also carries the functional specification (`spec`): requirements of nine kinds (problem, outcome, user, scenario, functional, oversight, nonfunctional, constraint, integration), each in one plain sentence, nonfunctional requirements and constraints with their Well-Architected pillar, and each with its source quoted: the brief, the user's words in the session, or a pasted document by id. Requirement ids are stable per kind (`scenario-2`).
+
+The change log refuses every design change while the goal is empty or a required discovery topic is uncovered (`shared/board/discovery.ts`), so nothing is designed before the purpose and the requirements are known, and every element can be traced back to a stated requirement. Clearing the board keeps the brief and the specification. See [DESIGN_STANDARD.md](DESIGN_STANDARD.md), step 1.
 
 ## One agent or several
 
@@ -53,10 +55,10 @@ Orchestrations support human-in-the-loop through tool approval and request info 
 
 Nothing edits the board directly. Every edit is a change (`shared/board/changes.ts`) with:
 
-- **body:** one of `set_brief`, `set_shape`, `set_title`, `clear`, `upsert_component`, `remove_component`, `upsert_team`, `remove_team`, `connect`, `disconnect`
+- **body:** one of `set_brief`, `record_requirement`, `remove_requirement`, `set_shape`, `set_title`, `clear`, `upsert_component`, `remove_component`, `upsert_team`, `remove_team`, `connect`, `disconnect`
 - **actor:** `coach`, `user`, or a named worker (`worker:<name>`)
 - **reason:** why, in a sentence
-- **basis:** for coach changes that add to the design, what it rests on: `brief` or `user`, and the exact words quoted. The guard checks the quote before the change is applied (`server/guard/provenance.ts`)
+- **basis:** for requirements and for coach changes that add to the design, what it rests on: `brief`, `user` or `document` (with the document id), and the exact words quoted. The guard checks the quote before the change is applied (`server/guard/provenance.ts`); a requirement without a basis is refused by the change log itself
 - **at:** a timestamp
 
 `applyChange` returns the next board or refuses with a reason the caller can act on; a refused change leaves the board untouched. The same list of changes always replays to the same board, which is what lets the change log become git commits later (ADR 0001).

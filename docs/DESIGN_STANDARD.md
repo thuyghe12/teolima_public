@@ -13,16 +13,30 @@ Teolima designs multi-agent systems the way Microsoft's own guidance says to des
 | Reference architecture | Microsoft, [Multi-Agent Reference Architecture](https://microsoft.github.io/multi-agent-reference-architecture/) |
 | Baseline | Azure Architecture Center, [Baseline Microsoft Foundry chat reference architecture](https://learn.microsoft.com/azure/architecture/ai-ml/architecture/baseline-microsoft-foundry-chat) |
 | Diagrams | Well-Architected Framework, [Architecture design diagrams](https://learn.microsoft.com/azure/well-architected/architect-role/design-diagrams) |
+| Specification | Well-Architected Framework, [Architecture design specification](https://learn.microsoft.com/azure/well-architected/architect-role/architecture-design-specification) and the [architect's checklist](https://learn.microsoft.com/azure/well-architected/architect-role/checklist) |
 
 ## The procedure
 
 The coach works through these steps in order. `shared/board/readiness.ts` checks each one against the board, and every tool result tells the coach the first step that is not done (`next_step`).
 
-### 1. Brief
+### 1. Discovery and functional specification
 
-Write down what the system must achieve, who uses it and what it must never do before designing anything. The build process asks for an agent charter covering business objectives, roles and prohibited actions (Build process).
+Before designing, write down what the system must do and why. The functional specification details the what and the why of the system, not the implementation: the current problem, how the system improves it, and the business requirements. The design must then meet functional and nonfunctional requirements and be constrained by business, financial, compliance and organisational requirements (Specification). The build process asks for an agent charter covering business objectives, roles and prohibited actions (Build process).
 
-**Enforced:** the change log refuses every building change until the brief has a goal. Every building change must quote its basis in the brief or in the user's own words (`server/guard/provenance.ts`).
+The specification holds requirements of nine kinds: problem, outcome, user, scenario, functional, oversight (an action a person must approve, or something the system must never do on its own), nonfunctional (with its Well-Architected pillar), constraint and integration (a system or data it touches). Discovery covers eleven topics:
+
+| Topic | Covered by | Before design |
+|---|---|---|
+| Problem, outcome, users | a problem, an outcome, a user | required |
+| Scenarios | a scenario or functional requirement | required |
+| Systems and data | an integration | required |
+| Human oversight | an oversight requirement | required |
+| Security and compliance | a security nonfunctional requirement or constraint | required |
+| Reliability, cost, operations, performance | a nonfunctional requirement or constraint with that pillar | open topics become assumptions to confirm in the design specification |
+
+Requirements come from what the user says in the session, the brief, or a pasted document such as a discovery call transcript, an RFP or notes.
+
+**Enforced:** the change log refuses every design change until the brief has a goal and every required topic is covered (`shared/board/discovery.ts`). Every requirement and every design change must quote its source; the quote is checked against the brief, the user's own words or the named document (`server/guard/provenance.ts`). The specification can be read and exported as Markdown in the app.
 
 ### 2. One agent or several
 
