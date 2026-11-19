@@ -12,18 +12,18 @@ Teolima follows Microsoft's architect process: discovery, functional specificati
 | Design standard | Designs follow a written standard anchored in Microsoft's guidance, checked in code | [ADR 0004](adr/0004-design-standard.md) |
 | Exact board model | Every element has one compile meaning in Agent Framework, Foundry or Azure, with its source; per agent: model, tools, knowledge, memory, conversation history | [ADR 0005](adr/0005-high-level-board-exact-meaning.md) |
 | Guidance snapshot | Microsoft's architecture guidance ships as a versioned map of pages and sections, read by progressive disclosure, with quotes checked against the text and a weekly reviewed refresh | [ADR 0006](adr/0006-guidance-snapshot.md) |
+| Architect process: discovery | A functional specification on the board, from voice or a pasted transcript, RFP or notes; every requirement quotes its source; design waits until the required discovery topics are covered | [ADR 0007](adr/0007-scope-to-iac.md) |
 
 ## Next, in order
 
 | Step | Outcome | Decision record |
 |---|---|---|
-| 1. Architect process | Discovery and a functional specification replace the short brief, from voice or from a pasted transcript, RFP or notes; every requirement quotes its source | [ADR 0007](adr/0007-scope-to-iac.md) |
-| 2. Solution model | The board describes the whole solution: boundaries, actors, hosting, data stores, memory, identity, network, observability, deployment and numbered flows. A Microsoft reference architecture is the test it must reproduce | [ADR 0005](adr/0005-high-level-board-exact-meaning.md) |
-| 3. Diagrams per audience | A renderer with Microsoft's official icons, nested boundaries and numbered steps, and a view per audience: context, solution, deployment | [ADR 0004](adr/0004-design-standard.md) |
-| 4. Compiler | Compile produces an Azure Developer CLI project (Bicep and declarative agents) with landing zone defaults, plus the design specification, a cost estimate from public list prices and a draft statement of work | [ADR 0003](adr/0003-compile-to-foundry-package.md) |
-| 5. Specialist workers | Narrow workers, one per part of the solution (network, identity, memory, tools, observability), each reading only its part of the guidance and drawing its part of the board, coordinated so cross-cutting dependencies stay consistent | |
-| 6. Organisation standards | An organisation's own baseline and approved modules, as data the checks and the compiler read | [ADR 0007](adr/0007-scope-to-iac.md) |
-| 7. Git tree and code view | Patches are committed to a git tree per board; a toggle switches between whiteboard and code view, coloured by actor | [ADR 0001](adr/0001-board-as-versioned-tree.md) |
+| 1. Solution model | The board describes the whole solution: boundaries, actors, hosting, data stores, memory, identity, network, observability, deployment and numbered flows. A Microsoft reference architecture is the test it must reproduce | [ADR 0005](adr/0005-high-level-board-exact-meaning.md) |
+| 2. Diagrams per audience | A renderer with Microsoft's official icons, nested boundaries and numbered steps, and a view per audience: context, solution, deployment | [ADR 0004](adr/0004-design-standard.md) |
+| 3. Compiler | Compile produces an Azure Developer CLI project (Bicep and declarative agents) with landing zone defaults, plus the design specification (open discovery topics become stated assumptions), a cost estimate from public list prices and a draft statement of work | [ADR 0003](adr/0003-compile-to-foundry-package.md) |
+| 4. Specialist workers | Narrow workers, one per part of the solution (network, identity, memory, tools, observability), each reading only its part of the guidance and drawing its part of the board, coordinated so cross-cutting dependencies stay consistent | |
+| 5. Organisation standards | An organisation's own baseline and approved modules, as data the checks and the compiler read | [ADR 0007](adr/0007-scope-to-iac.md) |
+| 6. Git tree and code view | Patches are committed to a git tree per board; a toggle switches between whiteboard and code view, coloured by actor | [ADR 0001](adr/0001-board-as-versioned-tree.md) |
 
 Out of scope: Teolima's own memory of users and boards ([ADR 0002](adr/0002-memory-workers-on-the-tree.md), withdrawn). Memory in the solutions Teolima designs is a full part of the board model.
 

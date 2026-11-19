@@ -92,12 +92,13 @@ Rules in the prompt are a request; the guard (`server/guard/`) enforces them in 
 | Input: the brief | Prompt Shields user prompt analysis | Not saved; the user is told why |
 | Input: typed message | Prompt Shields, before the model sees it | Not sent to the model |
 | Input: speech | Live API input transcription, each finished turn screened | Notice to the model and the user; screened after the model heard it |
-| Pre-tool: building change | Provenance: `basis_source` and `basis_quote` must be found in the brief or the user's transcribed words; then the typed change log | Refused with a reason the coach can act on |
+| Input: pasted document | Prompt Shields document analysis, before the model sees it; kept with an id for provenance | Not added; the user is told why |
+| Pre-tool: requirement or building change | Provenance: `basis_source` and `basis_quote` must be found in the brief, the user's transcribed words or the named pasted document; then the typed change log, which also refuses design before discovery is done | Refused with a reason the coach can act on |
 | Pre-tool: drawing call | Tool allowlist and argument validation | Refused |
 | Post-tool: documentation | Only Microsoft Learn links kept; Prompt Shields document analysis | Withheld, also when it cannot be screened |
 | Output: speech | Output transcription checked for reciting the instructions | Notice to the model |
 | All | Audit trail, one JSON line per decision | |
 
-Provenance is the core control against invention. The quote check tolerates transcription noise (three quarters of the quote's words must appear, and at least one pair of adjacent words) but not invented content or shuffled words. It does not judge scope: if the user asks for something off-topic in their own words, the prompt's scope rule is what declines it.
+Provenance is the core control against invention. A pasted document's words count only as the document's: a quote from it must name the document, and it never counts as something the user said in the call. The quote check tolerates transcription noise (three quarters of the quote's words must appear, and at least one pair of adjacent words) but not invented content or shuffled words. It does not judge scope: if the user asks for something off-topic in their own words, the prompt's scope rule is what declines it.
 
 Prompt Shields is probabilistic, so it is one layer, not the boundary. When it is not configured or not reachable, user input is marked unscreened in the audit trail (fail open, so a call is not cut by an outage) and documentation results are withheld (fail closed, because the coach can work without them). The demo replays recorded changes and does not pass through the guard.
