@@ -119,7 +119,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
   return (
     <div
       id="main-canvas-toolbar"
-      className="absolute top-[var(--toolbar-top,16px)] left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 p-1 rounded-2xl bg-white/95 shadow-lg shadow-black/5 border border-[#e2e2e6] backdrop-blur-xl"
+      className="absolute top-[var(--toolbar-top,16px)] left-[var(--toolbar-left,50%)] -translate-x-1/2 z-30 transition-[left] flex items-center gap-1 p-1 rounded-2xl bg-white/95 shadow-lg shadow-black/5 border border-[#e2e2e6] backdrop-blur-xl"
     >
       {TOOLS.map((t) => (
         <button

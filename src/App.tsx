@@ -14,6 +14,7 @@ import { StarterPrompts } from './components/StarterPrompts';
 import { CanvasToolbar } from './components/CanvasToolbar';
 import { CallPanel, type DocumentDraft } from './components/CallPanel';
 import { StageDocument } from './components/StageDocument';
+import { StageGate } from './components/StageGate';
 import { CompileStudio } from './components/CompileStudio';
 import type { ChangeBody } from '../shared/board/changes';
 import { sectionsOf } from '../shared/board/arc42';
@@ -74,6 +75,7 @@ export default function App() {
   /** The stage document shown in the panel; null follows the current stage. */
   const [docStage, setDocStage] = useState<StageId | null>(null);
   const specOpenRef = useRef(false);
+  const openedForGoal = useRef(false);
 
   // Session & Transcripts
   const [transcripts, setTranscripts] = useState<LiveTranscriptItem[]>([]);
@@ -108,10 +110,17 @@ export default function App() {
     const wide = window.innerWidth > 900;
     const panel = document.getElementById('call-panel');
     const right = panel && wide ? panel.offsetWidth + 20 : 0;
-    const left = specOpenRef.current && wide ? 380 : 0;
+    const left = specOpenRef.current && wide ? 460 : 0;
     const box = ws.title && frame === ws.frames[0] ? { ...frame, y: frame.y - 70, h: frame.h + 70 } : frame;
     engine.ensureVisible(box, right, left);
   };
+  useEffect(() => {
+    if (board?.brief.goal && !openedForGoal.current) {
+      openedForGoal.current = true;
+      if (window.innerWidth > 900) setSpecOpen(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [board?.brief.goal]);
   useEffect(() => {
     specOpenRef.current = specOpen;
     if (board) fitBoard(board);
@@ -437,7 +446,7 @@ export default function App() {
   return (
     <main
       className="relative w-screen h-screen overflow-hidden bg-[#fafafa] flex flex-col font-body text-[#18181c]"
-      style={{ '--toolbar-top': board && (board.brief.goal || board.spec.items.length > 0) ? '72px' : '16px' } as React.CSSProperties}
+      style={{ '--toolbar-top': board && (board.brief.goal || board.spec.items.length > 0) ? '72px' : '16px', '--toolbar-left': specOpen ? 'calc(50% + 230px)' : '50%' } as React.CSSProperties}
     >
       {/* Top Floating Canvas Toolbar */}
       <CanvasToolbar
@@ -498,14 +507,20 @@ export default function App() {
       {board && (board.brief.goal || board.spec.items.length > 0) && (
         <StageBar
           board={board}
-          onApprove={(stage, by) => changeStage({ op: 'approve_stage', stage, by })}
-          onReopen={(stage) => changeStage({ op: 'reopen_stage', stage })}
-          requirementCount={stageDocument(board, documentStage(board)).reduce((n, s) => n + s.items.length, 0) + (documentStage(board) === 'solution' ? board.spec.scenarios.length : 0)}
-          specOpen={specOpen}
-          onOpenProject={() => setProjectOpen(true)}
-          onToggleSpec={() => {
-            setDocStage(null);
-            setSpecOpen(!specOpen);
+          openStage={specOpen ? docStage ?? documentStage(board) : null}
+          onSelectStage={(id) => {
+            if (id === 'compile') {
+              setProjectOpen(true);
+              return;
+            }
+            const target = sectionsOf(id).length ? id : documentStage(board);
+            const shown = specOpen ? docStage ?? documentStage(board) : null;
+            if (shown === target) {
+              setSpecOpen(false);
+              return;
+            }
+            setDocStage(target === documentStage(board) ? null : target);
+            setSpecOpen(true);
           }}
         />
       )}
@@ -525,6 +540,14 @@ export default function App() {
             onEdit={connected && current ? editDocument : undefined}
             readOnlyReason={!current ? 'Approved. Reopen the stage to edit it.' : !connected ? 'Start a call to edit the document.' : undefined}
             onClose={() => setSpecOpen(false)}
+            footer={
+              <StageGate
+                board={board}
+                stage={stage}
+                onApprove={(st, by) => changeStage({ op: 'approve_stage', stage: st, by })}
+                onReopen={(st) => changeStage({ op: 'reopen_stage', stage: st })}
+              />
+            }
           />
         );
       })()}
