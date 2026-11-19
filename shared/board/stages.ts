@@ -20,7 +20,9 @@
 import { discovery } from './discovery';
 import { readiness, type StepId } from './readiness';
 import type { Board, StageId } from './schema';
-import { DECISION_TOPICS } from './arc42';
+import { CONCEPTS, DECISION_TOPICS, DEPLOYMENT_SETTINGS } from './arc42';
+import { resourcePlan } from './deployment';
+import { CHECKLIST } from './waf';
 
 export interface Stage {
   id: StageId;
@@ -66,8 +68,8 @@ export const STAGES: Stage[] = [
     artifact: 'Deployment diagram and design specification',
     audience: 'Platform, security and operations engineers',
     approver: 'Security and platform leads',
-    ops: ['set_title'],
-    steps: ['evaluation'],
+    ops: ['set_title', 'review'],
+    steps: [],
   },
   {
     id: 'compile',
@@ -94,7 +96,41 @@ export function gate(board: Board, id: StageId): { ready: boolean; missing: stri
     const missing = [...steps.map((s) => s.title.toLowerCase()), ...traceability(board)];
     return { ready: missing.length === 0, missing };
   }
+  if (id === 'technical') {
+    const missing = technicalGaps(board);
+    return { ready: missing.length === 0, missing };
+  }
   return { ready: false, missing: ['this stage is not built yet'] };
+}
+
+/**
+ * What technical design must settle before the security and platform leads
+ * can approve it, so the compile wizard only confirms: the deployment
+ * settings that are hard to change later, the crosscutting concepts every
+ * block follows, a quality scenario with a measure for every quality goal, an
+ * assumption for every discovery topic left open, the Well-Architected review
+ * of every recommendation, and nothing the resource plan cannot decide.
+ */
+export function technicalGaps(board: Pick<Board, 'spec' | 'components'>): string[] {
+  const items = board.spec.items;
+  const out: string[] = [];
+  for (const [k, v] of Object.entries(DEPLOYMENT_SETTINGS)) {
+    if (v.required && !items.some((i) => i.type === 'setting' && i.category === k)) out.push(`the ${v.label.toLowerCase()} setting`);
+  }
+  for (const [k, v] of Object.entries(CONCEPTS)) {
+    if (v.required && !items.some((i) => i.type === 'concept' && i.category === k)) out.push(`the ${v.label.toLowerCase()} concept`);
+  }
+  for (const goal of items.filter((i) => i.section === '1.2')) {
+    if (!items.some((i) => i.type === 'quality_scenario' && i.serves?.includes(goal.id))) out.push(`a quality scenario for ${goal.id}`);
+  }
+  for (const t of discovery(board).open) {
+    if (!items.some((i) => i.type === 'assumption' && i.category === t.id)) out.push(`an assumption on ${t.title.toLowerCase()}, left open in discovery`);
+  }
+  const reviewed = new Set(board.spec.reviews.map((r) => r.code));
+  const unreviewed = CHECKLIST.filter((r) => !reviewed.has(r.code)).map((r) => r.code);
+  if (unreviewed.length) out.push(`the Well-Architected review of ${unreviewed.length === CHECKLIST.length ? 'all recommendations' : unreviewed.join(', ')}`);
+  out.push(...resourcePlan(board).open);
+  return out;
 }
 
 /**

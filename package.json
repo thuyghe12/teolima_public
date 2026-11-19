@@ -12,7 +12,8 @@
     "test": "node --import tsx --test tests/*.test.ts",
     "check:docs": "tsx scripts/check-docs.ts",
     "knowledge:build": "tsx scripts/knowledge/build.ts",
-    "knowledge:verify": "tsx scripts/knowledge/verify.ts"
+    "knowledge:verify": "tsx scripts/knowledge/verify.ts",
+    "knowledge:checklists": "tsx scripts/knowledge/checklists.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

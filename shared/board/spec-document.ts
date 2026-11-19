@@ -3,10 +3,12 @@
  * added, each with its items. The app renders it as an editable page, and it
  * exports as Markdown that can go straight into a proposal.
  */
-import { ARC42, CHAPTERS, CONSTRAINT_CATEGORIES, DECISION_TOPICS, QUALITY_ATTRIBUTES, sectionsOf, type SectionDef } from './arc42';
+import { ARC42, CHAPTERS, DECISION_TOPICS, QUALITY_ATTRIBUTES, sectionsOf, typeDef, type SectionDef } from './arc42';
+import { GROUPS, resourcePlan } from './deployment';
+import { CHECKLIST, PILLARS } from './waf';
 import { discovery } from './discovery';
 import type { Board, Component, Scenario, SpecItem, StageId } from './schema';
-import { stageOf, traceability } from './stages';
+import { stageOf, technicalGaps, traceability } from './stages';
 
 export interface DocSection {
   id: string;
@@ -57,7 +59,10 @@ export function sourceLabel(item: SpecItem, documents: Record<string, string> = 
 export function itemLabel(section: DocSection, item: SpecItem): string {
   const type = section.def?.types.find((t) => t.id === item.type);
   if (item.attribute) return QUALITY_ATTRIBUTES[item.attribute].label;
-  if (item.category) return CONSTRAINT_CATEGORIES[item.category];
+  if (item.category) {
+    const cat = typeDef(item.section, item.type)?.categories?.[item.category] ?? item.category;
+    return item.type === 'assumption' ? `Assumption (${cat.toLowerCase()})` : cat;
+  }
   return type?.label ?? '';
 }
 
@@ -167,12 +172,81 @@ function decisions(s: DocSection, board: DocBoard, docs: Record<string, string>)
   return out;
 }
 
+/** arc42 section 7: the settings and environments, then the Azure resources that follow from the design. */
+function deploymentView(s: DocSection, board: DocBoard, docs: Record<string, string>): string[] {
+  const out: string[] = [];
+  const settings = s.items.filter((i) => i.type === 'setting');
+  if (settings.length) {
+    out.push('| Setting | Value | Why | Source |', '|---|---|---|---|');
+    for (const i of settings) out.push(`| ${cell(itemLabel(s, i))} | ${cell(i.name ?? '')} | ${cell(i.text)} | ${cell(source(i, docs))} |`);
+    out.push('');
+  }
+  for (const i of s.items.filter((x) => x.type === 'environment')) out.push(`- **${i.name}:** ${i.text}`, `  <br>*${source(i, docs)}*`);
+  if (s.items.some((x) => x.type === 'environment')) out.push('');
+  const plan = resourcePlan(board);
+  out.push(`**Azure resources** (${plan.hosting.toLowerCase()}, ${plan.isolated ? 'private networking' : 'public endpoints'})`, '', '| Resource | Service | Purpose | Runs or serves | Source |', '|---|---|---|---|---|');
+  const name = (id: string) => board.components.find((c) => c.id === id)?.name ?? id;
+  for (const r of plan.resources) {
+    const notes = [r.private ? 'private endpoint' : '', r.reused ? 'from the platform landing zone' : ''].filter(Boolean).join(', ');
+    out.push(`| ${GROUPS[r.group]} | ${cell(r.service)}${notes ? ` (${notes})` : ''} | ${cell(r.purpose)} | ${cell(r.serves.map(name).join(', '))} | [source](${r.source}) |`);
+  }
+  if (plan.ask.length) out.push('', `*Asked when compiling: ${plan.ask.join('; ')}.*`);
+  out.push('');
+  return out;
+}
+
+/** arc42 section 11 adds every recommendation the Well-Architected review did not find met. */
+function reviewRisks(board: DocBoard): string[] {
+  const gaps = board.spec.reviews.filter((r) => r.status === 'partly' || r.status === 'not_met');
+  if (!gaps.length) return [];
+  const out = ['**From the Well-Architected review**', ''];
+  for (const r of gaps) {
+    const rec = CHECKLIST.find((c) => c.code === r.code)!;
+    out.push(`- **[${r.code}](${rec.url}) ${r.status === 'partly' ? 'partly met' : 'not met'}:** ${rec.title} ${r.note ?? ''}`.trimEnd());
+  }
+  out.push('');
+  return out;
+}
+
+/** The Well-Architected design review: each pillar's recommendations with their status. */
+function reviewMarkdown(board: DocBoard): string[] {
+  const out = ['## Well-Architected review', '', '*The design review checklists of the five pillars of the Azure Well-Architected Framework, one row per recommendation.*', ''];
+  const label = { met: 'Met', partly: 'Partly met', not_met: 'Not met', not_applicable: 'Not applicable' } as const;
+  for (const [pillar, title] of Object.entries(PILLARS)) {
+    out.push(`### ${title}`, '', '| Code | Recommendation | Status | Note |', '|---|---|---|---|');
+    for (const rec of CHECKLIST.filter((c) => c.pillar === pillar)) {
+      const r = board.spec.reviews.find((x) => x.code === rec.code);
+      out.push(`| [${rec.code}](${rec.url}) | ${cell(rec.title)} | ${r ? label[r.status] : '**not reviewed**'} | ${cell(r?.note ?? '')} |`);
+    }
+    out.push('');
+  }
+  return out;
+}
+
 function sectionMarkdown(s: DocSection, docs: Record<string, string>, board: DocBoard): string[] {
   const out: string[] = [];
+  if (s.id === '7') return deploymentView(s, board, docs);
+  if (s.id === '11') {
+    const own = s.items.length ? sectionMarkdownItems(s, docs) : [];
+    const derived = reviewRisks(board);
+    return own.length || derived.length ? [...own, ...derived] : [`*${s.hint}*`, ''];
+  }
   if (s.id === '5') return buildingBlocks(board);
   if (s.id === '6') return runtime(board);
   if (!s.items.length) return [`*${s.hint || 'Nothing recorded yet.'}*`, ''];
   if (s.id === '9') return decisions(s, board, docs);
+  if (s.id === '8') {
+    out.push('| Concept | Rule | Source |', '|---|---|---|');
+    for (const i of s.items) out.push(`| ${cell(itemLabel(s, i))} | ${cell(i.text)} | ${cell(source(i, docs))} |`);
+    out.push('');
+    return out;
+  }
+  if (s.id === '10') {
+    out.push('| Quality goal | Scenario | Measure | Source |', '|---|---|---|---|');
+    for (const i of s.items) out.push(`| ${cell((i.serves ?? []).map((id) => itemRef(board, id)).join(', '))} | ${cell(i.text)} | ${cell(i.measure ?? '')} | ${cell(source(i, docs))} |`);
+    out.push('');
+    return out;
+  }
   if (s.id === '4') {
     for (const i of s.items.filter((x) => x.type === 'strategy')) out.push(`- ${i.text}`, `  <br>*${source(i, docs)}*`);
     const qa = s.items.filter((x) => x.type === 'quality_approach');
@@ -189,15 +263,23 @@ function sectionMarkdown(s: DocSection, docs: Record<string, string>, board: Doc
     for (const i of s.items) out.push(`| ${cell(i.name ?? '')} | ${cell(i.text)} | ${cell(source(i, docs))} |`);
   } else if (s.id === '2') {
     out.push('| Constraint | Category | Source |', '|---|---|---|');
-    for (const i of s.items) out.push(`| ${cell(i.text)} | ${i.category ? CONSTRAINT_CATEGORIES[i.category] : ''} | ${cell(source(i, docs))} |`);
+    for (const i of s.items) out.push(`| ${cell(i.text)} | ${cell(itemLabel(s, i))} | ${cell(source(i, docs))} |`);
   } else if (s.id === '3.2') {
     out.push('| Neighbour | Kind | Exchanged with the system | Source |', '|---|---|---|---|');
     for (const i of s.items) out.push(`| ${cell(i.name ?? '')} | ${i.type === 'person' ? 'Person' : 'External system'} | ${cell(i.text)} | ${cell(source(i, docs))} |`);
   } else {
-    for (const i of s.items) {
-      const label = itemLabel(s, i);
-      out.push(`- ${label ? `**${label}:** ` : ''}${i.text}`, `  <br>*${source(i, docs)}*`);
-    }
+    out.push(...sectionMarkdownItems(s, docs).slice(0, -1));
+  }
+  out.push('');
+  return out;
+}
+
+/** Items one per line, with their label and source. */
+function sectionMarkdownItems(s: DocSection, docs: Record<string, string>): string[] {
+  const out: string[] = [];
+  for (const i of s.items) {
+    const label = itemLabel(s, i);
+    out.push(`- ${label ? `**${label}:** ` : ''}${i.text}`, `  <br>*${source(i, docs)}*`);
   }
   out.push('');
   return out;
@@ -229,6 +311,15 @@ export function stageMarkdown(board: DocBoard, stage: StageId, documents: Record
       lines.push(`## ${s.number}. ${s.title}`, '');
     }
     lines.push(...sectionMarkdown(s, documents, board));
+  }
+  if (stage === 'technical') {
+    lines.push(...reviewMarkdown(board));
+    const gaps = technicalGaps(board);
+    if (gaps.length) {
+      lines.push('## Open before approval', '');
+      for (const g of gaps) lines.push(`- ${g}`);
+      lines.push('');
+    }
   }
   if (stage === 'solution') {
     const gaps = traceability(board);

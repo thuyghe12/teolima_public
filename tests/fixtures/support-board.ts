@@ -1,5 +1,6 @@
 import { replay, type Basis, type Change, type ChangeBody } from '../../shared/board/changes';
 import { emptyBoard, type Board } from '../../shared/board/schema';
+import { CHECKLIST } from '../../shared/board/waf';
 
 const at = '2026-11-18T12:00:00.000Z';
 const c = (body: ChangeBody, reason: string, basis?: Basis): Change => ({ body, actor: 'coach', reason, at, ...(basis ? { basis } : {}) });
@@ -86,4 +87,23 @@ export const supportChanges: Change[] = [
   c({ op: 'connect', from: 'Customer message', to: 'Triage', label: 'message' }, 'Entry point'),
   c({ op: 'connect', from: 'Support desk', to: 'Reply to customer', label: 'answer' }, 'Team output'),
   ...solutionRecords,
+];
+
+/** The solution design approved, then the technical design that settles everything the compiler needs. */
+export const approveSolution: Change = { body: { op: 'approve_stage', stage: 'solution', by: 'Lead architect' }, actor: 'user', reason: 'Approved in the app', at };
+const said = (quote: string): Basis => ({ source: 'user', quote });
+const tech = (fields: Omit<Extract<ChangeBody, { op: 'record_item' }>, 'op' | 'id'>, quote: string): Change => c({ op: 'record_item', ...fields }, 'Agreed in technical design', said(quote));
+export const technicalRecords: Change[] = [
+  tech({ section: '7', type: 'setting', category: 'region', name: 'Sweden Central', text: 'Customer data stays in the EU' }, 'data stays in the EU'),
+  tech({ section: '7', type: 'setting', category: 'network_isolation', name: 'Private networking', text: 'Customer data never crosses the public internet' }, 'keep it private'),
+  tech({ section: '7', type: 'setting', category: 'landing_zone', name: 'Standalone', text: 'No platform landing zone yet' }, 'no landing zone yet'),
+  tech({ section: '8', type: 'concept', category: 'identity', text: 'Every service authenticates with a managed identity; no keys' }, 'no keys anywhere'),
+  tech({ section: '8', type: 'concept', category: 'networking', text: 'Every service is reached through a private endpoint' }, 'keep it private'),
+  tech({ section: '8', type: 'concept', category: 'observability', text: 'Every agent run is traced in Application Insights' }, 'trace every run'),
+  tech({ section: '8', type: 'concept', category: 'content_safety', text: 'Prompt Shields and harm filters on every agent' }, 'safe for customers'),
+  tech({ section: '8', type: 'concept', category: 'evaluation', text: 'Each runtime scenario is evaluated before release' }, 'test before release'),
+  ...(['out_of_scope', 'reliability', 'performance', 'cost', 'operations', 'rollout'] as const).map((t) =>
+    tech({ section: '11', type: 'assumption', category: t, text: `Assumed for ${t.replace('_', ' ')} until confirmed` }, 'confirm later'),
+  ),
+  c({ op: 'review', checks: CHECKLIST.map((r) => ({ code: r.code, status: 'met' as const })) }, 'Reviewed with the platform lead', said('reviewed with the platform lead')),
 ];
