@@ -1,10 +1,10 @@
-# ADR 0003: Compile the board to an Azure AI Foundry deployment package
+# ADR 0003: Compile the board to a Microsoft Foundry deployment package
 
 **Status:** Accepted, not yet implemented. Targets verified in [AZURE_TARGETS.md](../AZURE_TARGETS.md).
 
 ## Context
 
-A design session currently ends with a picture. To be useful to a team, it has to end with something that can be reviewed and deployed. Azure AI Foundry is the first and only target for v1.
+A design session currently ends with a picture. To be useful to a team, it has to end with something that can be reviewed and deployed. Microsoft Foundry (formerly Azure AI Foundry) is the first and only target for v1.
 
 ## Decision
 

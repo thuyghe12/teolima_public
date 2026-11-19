@@ -54,7 +54,7 @@ Orchestrations support human-in-the-loop through tool approval and request info 
 Nothing edits the board directly. Every edit is a change (`shared/board/changes.ts`) with:
 
 - **body:** one of `set_brief`, `set_shape`, `set_title`, `clear`, `upsert_component`, `remove_component`, `upsert_team`, `remove_team`, `connect`, `disconnect`
-- **actor:** `coach`, `user`, or a named memory worker (`worker:<name>`)
+- **actor:** `coach`, `user`, or a named worker (`worker:<name>`)
 - **reason:** why, in a sentence
 - **basis:** for coach changes that add to the design, what it rests on: `brief` or `user`, and the exact words quoted. The guard checks the quote before the change is applied (`server/guard/provenance.ts`)
 - **at:** a timestamp

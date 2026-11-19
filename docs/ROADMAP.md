@@ -1,31 +1,35 @@
 # Roadmap
 
-**One unified git tree. Many actors. Two views. One compile target.**
+**From a scoping conversation to a reviewed, deployable package for an AI agent solution on Azure** ([ADR 0007](adr/0007-scope-to-iac.md)).
 
-Today the board lives in the canvas engine as a list of drawn elements, and a session is saved as a snapshot. The roadmap turns the board into a typed, versioned document that every actor writes to, and makes that document compilable.
+Teolima follows Microsoft's architect process: discovery, functional specification, solution design drawn per audience, design specification, then compile. The board is a typed, versioned document that every actor writes to, and every decision cites the guidance it rests on.
+
+## Built
 
 | Phase | Outcome | Decision record |
 |---|---|---|
-| 1. Board schema and change log | The board is a typed document; the canvas is a view of it; every change is a patch with actor, reason and time | [ADR 0001](adr/0001-board-as-versioned-tree.md) |
-| 1b. Design standard and views | Designs follow a written standard anchored in Microsoft's guidance, checked in code; the board renders it as standard views: context, agents with a boundary and legend, deployment | [ADR 0004](adr/0004-design-standard.md) |
-| 1c. Exact board model | Every element has one compile meaning in Agent Framework, Foundry or Azure, with its source; per agent: model, tools, knowledge, memory, conversation history | [ADR 0005](adr/0005-high-level-board-exact-meaning.md) |
-| 1d. Guidance snapshot | Microsoft's architecture guidance (Well-Architected, Architecture Center AI, Cloud Adoption Framework AI agents) ships as a versioned map of pages and sections, read by progressive disclosure, with quotes checked against the text and a weekly reviewed refresh | [ADR 0006](adr/0006-guidance-snapshot.md) |
-| 2. Git tree and code view | Patches are committed to a git tree per board; a toggle switches between whiteboard and code view with changes coloured by actor | [ADR 0001](adr/0001-board-as-versioned-tree.md) |
-| 3. Compiler | Compile turns the board into a reviewed Azure AI Foundry deployment package, with AI Landing Zone defaults and a wizard that only asks about open assumptions | [ADR 0003](adr/0003-compile-to-foundry-package.md) |
-| 4. Memory workers | Narrow, rubric-driven workers commit what they learn to memory branches of the same tree; a conductor resolves duplicates and conflicts | [ADR 0002](adr/0002-memory-workers-on-the-tree.md) |
+| Board schema and change log | The board is a typed document; the canvas is a view of it; every change is a patch with actor, reason and time | [ADR 0001](adr/0001-board-as-versioned-tree.md) |
+| Design standard | Designs follow a written standard anchored in Microsoft's guidance, checked in code | [ADR 0004](adr/0004-design-standard.md) |
+| Exact board model | Every element has one compile meaning in Agent Framework, Foundry or Azure, with its source; per agent: model, tools, knowledge, memory, conversation history | [ADR 0005](adr/0005-high-level-board-exact-meaning.md) |
+| Guidance snapshot | Microsoft's architecture guidance ships as a versioned map of pages and sections, read by progressive disclosure, with quotes checked against the text and a weekly reviewed refresh | [ADR 0006](adr/0006-guidance-snapshot.md) |
 
-**Progress:** phase 1 is in place: the coach edits a typed board through validated changes, and the canvas renders it with a computed layout ([BOARD_MODEL.md](BOARD_MODEL.md)). The design standard is in place ([DESIGN_STANDARD.md](DESIGN_STANDARD.md)): its procedure and checks, and the agent view drawn to its notation. Every element has an exact compile meaning ([ADR 0005](adr/0005-high-level-board-exact-meaning.md)). Microsoft's guidance is available to agents as a checked, versioned snapshot ([ADR 0006](adr/0006-guidance-snapshot.md)). Saved boards in Supabase, then the git tree and code view (phase 2), are next; the context and deployment views come with the compiler.
+## Next, in order
 
-Phase 3 comes before phase 4 because the compiler is what turns a design session into something deployable, and it can be built and tested without the voice interface.
+| Step | Outcome | Decision record |
+|---|---|---|
+| 1. Architect process | Discovery and a functional specification replace the short brief, from voice or from a pasted transcript, RFP or notes; every requirement quotes its source | [ADR 0007](adr/0007-scope-to-iac.md) |
+| 2. Solution model | The board describes the whole solution: boundaries, actors, hosting, data stores, memory, identity, network, observability, deployment and numbered flows. A Microsoft reference architecture is the test it must reproduce | [ADR 0005](adr/0005-high-level-board-exact-meaning.md) |
+| 3. Diagrams per audience | A renderer with Microsoft's official icons, nested boundaries and numbered steps, and a view per audience: context, solution, deployment | [ADR 0004](adr/0004-design-standard.md) |
+| 4. Compiler | Compile produces an Azure Developer CLI project (Bicep and declarative agents) with landing zone defaults, plus the design specification, a cost estimate from public list prices and a draft statement of work | [ADR 0003](adr/0003-compile-to-foundry-package.md) |
+| 5. Specialist workers | Narrow workers, one per part of the solution (network, identity, memory, tools, observability), each reading only its part of the guidance and drawing its part of the board, coordinated so cross-cutting dependencies stay consistent | |
+| 6. Organisation standards | An organisation's own baseline and approved modules, as data the checks and the compiler read | [ADR 0007](adr/0007-scope-to-iac.md) |
+| 7. Git tree and code view | Patches are committed to a git tree per board; a toggle switches between whiteboard and code view, coloured by actor | [ADR 0001](adr/0001-board-as-versioned-tree.md) |
+
+Out of scope: Teolima's own memory of users and boards ([ADR 0002](adr/0002-memory-workers-on-the-tree.md), withdrawn). Memory in the solutions Teolima designs is a full part of the board model.
 
 ## Platform
 
-Supabase is the backend for everything outside the tree itself:
-
-- **Auth:** Supabase Auth, with row level security on every table keyed to the user.
-- **Board storage:** each board's tree is stored per user; Postgres holds the board index and commit metadata for fast listing.
-- **Memory index:** memory entries are committed to the tree and indexed in Postgres with pgvector for retrieval.
-- **Sessions:** the existing `call_sessions` table moves under auth and row level security.
+The app runs with a Gemini key and nothing else. Supabase is optional, for saved boards with sign-in and row level security; without it, boards stay in the browser.
 
 ## Also planned
 
