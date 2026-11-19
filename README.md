@@ -17,8 +17,6 @@ A voice coach (Gemini Live) works through Microsoft's architect process with the
 | 3. Technical design | Security and platform leads | Deployment settings, crosscutting concepts, quality scenarios, risks (arc42 7, 8, 10, 11), the Well-Architected review, C4 deployment view |
 | 4. Compile | Infrastructure and agent teams | An azd project on the AI Landing Zone, checked by narrow rules before export |
 
-![Teolima at the end of technical design: the four stages across the top with Approve, the stage document on the left, the deployment view on the canvas and the voice coach](docs/images/0-app.png)
-
 Every item in the documents records its source (the client's spoken or typed words, or a pasted transcript), and the server refuses a quote that was never said. Each stage gate lists any design element that does not trace back to a requirement.
 
 | Discovery | Solution design |
