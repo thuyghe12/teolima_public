@@ -12,7 +12,7 @@ import { Audit, Guard, promptShields } from './server/guard';
 import { LIVE_SAFETY_SETTINGS } from './server/guard/gemini-safety';
 import { ChangeBody } from './shared/board/changes';
 import { emptyBoard } from './shared/board/schema';
-import { COACH_PROMPT, COACH_PROMPT_VERSION, openingPrompt } from './server/prompts/coach';
+import { COACH_PROMPT, COACH_PROMPT_VERSION, openingPrompt, stageBriefing } from './server/prompts/coach';
 import { declareTools, supportsAsyncTools, toolResponse } from './server/live-tools';
 import { validateToolCall } from './server/validation';
 import { microsoftDocsCaller, searchMicrosoftDocs } from './server/microsoft-docs';
@@ -282,7 +282,7 @@ wss.on('connection', async (clientWs: WebSocket) => {
           sendClient({ type: 'transcript', transcript: { speaker: 'ai', text: step.say } });
           return;
         }
-        const result = session.apply(step.change, 'coach', step.reason, step.basis);
+        const result = session.apply(step.change, step.actor ?? 'coach', step.reason, step.basis);
         if ('error' in result) console.error('[Demo] Refused change:', result.error);
         else sendBoard(result.summary);
       });
@@ -472,9 +472,16 @@ wss.on('connection', async (clientWs: WebSocket) => {
         const parsed = ChangeBody.safeParse(msg.body);
         if (!parsed.success) return;
         const result = session.apply(parsed.data, 'user', String(msg.reason ?? 'Changed in the app').slice(0, 300));
-        if ('error' in result) return console.warn(`[Board] Refused user change: ${result.error}`);
+        if ('error' in result) {
+          sendClient({ type: 'status', status: { connected: true, state: 'idle', message: result.error } });
+          return console.warn(`[Board] Refused user change: ${result.error}`);
+        }
         console.log(`[Board] user: ${result.summary}`);
         sendBoard(result.summary);
+        if (parsed.data.op === 'approve_stage' || parsed.data.op === 'reopen_stage') {
+          guard.audit.record({ kind: 'stage_changed', actor: 'user', summary: result.summary });
+          if (liveSession && isSessionActive) liveSession.sendRealtimeInput({ text: stageBriefing(session.board, result.summary) });
+        }
       } else if (msg.type === 'audio') {
         // Stream user microphone PCM16 16kHz
         if (liveSession && isSessionActive && msg.audio) {

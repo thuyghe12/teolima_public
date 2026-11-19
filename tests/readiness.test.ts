@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { applyChange, replay, type ChangeBody } from '../shared/board/changes';
 import { emptyBoard, type Board } from '../shared/board/schema';
 import { readiness } from '../shared/board/readiness';
-import { discovered, supportChanges } from './fixtures/support-board';
+import { approved, discovered, supportChanges } from './fixtures/support-board';
 
 const apply = (b: Board, body: ChangeBody) => {
   const r = applyChange(b, { body, actor: 'coach', reason: 'test', at: new Date().toISOString() });
@@ -28,7 +28,7 @@ test('after the brief, discovery asks the missing topics; after discovery, singl
 });
 
 test('one agent is the default: a second agent or a team is refused without a reason', () => {
-  let b = discovered(apply(emptyBoard(), { op: 'set_brief', goal: 'Route tickets' }));
+  let b = approved(apply(emptyBoard(), { op: 'set_brief', goal: 'Route tickets' }));
   b = apply(b, { op: 'upsert_component', kind: 'agent', name: 'Router' });
   b = apply(b, { op: 'upsert_component', kind: 'agent', name: 'Router', instructions: 'updates are fine' });
   const second = applyChange(b, { body: { op: 'upsert_component', kind: 'agent', name: 'Billing' }, actor: 'coach', reason: 'test', at: new Date().toISOString() });
@@ -38,7 +38,7 @@ test('one agent is the default: a second agent or a team is refused without a re
 });
 
 test('several agents need a stated reason; single is refused once there are several', () => {
-  let b = discovered(apply(emptyBoard(), { op: 'set_brief', goal: 'Route tickets' }));
+  let b = approved(apply(emptyBoard(), { op: 'set_brief', goal: 'Route tickets' }));
   const noReason = applyChange(b, { body: { op: 'set_shape', shape: 'multi' }, actor: 'coach', reason: 'test', at: new Date().toISOString() });
   assert.equal(noReason.ok, false);
   b = apply(b, { op: 'set_shape', shape: 'multi', reasons: ['multiple_teams', 'multiple_teams'] });
@@ -66,7 +66,7 @@ test('a start agent or manager may route without tools of its own', () => {
 });
 
 test('guardrails: an agent without Prompt Shields is missing', () => {
-  let b = discovered(apply(emptyBoard(), { op: 'set_brief', goal: 'Answer questions' }));
+  let b = approved(apply(emptyBoard(), { op: 'set_brief', goal: 'Answer questions' }));
   b = apply(b, { op: 'set_shape', shape: 'single' });
   b = apply(b, { op: 'upsert_component', kind: 'knowledge', name: 'Docs' });
   b = apply(b, { op: 'upsert_component', kind: 'agent', name: 'Helper', knowledge: ['Docs'] });
@@ -78,7 +78,7 @@ test('guardrails: an agent without Prompt Shields is missing', () => {
 });
 
 test('tools: unused tools and bare agents are open items', () => {
-  let b = discovered(apply(emptyBoard(), { op: 'set_brief', goal: 'Answer questions' }));
+  let b = approved(apply(emptyBoard(), { op: 'set_brief', goal: 'Answer questions' }));
   b = apply(b, { op: 'set_shape', shape: 'single' });
   b = apply(b, { op: 'upsert_component', kind: 'tool', name: 'Search' });
   b = apply(b, { op: 'upsert_component', kind: 'agent', name: 'Helper' });
@@ -89,7 +89,7 @@ test('tools: unused tools and bare agents are open items', () => {
 });
 
 test('single agent: no pattern needed', () => {
-  let b = discovered(apply(emptyBoard(), { op: 'set_brief', goal: 'Answer questions' }));
+  let b = approved(apply(emptyBoard(), { op: 'set_brief', goal: 'Answer questions' }));
   b = apply(b, { op: 'set_shape', shape: 'single' });
   b = apply(b, { op: 'upsert_component', kind: 'agent', name: 'Helper' });
   assert.equal(status(b).pattern, 'done');

@@ -13,7 +13,7 @@ function replayDemo() {
   let board = emptyBoard();
   for (const step of DEMO_SCRIPT) {
     if (!('change' in step)) continue;
-    const change: Change = { body: step.change, actor: 'coach', reason: step.reason, at, ...(step.basis ? { basis: step.basis } : {}) };
+    const change: Change = { body: step.change, actor: step.actor ?? 'coach', reason: step.reason, at, ...(step.basis ? { basis: step.basis } : {}) };
     const r = applyChange(board, change);
     assert.ok(!('error' in r), `demo step refused: ${'error' in r ? r.error : ''}`);
     if ('board' in r) board = r.board;

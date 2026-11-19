@@ -15,6 +15,7 @@ export type AuditEvent = {
     | 'brief_saved'
     | 'brief_refused'
     | 'document_added'
+    | 'stage_changed'
     | 'change_accepted'
     | 'change_refused'
     | 'input_flagged'

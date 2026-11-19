@@ -135,9 +135,9 @@ test('clear empties the board but keeps its title', () => {
   assert.equal(b.brief.goal, 'Answer order questions and handle refunds safely', 'the brief survives a clear');
 });
 
-test('nothing can be built before the brief has a goal', () => {
+test('nothing can be built during discovery', () => {
   const r = applyChange(emptyBoard(), ch({ op: 'upsert_component', kind: 'agent', name: 'Eager' }));
-  assert.ok('error' in r && /No goal yet/.test(r.error));
+  assert.ok('error' in r && /belongs to solution design, and the current stage is discovery/.test(r.error));
   assert.equal(applyChange(emptyBoard(), ch({ op: 'connect', from: 'a', to: 'b' })).ok, false);
   assert.equal(applyChange(emptyBoard(), ch({ op: 'set_title', title: 'Fine' })).ok, true);
 });
