@@ -28,7 +28,7 @@ The architect chooses diagram types that match the message, the audience and the
 |---|---|---|---|
 | 1. Discovery | Business sponsor, product owner, presales architect | Context diagram: the system as one box, its users, the systems and data it touches. Plus the functional specification | Business sponsor |
 | 2. Solution design | Architect and the client's tech lead | Container view: the building blocks inside the system boundary, with the same people and external systems as the context diagram. Plus the solution design document | Architect |
-| 3. Technical design | Platform, security and operations engineers | Deployment diagram and design specification (not built yet) | Security and platform leads |
+| 3. Technical design | Platform, security and operations engineers | Deployment view: the Azure resources the design needs. Plus the technical design document and the Well-Architected review | Security and platform leads |
 | 4. Compile | Delivery engineer | The deployment package (not built yet) | Delivery owner |
 
 Each stage draws in its own frame, below the one before, so an approved stage stays readable above the one being worked on.
@@ -136,7 +136,23 @@ Show where work comes from and where results go, so the system has an explicit b
 
 Agent outputs are nondeterministic, so integration tests use scoring rubrics or language-model-as-judge evaluations rather than exact-match assertions (Orchestration patterns, "Observability and testing"). Every production agent has acceptance thresholds approved by its business owners, an action-taking agent shows it respects approval boundaries, and agents that access sensitive information or take consequential actions get risk-based testing, including adversarial testing (Operational standards).
 
-**Planned:** the compiler writes an evaluation set from the board's own rules (ADR 0003).
+**Enforced:** technical design records evaluation as a crosscutting concept and a quality scenario with a measure for every quality goal (step 10). **Planned:** the compiler writes one evaluation per runtime scenario and quality scenario (ADR 0003).
+
+### 10. Technical design: deployment, concepts, quality, risks and the review
+
+Technical design is for the platform, security and operations engineers, and settles what the compiler needs so that the compile wizard only confirms. Teolima records it in arc42 sections 7, 8, 10 and 11, and a Well-Architected review alongside (`shared/board/arc42.ts`):
+
+| Section | Holds |
+|---|---|
+| 7 Deployment view | The settings that are hard to change after deployment (region, network isolation, platform landing zone, model capacity) and the environments. The Azure resources follow from the design and the settings |
+| 8 Crosscutting concepts | The rules every block follows: identity and access, networking, observability, content safety, evaluation; data protection and cost where they matter |
+| 10 Quality requirements | For every quality goal in 1.2, a scenario with its measure |
+| 11 Risks and technical debt | Risks, debt, and an assumption for every discovery topic left open. Recommendations the review did not find met are listed here too |
+| Well-Architected review | Every coded recommendation of the five pillar design review checklists (RE:01 to PE:12): met, partly, not met or not applicable, each with its reason |
+
+The resource plan (`shared/board/deployment.ts`) follows the baseline Foundry architecture (Baseline) and names its source for every resource. Prompt agents and hosted agents run on Foundry Agent Service, with its standard agent setup (Azure Cosmos DB for NoSQL, Azure Storage and Azure AI Search for agent state) under private networking; hosted agents add an Azure Container Registry; self-hosted orchestration runs on Azure Container Apps with a registry, as in Microsoft's multiple-agent workflow automation. A chat or API front end runs on Azure App Service, behind Azure Application Gateway with Web Application Firewall and a Key Vault for its certificates when networking is private. Knowledge in Azure AI Search and memory in Azure Cosmos DB get their own resources. Private networking adds Azure Virtual Network, private DNS zones in Azure DNS and Azure Firewall for egress, reused from the platform landing zone when there is one. Application Insights and a Log Analytics workspace take the telemetry. The model of an agent left empty is asked when compiling.
+
+**Enforced:** a setting names its category, and network isolation and the landing zone one of their values. A quality scenario serves a 1.2 goal and states its measure. A review takes only codes in the checklists, and anything not met says why. The gate requires the region, network isolation and landing zone settings, the five required concepts, a quality scenario for every quality goal, an assumption for every open discovery topic, every recommendation reviewed, and nothing the resource plan cannot decide. The checklists ship as `shared/board/waf.ts`, generated from the guidance snapshot (`npm run knowledge:checklists`, also run by the weekly refresh) and tested to match it.
 
 ## Notation
 
@@ -152,4 +168,4 @@ On the board today (`shared/board/layout.ts`):
 | Approvals scoped to a tool | The approval sits on the path from the agent to the tool it gates |
 | Legend | Under the drawing, listing only the styles in use |
 
-Stage 1 draws the C4 system context view and stage 2 the container view (`shared/board/workspace.ts`). The deployment view, with official Azure service names and icons, comes with technical design: it is a drawing of what Compile produces (ADR 0003).
+Stage 1 draws the C4 system context view, stage 2 the container view and a dynamic view per scenario, stage 3 the deployment view (`shared/board/workspace.ts`). The deployment view draws the resource plan, the same list the compiler generates Bicep for (ADR 0003), with Microsoft's service names: the request path left to right from the people to the models, the stores below the runtime that uses them, network and operations below, and a panel marking the virtual network. Microsoft's official Azure icons are not drawn yet.
