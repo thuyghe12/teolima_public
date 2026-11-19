@@ -1,6 +1,6 @@
 # Azure targets for the compiler
 
-Verified against Microsoft documentation on 18 November 2026, before any compiler code is written. The compiler in [ROADMAP.md](ROADMAP.md) builds on these facts and nothing else; if a fact here changes, this file changes first.
+Verified against Microsoft documentation on 18 November 2026, before the compiler was written. The compiler does not generate these resources itself: it builds on the AI Landing Zone Bicep, which implements them, and on the azd schemas ([ADR 0003](adr/0003-compile-to-foundry-package.md)). This file records the facts the review checks against.
 
 ## Foundry resources in Bicep
 

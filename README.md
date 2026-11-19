@@ -1,28 +1,60 @@
 # Teolima
 
-A voice-first studio for scoping AI agent solutions on Microsoft Foundry and Microsoft Agent Framework. You give a short brief and talk the design through with a coach on the Gemini Live API. The coach builds it on a hand-drawn board as you speak: triggers, teams of agents in an orchestration pattern, tools, knowledge, guardrails and human approvals.
+Teolima turns a client scoping conversation into an approved Microsoft Foundry design and a complete Azure Developer CLI project that infrastructure and agent teams can review, check and deploy.
 
-![Demo session: a customer support system built by the coach](docs/demo.png)
+## The problem
 
-**Where it is going:** from a scoping conversation to a reviewed, deployable package ([ADR 0007](docs/adr/0007-scope-to-iac.md)).
+At a Microsoft partner, AI agent solutions are scoped in conversations, then rebuilt by hand as slides, diagrams and infrastructure code. The quality depends on the architect, the decisions behind the design get lost on the way, and the engineers who deploy it find the gaps late. Generic AI tools make this faster but not more reliable: one model drafting everything, with nothing that checks it against Microsoft's own guidance.
 
-> A solutions architect talks a client's AI agent solution through, or pastes the discovery call transcript. Teolima follows Microsoft's architect process, draws the solution per audience with a cited source for every decision, and compiles it into an Azure Developer CLI project: Bicep for the infrastructure, declarative definitions for the agents, with a design specification, a cost estimate and a draft statement of work.
+## The approach
 
-**Who it is for:** AI and cloud solutions architects and technical presales leads at Microsoft partners, who turn client conversations into designs, estimates and statements of work; and the heads of cloud and AI practices who want that work faster and of the same quality across their team. The engineers who deploy the result are the reviewers it has to satisfy.
+A voice coach (Gemini Live) works through Microsoft's architect process with the architect, in four stages. Each stage is for different people, has its own documents (arc42) and diagram (C4), and moves on only when a person approves it. The coach can propose; it cannot approve.
 
-The voice coach, the whiteboard, the hardening below and the guidance snapshot are built. What comes next, in order, is in [docs/ROADMAP.md](docs/ROADMAP.md), with a decision record for each step.
+| Stage | For | Produces |
+|---|---|---|
+| 1. Discovery | Business sponsor | Functional specification (arc42 1 to 3), C4 system context |
+| 2. Solution design | Architect, client tech lead | Strategy, building blocks, runtime scenarios, decision records (arc42 4, 5, 6, 9), C4 container and dynamic views |
+| 3. Technical design | Security and platform leads | Deployment settings, crosscutting concepts, quality scenarios, risks (arc42 7, 8, 10, 11), the Well-Architected review, C4 deployment view |
+| 4. Compile | Infrastructure and agent teams | An azd project on the AI Landing Zone, checked by narrow rules before export |
 
-## Try it
+Every statement in the documents quotes its source (the client's words, the brief or a pasted transcript), and every design element traces back to a requirement.
 
-Requires Node 20 or later.
+| Discovery | Solution design |
+|---|---|
+| ![Discovery: the functional specification and the C4 system context](docs/images/1-discovery.png) | ![Solution design: the C4 container view](docs/images/2-solution.png) |
+| **Technical design** | **Compile** |
+| ![Technical design: the C4 deployment view of the Azure resources](docs/images/3-technical.png) | ![Compile: the project as a folder, coloured by origin, with the checks](docs/images/4-compile.png) |
+
+## Try it in two minutes
+
+Requires Node 20 or later. No keys needed.
 
 ```bash
 npm install
-cp .env.example .env     # optional: add GEMINI_API_KEY for live coaching
 npm run dev              # http://localhost:3000
 ```
 
-Without a key, press **Start call** and the app replays a recorded design session through the same tool-call path a live session uses. With a key, allow the microphone and describe what you want to build, or pick a topic from **Ideas**.
+1. Press **Start call**. Without a key, the app replays a recorded session through the same path a live session uses: discovery, solution design and technical design, about a minute and a half.
+2. Press **Approve technical design**, then **Open the project**. Answer the questions no stage settled (for example `gpt-4.1`, version `2025-04-14`, capacity `50`) and press **Compile**.
+3. Browse the project. `infra/main.parameters.json` shows the design's choices in green; click one to see why it is set, or change it and watch the checks react. **Approve and download** exports the project with `docs/checks.md`.
+
+Or from the command line: `npm run compile:example` writes the same project to `out/customer-support`, and `npm test` runs the 193 tests. For live coaching, copy `.env.example` to `.env` and add a `GEMINI_API_KEY`.
+
+## Design decisions
+
+Each with what was chosen and what was rejected. The full records are in [docs/adr](docs/adr).
+
+1. **Build on Microsoft's AI Landing Zone, unchanged; set only its parameters.** Rejected: generating Bicep from scratch. Generated infrastructure cannot be trusted by a platform team and drifts from Microsoft's baseline; the landing zone is what they already review. The design's choices land as defaults in its own parameters file, still overridable per environment. ([ADR 0003](docs/adr/0003-compile-to-foundry-package.md))
+2. **A versioned snapshot of Microsoft's guidance, read by progressive disclosure, every cited link tested.** Rejected: embedding the docs in a vector store. Retrieval would be nondeterministic and citations unverifiable, and running the repo would need a database. The snapshot refreshes weekly through a reviewed pull request. ([ADR 0006](docs/adr/0006-guidance-snapshot.md))
+3. **The model proposes; a typed change log disposes.** Rejected: letting the model draw shapes or write free text into the design. Every change is validated, refused with a reason the model can act on, and recorded with its actor and its quoted source, checked against what was actually said. ([ADR 0001](docs/adr/0001-board-as-versioned-tree.md), [ADR 0005](docs/adr/0005-high-level-board-exact-meaning.md))
+4. **Stages per audience, documented as arc42 and drawn as C4, approved only by a person.** Rejected: one generated design for everyone. Discovery, solution design and technical design are different work for different people; a gate the coach cannot pass keeps a person accountable at each step. ([ADR 0007](docs/adr/0007-scope-to-iac.md), [ADR 0008](docs/adr/0008-arc42-and-c4.md))
+5. **Narrow deterministic rules check the output; model judges and people are the escalation.** Rejected: one model reviewing its own work. 21 rules each own one signal (a schema, code or a regular expression) with a threshold and a source; the user sees the matrix, tunes it and adds rules, and a blocking failure stops the export.
+
+The test that keeps this honest: a Microsoft reference architecture (multiple-agent workflow automation), specified from its published page, must come out of the stages with Microsoft's own decisions. Its first run found a rule stricter than Microsoft's guidance.
+
+## Status
+
+Built: the four stages, the guidance snapshot, the compiler, the checks, the folder view and the export. The compiled `azure.yaml` validates against the azd and Foundry extension schemas, and every landing zone parameter it sets against the landing zone's declarations; CI builds the compiled Bicep. Not yet: a deployment to a live subscription, versioning each project in its own git tree, pushing the project to GitHub, model judges for the checks code cannot make, Microsoft's official Azure icons on the deployment view, and the cost estimate and statement of work. The order is in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## How it works
 
@@ -45,14 +77,6 @@ speaker 24 kHz  ◀── audio ────── session + idle caps     ◀�
 9. After each accepted change the server sends the board to the browser. The layout is computed from the board (`shared/board/layout.ts`): teams laid out by pattern, resources in a lane below, connectors routed around cards.
 10. Before advising on anything specific to Agent Framework, Foundry, guardrails, evaluations or Azure resources, the coach searches Microsoft Learn through Microsoft's official documentation server and bases its advice on the excerpts.
 11. Tools are non-blocking on Live models that support it, so the coach keeps talking while the board updates.
-
-## Compile
-
-Once technical design is approved, the design compiles to a complete Azure Developer CLI project ([ADR 0003](docs/adr/0003-compile-to-foundry-package.md)): the [AI Landing Zone](https://github.com/Azure/bicep-ptn-aiml-landing-zone) Bicep, unchanged, with the design's choices in its parameters; the agents as prompt agents, or as Agent Framework code running the team's orchestration pattern on hosted agents or Container Apps; connections, routines and an evaluation per runtime scenario; a GitHub Actions workflow; and the arc42 architecture with an ADR per decision. A short wizard asks only what no stage settled, such as each model's version. To see the project the demo design compiles to:
-
-```bash
-npm run compile:example    # writes out/customer-support
-```
 
 The board model and what each element compiles to: [docs/BOARD_MODEL.md](docs/BOARD_MODEL.md). Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -86,13 +110,16 @@ server/demo.ts         Recorded session for demo mode
 server/board-tools.ts  The coach's board tools and per-session board
 server/prompts/        Versioned coach prompt
 server/knowledge.ts    Loads the guidance snapshot at startup
-shared/board/          Typed board model, change log and layout (docs/BOARD_MODEL.md)
+server/compile/        The compiler, the rule checks and the export (ADR 0003)
+shared/board/          Typed board model, change log, stages, documents and layout (docs/BOARD_MODEL.md)
+shared/compile/        The compile questions and the rubric, shared with the app
 shared/knowledge/      Guidance snapshot: sources, parser, and the outline/page/section/find library
 scripts/knowledge/     Builds the snapshot from Microsoft Learn and checks it
 data/knowledge/        The snapshot: Microsoft's architecture guidance as pages and sections (CC BY 4.0)
+vendor/                The AI Landing Zone Bicep and the azd schemas, pinned (vendor/README.md)
 src/lib/canvas/        Canvas engine and hand-drawn renderer
 src/lib/audio/         Microphone capture and playback
-src/components/        Whiteboard, toolbar, call panel with the brief, settings, history
+src/components/        Whiteboard, stage bar, stage documents, compile studio, call panel
 tests/                 node:test suites
 docs/                  Architecture, design standard, roadmap, decision records, verified Azure targets
 ```
@@ -102,15 +129,17 @@ docs/                  Architecture, design standard, roadmap, decision records,
 | Command | What it does |
 |---|---|
 | `npm run dev` | Server with hot reload on port 3000 |
-| `npm test` | Unit tests (board model, layout, tools, validation, demo) |
+| `npm test` | The tests: board model, stages, documents, layout, tools, guard, compiler, checks, and the Microsoft reference architecture |
+| `npm run compile:example` | Compile the demo design to `out/customer-support` |
 | `npm run lint` | TypeScript typecheck |
 | `npm run build` | Production build of client and server into `dist/` |
 | `npm start` | Run the production build |
 | `npm run check:docs` | Run one real Microsoft Learn search from this machine |
 | `npm run knowledge:build` | Rebuild the guidance snapshot in `data/knowledge/` from Microsoft Learn |
 | `npm run knowledge:verify` | Check the snapshot (page counts, sections, links, checklist items per pillar) |
+| `npm run knowledge:checklists` | Regenerate the Well-Architected checklists the app ships from the snapshot |
 
-CI runs typecheck, tests and build on every push and pull request. A weekly workflow rebuilds the guidance snapshot and proposes any change as a pull request.
+CI runs typecheck, tests and build on every push and pull request, and builds and lints the Bicep of the compiled demo design. A weekly workflow rebuilds the guidance snapshot and proposes any change as a pull request.
 
 ## Configuration
 

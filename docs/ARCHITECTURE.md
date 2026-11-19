@@ -35,7 +35,7 @@ flowchart LR
 1. On **Start call** the browser opens `/ws/live`. The upgrade is refused unless the origin is allowlisted, the access token matches (when one is configured) and the server is below its connection cap.
 2. The server opens a Live API session with the coach prompt (`server/prompts/coach.ts`, versioned) and its tools, and relays microphone audio in and speech out.
 3. Nothing is built before the brief has a goal: the user can write it in the app before the call (sent with `start_call` and saved as the user's change), or the coach asks for it and saves it with `set_brief`. The session opens with one instruction built from the brief (`openingPrompt`). The change log refuses every building change until a goal exists.
-4. The coach's main tools edit the board model (`server/board-tools.ts`): `set_title`, `add_component`, `remove_component`, `set_team`, `remove_team`, `connect`, `disconnect`. Each call becomes a change for the session's board (`shared/board/changes.ts`) with actor `coach` and the reason the model gives, and is logged on the server. Only the user can clear the board: the toolbar sends a change with actor `user`.
+4. The coach's main tools edit the board model (`server/board-tools.ts`): `set_brief` and `record_item` for the stage documents, `set_scenario` for runtime scenarios, `review` for the Well-Architected review, and `set_title`, `add_component`, `remove_component`, `set_team`, `remove_team`, `connect`, `disconnect` for the design. Each stage accepts only its own changes, and only the user approves a stage (`shared/board/stages.ts`). Each call becomes a change for the session's board (`shared/board/changes.ts`) with actor `coach` and the reason the model gives, and is logged on the server. Only the user can clear the board: the toolbar sends a change with actor `user`.
 5. An accepted change updates the board, which is sent to the browser (`board` message). The tool result returns a compact summary of the whole board, so the model always works from the real state. A refused change returns the reason and the board.
 6. The browser keeps the latest board and hands it back when a new call starts, so ending a call, a reconnect or a session limit never wipes the design.
 7. The browser lays the board out (`shared/board/layout.ts`), turns the layout into canvas elements with stable ids (`src/lib/canvas/boardElements.ts`) and syncs them (`syncBoardElements`): new elements animate in, changed ones update in place, and the view zooms out only when the board no longer fits.
@@ -76,6 +76,10 @@ Agents read it by progressive disclosure, never as a whole: the outline of a sou
 ## Demo mode
 
 Without `GEMINI_API_KEY`, starting a call replays `server/demo.ts`: a goal, narration and the board changes for a customer support system. The replay goes through the same board session and change log as a live session, so it exercises the real path. The tests check that every change is accepted, that the design contains a guardrail and an approval, and that the board lays out cleanly.
+
+## Compile
+
+Once technical design is approved, the browser sends its board to `POST /api/compile`. The server validates it, compiles it (`server/compile/`: the AI Landing Zone from `vendor/`, `azure.yaml`, the agents' code, evaluations and documents) and runs the rules (`server/compile/checks.ts`) with the user's settings. The compile studio shows the project as a folder coloured by origin, the rubric, and the questions. `POST /api/export` repeats both and returns the zip only when no blocking rule fails and a person approves. Compile and export need no call and no model; they are deterministic. The decisions are in [ADR 0003](adr/0003-compile-to-foundry-package.md).
 
 ## Persistence
 
