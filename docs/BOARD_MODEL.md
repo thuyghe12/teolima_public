@@ -6,7 +6,9 @@ The board is a typed document (`shared/board/schema.ts`). Every element maps ont
 
 Every board carries a brief (the goal, who uses the system, the constraints the user stated) and the stage documents (`spec`): items in arc42 sections (`shared/board/arc42.ts`), plus sections the user added. An item has a section, a type that section accepts, one plain sentence, and where needed a short name (a role, a system), a quality attribute or a constraint category. Its source is the brief, the user's words in the session or a pasted document, each quoted, or typed by the user in the app. Item ids are stable per type (`flow-2`, `in-scope-1`).
 
-Stage 1 owns arc42 sections 1.1 to 3.2. Its business context (3.2) draws the C4 system context diagram. Design is refused until the user approves discovery, and an approved stage's sections are frozen until it is reopened. Clearing the board keeps the brief and the documents. See [DESIGN_STANDARD.md](DESIGN_STANDARD.md), step 1, and [ADR 0008](adr/0008-arc42-and-c4.md).
+Stage 1 owns arc42 sections 1.1 to 3.2. Its business context (3.2) draws the C4 system context diagram.
+
+Stage 2 owns sections 4, 5, 6 and 9. Section 4 holds the approach and a quality approach per 1.2 goal (with `serves`). Section 9 holds decision records: a `topic` (platform, complexity, pattern, hosting, other), the option chosen as the name, the `options` weighed and the `consequences`. Section 5 is the board itself and section 6 holds the runtime scenarios (`spec.scenarios`): one per user flow, each a list of steps `{ from, to, what }` whose ends are ids of 3.2 items, building blocks or teams, so a step follows the block it names. Every building block carries `serves`: the ids of the specification items it answers. The compiler reads these links to trace each resource back to a requirement. Design is refused until the user approves discovery, and an approved stage's sections are frozen until it is reopened. Clearing the board keeps the brief and the documents. See [DESIGN_STANDARD.md](DESIGN_STANDARD.md), step 1, and [ADR 0008](adr/0008-arc42-and-c4.md).
 
 ## Stages
 
@@ -59,7 +61,7 @@ Orchestrations support human-in-the-loop through tool approval and request info 
 
 Nothing edits the board directly. Every edit is a change (`shared/board/changes.ts`) with:
 
-- **body:** one of `set_brief`, `record_item`, `remove_item`, `add_section`, `rename_section`, `remove_section`, `approve_stage`, `reopen_stage`, `set_shape`, `set_title`, `clear`, `upsert_component`, `remove_component`, `upsert_team`, `remove_team`, `connect`, `disconnect`
+- **body:** one of `set_brief`, `record_item`, `remove_item`, `set_scenario`, `remove_scenario`, `add_section`, `rename_section`, `remove_section`, `approve_stage`, `reopen_stage`, `set_shape`, `set_title`, `clear`, `upsert_component`, `remove_component`, `upsert_team`, `remove_team`, `connect`, `disconnect`
 - **actor:** `coach`, `user`, or a named worker (`worker:<name>`)
 - **reason:** why, in a sentence
 - **basis:** for document items and coach changes that add to the design, what it rests on: `brief`, `user` or `document` (with the document id), and the exact words quoted. The guard checks the quote before the change is applied (`server/guard/provenance.ts`); an item from the coach without a basis is refused by the change log itself; an item from the user without one is recorded as typed by the user

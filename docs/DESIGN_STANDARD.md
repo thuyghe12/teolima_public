@@ -27,7 +27,7 @@ The architect chooses diagram types that match the message, the audience and the
 | Stage | For | Draws | Approved by |
 |---|---|---|---|
 | 1. Discovery | Business sponsor, product owner, presales architect | Context diagram: the system as one box, its users, the systems and data it touches. Plus the functional specification | Business sponsor |
-| 2. Solution design | Architect and the client's tech lead | High-level design: agents, teams, tools, knowledge, memory, guardrails, approvals and flow | Architect |
+| 2. Solution design | Architect and the client's tech lead | Container view: the building blocks inside the system boundary, with the same people and external systems as the context diagram. Plus the solution design document | Architect |
 | 3. Technical design | Platform, security and operations engineers | Deployment diagram and design specification (not built yet) | Security and platform leads |
 | 4. Compile | Delivery engineer | The deployment package (not built yet) | Delivery owner |
 
@@ -58,13 +58,37 @@ Discovery is ready for approval when these topics are covered: goals, success me
 
 **Enforced:** every item the coach records quotes its source, and the quote is checked against the brief, the user's own words or the named document (`server/guard/provenance.ts`); what the user types is marked as theirs. Each section accepts only its own item types, with the name, attribute or category they need. Design changes are refused until the user approves discovery.
 
-### 2. One agent or several
+### 2. Solution design: decisions, building blocks, scenarios
+
+Solution design is the fifth discovery step, recommend: turn what discovery captured into a clear, actionable direction, documented so that it addresses the clarified requirements, reflects the constraints and trade-offs, and communicates the options and their implications to stakeholders. The recommendation is iterative and starts the design process, refined through feedback and agreement at each design milestone (Discovery, "Recommend"). Teolima records it in arc42 sections 4, 5, 6 and 9 (`shared/board/arc42.ts`):
+
+| Section | Holds |
+|---|---|
+| 4 Solution strategy | The approach in a few lines, and how each top quality goal from 1.2 is met |
+| 5 Building block view | The board itself: every agent, tool, knowledge source, memory, control and team, each with what it serves, and a traceability table back to the specification |
+| 6 Runtime view | One scenario per user flow from 1.1: numbered steps through the people, external systems and building blocks, including approvals |
+| 9 Architecture decisions | One record per significant decision: the question, the options weighed, the option chosen and its consequences |
+
+Four decisions are recorded before the stage can be approved, each linked to its Microsoft guidance:
+
+| Decision | Question | Guidance |
+|---|---|---|
+| Platform | Do SaaS agents meet the need, or do we build, and on which platform? | AI agent adoption, decision tree |
+| Level of complexity | A direct model call, one agent with tools, or several agents? | Orchestration patterns, "Start with the right level of complexity" (step 3 below) |
+| Orchestration pattern | Which pattern, and why not a simpler one? Only when there are several agents | Orchestration patterns, "Choose a pattern" (step 4 below) |
+| Agent hosting | Prompt agents run by Foundry Agent Service, or hosted agents with custom code? | Baseline, "Alternatives" |
+
+The container view draws the specification's people and external systems around the system boundary: each person on the left, connected to the entry point that serves them, and each external system below the tool or knowledge source that reaches it (C4, container diagram; Diagrams, "High-level system or container diagram").
+
+**Enforced:** every building block names the specification items it serves, and the change log refuses an id that does not exist. The gate for approval (`traceability` in `shared/board/stages.ts`) requires a runtime scenario for every user flow; an approval, or a decision, for every oversight rule; a tool or knowledge source for every external system in 3.2; something served by every agent; no scenario step or served id that points at something removed; and the four decision records. A decision's name is the option chosen and must be one of the options weighed. A quality approach names the 1.2 goal it meets. The document lists what is still open, and the coach receives the same list in every tool result.
+
+### 3. One agent or several
 
 Use the lowest level of complexity that reliably meets the requirements: a direct model call, then a single agent with tools, then multi-agent orchestration. A single agent with tools is often the right default for enterprise use cases, and several agents are justified when one agent cannot reliably handle the task because of prompt complexity, tool overload or security requirements (Orchestration patterns). Start with several agents when the use case crosses security and compliance boundaries, involves multiple teams, or is expected to grow; otherwise test a single agent first (AI agent adoption).
 
 **Enforced:** the board records the decision (`shape`: single or multi) and, for multi, at least one of five reasons: `security_or_compliance_boundary`, `multiple_teams`, `future_growth`, `prompt_complexity`, `tool_overload`. The change log refuses a second agent or a team until the shape is multi.
 
-### 3. Orchestration pattern
+### 4. Orchestration pattern
 
 Put cooperating agents in a team with one of the five patterns Agent Framework provides (Agent Framework), choosing the simplest that fits (Orchestration patterns):
 
@@ -80,31 +104,31 @@ Route deterministically where the right agent can be picked from the input, and 
 
 **Enforced:** team members must be agents on the board and belong to one team; handoff teams name a start agent and group chat and magentic teams name a manager, or the change log warns. Readiness reports agents left outside a team.
 
-### 4. Tools and knowledge
+### 5. Tools and knowledge
 
 Design agents and their orchestrators to follow the principle of least privilege, and trim what every agent returns to what the user may see (Orchestration patterns, "Security").
 
 **Enforced:** an agent can only reference tools and knowledge that are on the board. Readiness reports agents with neither and tools or knowledge no agent uses.
 
-### 5. Guardrails
+### 6. Guardrails
 
 Apply content safety guardrails at multiple points: user input, tool calls, tool responses and final output, and design audit trails to meet compliance requirements (Orchestration patterns, "Security"). Organizations set a baseline of runtime safeguards, with stronger ones for agents exposed to untrusted information or taking consequential actions (Operational standards).
 
 **Enforced:** readiness requires every agent to be covered by a guardrail that includes Prompt Shields. A guardrail compiles to a Foundry guardrail (see [BOARD_MODEL.md](BOARD_MODEL.md)).
 
-### 6. Human approvals
+### 7. Human approvals
 
 Identify which points require human input, whether it is mandatory, and whether it approves or loops back for refinement; scope approval gates to specific tool invocations rather than whole agent outputs, so low-risk actions proceed on their own (Orchestration patterns, "Human participation"). Agents that perform consequential actions need additional review and testing (Operational standards).
 
 **Enforced:** an approval must gate a tool or agent on the board, with a condition ("always" unless the user states one). Readiness keeps the step open until the user has confirmed whether any tool takes a high-impact action.
 
-### 7. Where work enters and leaves
+### 8. Where work enters and leaves
 
 Show where work comes from and where results go, so the system has an explicit boundary (Diagrams: context diagrams need an explicit boundary).
 
 **Enforced:** readiness requires at least one trigger and one output.
 
-### 8. Evaluation
+### 9. Evaluation
 
 Agent outputs are nondeterministic, so integration tests use scoring rubrics or language-model-as-judge evaluations rather than exact-match assertions (Orchestration patterns, "Observability and testing"). Every production agent has acceptance thresholds approved by its business owners, an action-taking agent shows it respects approval boundaries, and agents that access sensitive information or take consequential actions get risk-based testing, including adversarial testing (Operational standards).
 
@@ -124,4 +148,4 @@ On the board today (`shared/board/layout.ts`):
 | Approvals scoped to a tool | The approval sits on the path from the agent to the tool it gates |
 | Legend | Under the drawing, listing only the styles in use |
 
-The context view and the deployment view, with official Azure service names and icons, come with the compiler (ADR 0003): the deployment view is a drawing of what Compile produces.
+Stage 1 draws the C4 system context view and stage 2 the container view (`shared/board/workspace.ts`). The deployment view, with official Azure service names and icons, comes with technical design: it is a drawing of what Compile produces (ADR 0003).
