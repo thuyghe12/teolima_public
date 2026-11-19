@@ -2,10 +2,13 @@ import React, { useMemo, useRef, useState } from 'react';
 import { Check, ChevronRight, Copy, Download, FileText, Lock, Mic, PenLine, Plus, Trash2, Type as TypeIcon, X } from 'lucide-react';
 import type { ChangeBody } from '../../shared/board/changes';
 import type { Board, SpecItem, StageId } from '../../shared/board/schema';
-import { CHAPTERS, CONSTRAINT_CATEGORIES, DECISION_TOPICS, QUALITY_ATTRIBUTES, type ItemType } from '../../shared/board/arc42';
+import { CHAPTERS, DECISION_TOPICS, QUALITY_ATTRIBUTES, type ItemType } from '../../shared/board/arc42';
+import { GROUPS, resourcePlan } from '../../shared/board/deployment';
+import { CHECKLIST, PILLARS } from '../../shared/board/waf';
+import type { ReviewStatus } from '../../shared/board/schema';
 import { discovery } from '../../shared/board/discovery';
 import { itemLabel, itemName, itemRef, KIND_LABELS, scenarioSteps, servedBy, sourceLabel, stageDocument, stageMarkdown, traceTargets, type DocSection } from '../../shared/board/spec-document';
-import { stageOf, traceability } from '../../shared/board/stages';
+import { stageOf, technicalGaps, traceability } from '../../shared/board/stages';
 
 interface StageDocumentProps {
   board: Board;
@@ -75,7 +78,8 @@ const Row: React.FC<{ board: Board; section: DocSection; item: SpecItem; documen
               {item.text}
             </span>
           )}
-          {item.type === 'quality_approach' && !!item.serves?.length && (
+          {item.measure && <p className="mt-0.5 text-xs text-[#5a5a62]">Measure: {item.measure}</p>}
+          {(item.type === 'quality_approach' || item.type === 'quality_scenario') && !!item.serves?.length && (
             <p className="mt-0.5 text-xs text-[#87868e]">Meets {item.serves.map((id) => itemName(board, id)).join(' · ')}</p>
           )}
           {item.type === 'decision' && (
@@ -121,14 +125,21 @@ const Composer: React.FC<{ board: Board; section: DocSection; onAdd: (b: ChangeB
   const [name, setName] = useState('');
   const [text, setText] = useState('');
   const [attribute, setAttribute] = useState<keyof typeof QUALITY_ATTRIBUTES>('reliability');
-  const [category, setCategory] = useState<keyof typeof CONSTRAINT_CATEGORIES>('regulatory');
+  const [category, setCategory] = useState(Object.keys(types[0].categories ?? {})[0] ?? '');
+  const [measure, setMeasure] = useState('');
   const qualityGoals = board.spec.items.filter((i) => i.section === '1.2');
   const [goal, setGoal] = useState(qualityGoals[0]?.id ?? '');
   const [topic, setTopic] = useState<keyof typeof DECISION_TOPICS>('platform');
   const [others, setOthers] = useState('');
   const [consequences, setConsequences] = useState('');
   const textRef = useRef<HTMLInputElement>(null);
-  const ready = text.trim() && (!type.named || name.trim()) && (type.id !== 'quality_approach' || goal);
+  const values = type.values?.[category];
+  const ready = text.trim() && (!type.named || name.trim()) && (!type.servesSection || goal) && (!type.measured || measure.trim());
+  const pick = (t: ItemType) => {
+    setType(t);
+    setCategory(Object.keys(t.categories ?? {})[0] ?? '');
+    setName('');
+  };
   const options = () => {
     const rest = others.split(',').map((o) => o.trim()).filter((o) => o && o.toLowerCase() !== name.trim().toLowerCase());
     return rest.length ? [name.trim(), ...rest] : undefined;
@@ -142,14 +153,16 @@ const Composer: React.FC<{ board: Board; section: DocSection; onAdd: (b: ChangeB
       text: text.trim(),
       ...(type.named ? { name: name.trim() } : {}),
       ...(type.id === 'quality' ? { attribute } : {}),
-      ...(type.id === 'constraint' ? { category } : {}),
-      ...(type.id === 'quality_approach' ? { serves: [goal] } : {}),
+      ...(type.categories ? { category } : {}),
+      ...(type.measured ? { measure: measure.trim() } : {}),
+      ...(type.servesSection ? { serves: [goal] } : {}),
       ...(type.id === 'decision' ? { topic, options: options(), ...(consequences.trim() ? { consequences: consequences.trim() } : {}) } : {}),
     });
     setText('');
     setName('');
     setOthers('');
     setConsequences('');
+    setMeasure('');
     textRef.current?.focus();
   };
   const select = 'text-xs bg-[#f0f0f2] rounded-md px-1.5 py-1 text-[#18181c] focus:outline-none';
@@ -162,7 +175,7 @@ const Composer: React.FC<{ board: Board; section: DocSection; onAdd: (b: ChangeB
               key={t.id}
               role="radio"
               aria-checked={t.id === type.id}
-              onClick={() => setType(t)}
+              onClick={() => pick(t)}
               className={`text-xs px-2 py-0.5 rounded-full ${t.id === type.id ? 'bg-[#18181c] text-white' : 'bg-white text-[#5a5a62] hover:text-[#18181c]'}`}
             >
               {t.label}
@@ -178,14 +191,30 @@ const Composer: React.FC<{ board: Board; section: DocSection; onAdd: (b: ChangeB
             ))}
           </select>
         )}
-        {type.id === 'constraint' && (
-          <select value={category} onChange={(e) => setCategory(e.target.value as never)} className={select} aria-label="Constraint category">
-            {Object.entries(CONSTRAINT_CATEGORIES).map(([k, v]) => (
+        {type.categories && (
+          <select
+            value={category}
+            onChange={(e) => {
+              setCategory(e.target.value);
+              setName('');
+            }}
+            className={select}
+            aria-label={`${type.label} category`}
+          >
+            {Object.entries(type.categories).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
         )}
-        {type.id === 'quality_approach' && (
+        {values && (
+          <select value={name} onChange={(e) => setName(e.target.value)} className={select} aria-label="Value">
+            <option value="">Choose</option>
+            {values.map((v) => (
+              <option key={v} value={v}>{v}</option>
+            ))}
+          </select>
+        )}
+        {type.servesSection === '1.2' && (
           <select value={goal} onChange={(e) => setGoal(e.target.value)} className={`${select} max-w-36`} aria-label="Quality goal">
             {qualityGoals.length === 0 && <option value="">No quality goals in 1.2</option>}
             {qualityGoals.map((q) => (
@@ -200,13 +229,13 @@ const Composer: React.FC<{ board: Board; section: DocSection; onAdd: (b: ChangeB
             ))}
           </select>
         )}
-        {type.named && (
+        {type.named && !values && (
           <input
             autoFocus
             value={name}
             maxLength={40}
             onChange={(e) => setName(e.target.value)}
-            placeholder={type.id === 'decision' ? 'Chosen option' : 'Name'}
+            placeholder={type.id === 'decision' ? 'Chosen option' : type.id === 'setting' ? 'Value' : 'Name'}
             className={`${field} w-28 shrink-0 font-medium`}
             aria-label={type.id === 'decision' ? 'Chosen option' : 'Name'}
           />
@@ -226,6 +255,9 @@ const Composer: React.FC<{ board: Board; section: DocSection; onAdd: (b: ChangeB
           aria-label="Text"
         />
       </div>
+      {type.measured && (
+        <input value={measure} maxLength={200} onChange={(e) => setMeasure(e.target.value)} placeholder="Measure, e.g. p95 under 4 seconds" className={input} aria-label="Measure" />
+      )}
       {type.id === 'decision' && (
         <div className="space-y-1.5">
           <input value={others} maxLength={200} onChange={(e) => setOthers(e.target.value)} placeholder="Other options weighed, separated by commas" className={input} aria-label="Other options" />
@@ -315,6 +347,142 @@ const Runtime: React.FC<{ board: Board; onEdit?: (b: ChangeBody) => void }> = ({
   );
 };
 
+/** arc42 7: the Azure resources that follow from the design and the settings. */
+const Resources: React.FC<{ board: Board }> = ({ board }) => {
+  const plan = useMemo(() => resourcePlan(board), [board]);
+  return (
+    <div className="mt-2">
+      <p className="text-[11px] uppercase tracking-wide text-[#a1a0a8] mb-1">
+        Azure resources · {plan.hosting.toLowerCase()} · {plan.isolated ? 'private networking' : 'public endpoints'}
+      </p>
+      <ul className="space-y-0.5">
+        {plan.resources.map((r) => (
+          <li key={r.id} className="text-xs flex gap-2">
+            <span className="w-20 shrink-0 text-[#87868e]">{GROUPS[r.group]}</span>
+            <span className="flex-1 min-w-0">
+              <a href={r.source} target="_blank" rel="noreferrer" className="font-medium hover:underline">{r.service}</a>
+              <span className="text-[#87868e]"> · {r.purpose}{r.private ? ' · private' : ''}{r.reused ? ' · from the platform landing zone' : ''}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+      {!!plan.ask.length && <p className="mt-1 text-xs text-[#87868e]">Asked when compiling: {plan.ask.join('; ')}.</p>}
+    </div>
+  );
+};
+
+const STATUS: Record<ReviewStatus, string> = { met: 'Met', partly: 'Partly', not_met: 'Not met', not_applicable: 'N/A' };
+const statusColor = (st?: ReviewStatus) =>
+  st === 'met' ? 'bg-[#18181c] text-white' : st === 'partly' ? 'bg-[#fef3c7] text-[#92400e]' : st === 'not_met' ? 'bg-[#fee2e2] text-[#991b1b]' : st ? 'bg-[#f0f0f2] text-[#5a5a62]' : 'bg-white text-[#a1a0a8] border border-[#e2e2e6]';
+
+/** One recommendation: its code, title, status and note, editable in place. */
+const ReviewRow: React.FC<{ code: string; title: string; url: string; review?: Board['spec']['reviews'][number]; onEdit?: (b: ChangeBody) => void }> = ({ code, title, url, review, onEdit }) => {
+  const [status, setStatus] = useState<ReviewStatus | ''>(review?.status ?? '');
+  const [note, setNote] = useState(review?.note ?? '');
+  const send = (st: ReviewStatus | '', n: string) => {
+    if (!onEdit || !st || (st !== 'met' && !n.trim())) return;
+    if (st === review?.status && n.trim() === (review?.note ?? '')) return;
+    onEdit({ op: 'review', checks: [{ code, status: st, ...(n.trim() ? { note: n.trim() } : {}) }] });
+  };
+  const needsNote = !!status && status !== 'met' && !note.trim();
+  return (
+    <li className="py-1">
+      <div className="flex items-start gap-2">
+        <a href={url} target="_blank" rel="noreferrer" className="w-11 shrink-0 pt-0.5 text-[11px] tabular-nums text-[#87868e] hover:text-[#18181c]">{code}</a>
+        <span className="flex-1 min-w-0 text-xs leading-snug">{title}</span>
+        <select
+          value={status}
+          disabled={!onEdit}
+          onChange={(e) => {
+            const st = e.target.value as ReviewStatus;
+            setStatus(st);
+            send(st, note);
+          }}
+          className={`shrink-0 text-[11px] rounded px-1 py-0.5 focus:outline-none ${statusColor(status || undefined)}`}
+          aria-label={`${code} status`}
+        >
+          {!status && <option value="">Review</option>}
+          {Object.entries(STATUS).map(([k, v]) => (
+            <option key={k} value={k}>{v}</option>
+          ))}
+        </select>
+      </div>
+      {(status && status !== 'met') || review?.note ? (
+        <input
+          value={note}
+          disabled={!onEdit}
+          maxLength={300}
+          onChange={(e) => setNote(e.target.value)}
+          onBlur={() => send(status, note)}
+          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+          placeholder="Why, in a sentence"
+          className={`ml-[3.25rem] mt-0.5 w-[calc(100%-3.25rem)] text-xs bg-transparent focus:outline-none ${needsNote ? 'placeholder:text-[#b91c1c]' : 'placeholder:text-[#b4b4ba]'} text-[#5a5a62]`}
+          aria-label={`${code} note`}
+        />
+      ) : null}
+    </li>
+  );
+};
+
+/** The Well-Architected design review: one block per pillar, collapsed to its counts. */
+const Review: React.FC<{ board: Board; onEdit?: (b: ChangeBody) => void }> = ({ board, onEdit }) => {
+  const [open, setOpen] = useState<string | null>(null);
+  return (
+    <section>
+      <h3 className="text-sm font-semibold">Well-Architected review</h3>
+      <p className="mt-0.5 text-xs text-[#a1a0a8]">The design review checklists of the five pillars. Anything not met becomes a risk in section 11.</p>
+      <div className="mt-2 space-y-1">
+        {Object.entries(PILLARS).map(([pillar, title]) => {
+          const recs = CHECKLIST.filter((r) => r.pillar === pillar);
+          const reviews = recs.map((r) => board.spec.reviews.find((x) => x.code === r.code));
+          const count = (st: ReviewStatus) => reviews.filter((r) => r?.status === st).length;
+          const todo = reviews.filter((r) => !r).length;
+          return (
+            <div key={pillar} className="rounded-lg border border-[#f0f0f2]">
+              <button onClick={() => setOpen(open === pillar ? null : pillar)} className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left" aria-expanded={open === pillar}>
+                <ChevronRight className={`w-3.5 h-3.5 text-[#a1a0a8] transition-transform ${open === pillar ? 'rotate-90' : ''}`} />
+                <span className="flex-1 text-xs font-medium">{title}</span>
+                <span className="text-[11px] tabular-nums text-[#87868e]">
+                  {count('met')} met · {count('partly')} partly · {count('not_met')} not met{count('not_applicable') ? ` · ${count('not_applicable')} n/a` : ''}{todo ? ` · ${todo} to review` : ''}
+                </span>
+              </button>
+              {open === pillar && (
+                <ul className="px-2.5 pb-1.5 border-t border-[#f0f0f2]">
+                  {recs.map((r, i) => (
+                    <ReviewRow key={`${r.code}:${reviews[i]?.status ?? ''}`} code={r.code} title={r.title} url={r.url} review={reviews[i]} onEdit={onEdit} />
+                  ))}
+                </ul>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
+
+/** arc42 11: the recommendations the review did not find met, below the section's own items. */
+const ReviewRisks: React.FC<{ board: Board }> = ({ board }) => {
+  const gaps = board.spec.reviews.filter((r) => r.status === 'partly' || r.status === 'not_met');
+  if (!gaps.length) return null;
+  return (
+    <div className="mt-2">
+      <p className="text-[11px] uppercase tracking-wide text-[#a1a0a8] mb-1">From the Well-Architected review · {gaps.length}</p>
+      <ul className="space-y-0.5">
+        {gaps.map((r) => {
+          const rec = CHECKLIST.find((c) => c.code === r.code)!;
+          return (
+            <li key={r.code} className="text-xs flex gap-2">
+              <span className={`shrink-0 px-1 rounded text-[10px] ${statusColor(r.status)}`}>{r.code}</span>
+              <span className="flex-1 min-w-0 text-[#5a5a62]">{r.note}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+};
+
 const SectionTitle: React.FC<{ section: DocSection; onEdit?: (b: ChangeBody) => void }> = ({ section, onEdit }) => {
   const [title, setTitle] = useState(section.title);
   if (!section.custom) {
@@ -356,7 +524,7 @@ export const StageDocument: React.FC<StageDocumentProps> = ({ board, stage, stag
   const [newSection, setNewSection] = useState<string | null>(null);
   const [showTopics, setShowTopics] = useState(false);
   const [copied, setCopied] = useState(false);
-  const gaps = useMemo(() => (stage === 'solution' ? traceability(board) : []), [board, stage]);
+  const gaps = useMemo(() => (stage === 'solution' ? traceability(board) : stage === 'technical' ? technicalGaps(board) : []), [board, stage]);
   const [showGaps, setShowGaps] = useState(false);
   const required = d.topics.filter((t) => t.topic.required);
   const covered = required.filter((t) => t.covered).length;
@@ -442,10 +610,10 @@ export const StageDocument: React.FC<StageDocumentProps> = ({ board, stage, stag
         </div>
       )}
 
-      {stage === 'solution' && !approval && (
+      {(stage === 'solution' || stage === 'technical') && !approval && (
         <div className="px-5 py-2 border-b border-[#f0f0f2]">
           <button onClick={() => setShowGaps(!showGaps)} disabled={!gaps.length} className="w-full flex items-center justify-between text-xs text-[#5a5a62]" aria-expanded={showGaps}>
-            <span>{gaps.length ? `${gaps.length} open before approval` : 'Everything traces to the specification'}</span>
+            <span>{gaps.length ? `${gaps.length} open before approval` : stage === 'technical' ? 'Ready for the security and platform leads' : 'Everything traces to the specification'}</span>
             {!!gaps.length && <ChevronRight className={`w-3.5 h-3.5 transition-transform ${showGaps ? 'rotate-90' : ''}`} />}
           </button>
           {showGaps && (
@@ -479,6 +647,7 @@ export const StageDocument: React.FC<StageDocumentProps> = ({ board, stage, stag
               <SectionTitle section={s} onEdit={onEdit} />
               {s.id === '5' && <BuildingBlocks board={board} />}
               {s.id === '6' && <Runtime board={board} onEdit={onEdit} />}
+              {s.id === '11' && <ReviewRisks board={board} />}
               {s.items.length === 0 && s.hint && adding !== s.id && s.id !== '5' && s.id !== '6' && <p className="mt-1 text-xs text-[#a1a0a8]">{s.hint}</p>}
               {s.items.length > 0 && (
                 <ul className="mt-1">
@@ -487,6 +656,7 @@ export const StageDocument: React.FC<StageDocumentProps> = ({ board, stage, stag
                   ))}
                 </ul>
               )}
+              {s.id === '7' && <Resources board={board} />}
               {onEdit && adding === s.id && <Composer board={board} section={s} onAdd={onEdit} onDone={() => setAdding(null)} />}
               {onEdit && adding !== s.id && (s.custom || !!s.def?.types.length) && (
                 <button onClick={() => setAdding(s.id)} className="mt-1 flex items-center gap-1 text-xs text-[#a1a0a8] hover:text-[#18181c]">
@@ -496,6 +666,8 @@ export const StageDocument: React.FC<StageDocumentProps> = ({ board, stage, stag
             </section>
           );
         })}
+
+        {stage === 'technical' && <Review board={board} onEdit={onEdit} />}
 
         {onEdit &&
           (newSection === null ? (

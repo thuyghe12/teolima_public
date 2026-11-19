@@ -31,7 +31,7 @@ export type Point = { x: number; y: number };
 export type Box = { x: number; y: number; w: number; h: number };
 
 /** A card: a board component, or on the context diagram a user ('actor'), the system, or an external system. */
-export type LayoutNode = Box & { id: string; kind: Component['kind'] | 'actor' | 'system' | 'external'; role: string; title: string; subtitle: string };
+export type LayoutNode = Box & { id: string; kind: Component['kind'] | 'actor' | 'system' | 'external' | 'resource'; role: string; title: string; subtitle: string };
 export type LayoutTeam = Box & { id: string; title: string; pattern: OrchestrationPattern | 'none'; label: string };
 export type LayoutEdge = {
   id: string;
