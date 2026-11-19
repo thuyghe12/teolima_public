@@ -118,7 +118,7 @@ test('the coach saves a brief and runs discovery; design starts only after the u
 test('record_item maps its arguments, and an item from the coach needs its quoted source', () => {
   const s = new BoardSession();
   const body = toChangeBody('record_item', { section: '2', type: 'constraint', category: 'regulatory', text: 'Data stays in the EU' })!;
-  assert.deepEqual(body, { op: 'record_item', id: undefined, section: '2', type: 'constraint', text: 'Data stays in the EU', name: undefined, attribute: undefined, category: 'regulatory', serves: undefined, topic: undefined, options: undefined, consequences: undefined });
+  assert.deepEqual(body, { op: 'record_item', id: undefined, section: '2', type: 'constraint', text: 'Data stays in the EU', name: undefined, attribute: undefined, category: 'regulatory', measure: undefined, serves: undefined, topic: undefined, options: undefined, consequences: undefined });
   const noSource = s.apply(body, 'coach', 'test');
   assert.ok('error' in noSource && /needs its source/.test(noSource.error));
   assert.ok(!('error' in s.apply(body, 'coach', 'test', { source: 'document', document: 'doc-1', quote: 'all data must stay in the EU' })));

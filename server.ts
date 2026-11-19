@@ -479,7 +479,7 @@ wss.on('connection', async (clientWs: WebSocket) => {
         }
         console.log(`[Board] user: ${result.summary}`);
         sendBoard(result.summary);
-        const documentEdit = [...DOCUMENT_OPS, 'remove_scenario'].includes(parsed.data.op);
+        const documentEdit = [...DOCUMENT_OPS, 'remove_scenario', 'review'].includes(parsed.data.op);
         if (documentEdit && liveSession && isSessionActive) {
           // The user's edits to the stage document stand; the coach is told, never asked to redo them.
           const what = parsed.data.op === 'record_item' ? `: "${parsed.data.name ? `${parsed.data.name}: ` : ''}${parsed.data.text}"` : '';
