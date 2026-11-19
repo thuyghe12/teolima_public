@@ -508,6 +508,7 @@ export default function App() {
         <StageBar
           board={board}
           openStage={specOpen ? docStage ?? documentStage(board) : null}
+          onApprove={(stage, by) => changeStage({ op: 'approve_stage', stage, by })}
           onSelectStage={(id) => {
             if (id === 'compile') {
               setProjectOpen(true);
@@ -544,7 +545,6 @@ export default function App() {
               <StageGate
                 board={board}
                 stage={stage}
-                onApprove={(st, by) => changeStage({ op: 'approve_stage', stage: st, by })}
                 onReopen={(st) => changeStage({ op: 'reopen_stage', stage: st })}
               />
             }
