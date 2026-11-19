@@ -52,7 +52,7 @@ npm run dev
 
 **Without a key**, **Start call** replays a recorded session through the same path a live session uses, in about a minute and a half, and you continue from step 4.
 
-From the command line: `npm test` runs the 193 tests, and `npm run compile:example` compiles the demo design to `out/customer-support`.
+From the command line: `npm test` runs the 192 tests, and `npm run compile:example` compiles the demo design to `out/customer-support`.
 
 ## Design decisions
 
@@ -103,7 +103,7 @@ The board model and what each element compiles to: [docs/BOARD_MODEL.md](docs/BO
 | Runaway cost | Connection cap, hard session limit, idle timeout |
 | Malformed or hostile tool calls | Server-side validation of every tool call and argument |
 | Invented or ungrounded designs | No building before a brief with a goal (change log); every building change must quote its basis, and the server checks the quote against the brief and the user's transcribed words (provenance); no web search, image generation or free drawing |
-| Prompt injection | Gemini's jailbreak and harm filters are turned on (they are off by default); Prompt Shields screens the brief, typed messages, finished speech turns and documentation results; documentation keeps only Microsoft Learn links and is withheld if it cannot be screened; the brief and documents are passed as data, never as instructions |
+| Prompt injection | Prompt Shields screens the brief, typed messages, finished speech turns and documentation results; documentation keeps only Microsoft Learn links and is withheld if it cannot be screened; the brief and documents are passed as data, never as instructions |
 | Instruction leaks | The coach's transcribed speech is checked for reciting its instructions |
 | Accountability | Per-session audit trail of every guard decision and every accepted or refused change with its basis (`logs/audit`) |
 | Oversized input | 200 KB JSON limit, 4 MB websocket frames, capped brief and typed messages |
