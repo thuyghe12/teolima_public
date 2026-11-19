@@ -7,7 +7,7 @@
  */
 import { Type, type FunctionDeclaration } from '@google/genai';
 import { Board, emptyBoard, ShapeReason } from '../shared/board/schema';
-import { CONSTRAINT_CATEGORIES, QUALITY_ATTRIBUTES, SECTIONS } from '../shared/board/arc42';
+import { CONSTRAINT_CATEGORIES, DECISION_TOPICS, QUALITY_ATTRIBUTES, SECTIONS } from '../shared/board/arc42';
 import { readiness } from '../shared/board/readiness';
 import { discovery } from '../shared/board/discovery';
 import { gate, stageOf } from '../shared/board/stages';
@@ -34,7 +34,7 @@ const basisDocument = { type: Type.STRING, description: 'document only: the id t
 const basis = { basis_source: basisSource, basis_quote: basisQuote, basis_document: basisDocument };
 
 /** Tools that add to the design and so must name their basis. */
-export const GROUNDED_TOOLS = new Set(['set_brief', 'record_item', 'set_shape', 'add_component', 'set_team', 'connect']);
+export const GROUNDED_TOOLS = new Set(['set_brief', 'record_item', 'set_scenario', 'set_shape', 'add_component', 'set_team', 'connect']);
 
 export const boardToolDeclarations: FunctionDeclaration[] = [
   {
@@ -49,14 +49,39 @@ export const boardToolDeclarations: FunctionDeclaration[] = [
         section: { type: Type.STRING, enum: SECTIONS.map((sec) => sec.id), description: 'The arc42 section.' },
         type: { type: Type.STRING, enum: [...new Set(SECTIONS.flatMap((sec) => sec.types.map((t) => t.id)))], description: 'The item type within its section.' },
         text: { type: Type.STRING, description: 'The statement in one plain sentence. For a person or external system: what it exchanges with the system, which labels the line on the context diagram.' },
-        name: { type: Type.STRING, description: 'stakeholder, person, system: a short name of two or three words, e.g. "Planners" or "Order system".' },
+        name: { type: Type.STRING, description: 'stakeholder, person, system: a short name of two or three words, e.g. "Planners" or "Order system". decision: the option chosen, exactly as it appears in options.' },
         attribute: { type: Type.STRING, enum: Object.keys(QUALITY_ATTRIBUTES), description: 'quality: the quality attribute.' },
         category: { type: Type.STRING, enum: Object.keys(CONSTRAINT_CATEGORIES), description: 'constraint: business (budget or timeline), regulatory, technical or organizational.' },
+        serves: names('Stage 2 items: ids of the stage 1 items this answers, e.g. ["quality-1"] for a quality approach, ["oversight-1"] for a decision on how a rule is met.'),
+        topic: { type: Type.STRING, enum: Object.keys(DECISION_TOPICS), description: 'decision: platform, complexity, pattern, hosting or other.' },
+        options: names('decision: the options that were weighed, including the one chosen.'),
+        consequences: { type: Type.STRING, description: 'decision: what follows from it, good and bad.' },
         id: { type: Type.STRING, description: 'To correct an existing item: its id, e.g. "flow-2".' },
         reason,
         ...basis,
       },
       required: ['section', 'type', 'text', 'basis_source', 'basis_quote'],
+    },
+  },
+  {
+    name: 'set_scenario',
+    description:
+      'Solution design: record the runtime scenario for one user flow from 1.1 as numbered steps. Each step goes from a person or external system from 3.2 (by id or name) or a building block on the board (by name) to another, with what happens in a few words. Include approvals and what happens on failure. Pass id to update a scenario.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        flow: { type: Type.STRING, description: 'The user flow it realises, e.g. "flow-1".' },
+        title: { type: Type.STRING, description: 'A short title, e.g. "Customer asks for a refund".' },
+        steps: {
+          type: Type.ARRAY,
+          items: { type: Type.OBJECT, properties: { from: { type: Type.STRING }, to: { type: Type.STRING }, what: { type: Type.STRING } }, required: ['from', 'to', 'what'] },
+          description: 'In order.',
+        },
+        id: { type: Type.STRING },
+        reason,
+        ...basis,
+      },
+      required: ['flow', 'title', 'steps', 'basis_source', 'basis_quote'],
     },
   },
   {
@@ -126,6 +151,7 @@ export const boardToolDeclarations: FunctionDeclaration[] = [
         gates: { type: Type.STRING, description: 'Approval only: name of the tool or agent that needs a person to approve.' },
         condition: { type: Type.STRING, description: 'Approval only: when approval is needed, e.g. "refunds over 100 EUR".' },
         destination: { type: Type.STRING, enum: ['chat', 'api', 'email', 'teams', 'storage'], description: 'Output only.' },
+        serves: names('Ids of the stage 1 items it serves: the flows and requirements an agent fulfils (flow-1), the external system a tool or knowledge source reaches (system-2), the rule an approval enforces (oversight-1), the person a trigger is for (person-1).'),
         reason,
         ...basis,
       },
@@ -210,6 +236,20 @@ export function toChangeBody(name: string, args: Record<string, unknown> = {}): 
         name: str(args.name),
         attribute: str(args.attribute) as never,
         category: str(args.category) as never,
+        serves: list(args.serves),
+        topic: str(args.topic) as never,
+        options: list(args.options),
+        consequences: str(args.consequences),
+      };
+    case 'set_scenario':
+      return {
+        op: 'set_scenario',
+        id: str(args.id),
+        flow: String(args.flow ?? ''),
+        title: String(args.title ?? ''),
+        steps: Array.isArray(args.steps)
+          ? (args.steps as Record<string, unknown>[]).map((st) => ({ from: String(st?.from ?? ''), to: String(st?.to ?? ''), what: String(st?.what ?? '') }))
+          : [],
       };
     case 'remove_item':
       return { op: 'remove_item', ref: String(args.id ?? '') };
@@ -239,6 +279,7 @@ export function toChangeBody(name: string, args: Record<string, unknown> = {}): 
         gates: str(args.gates),
         condition: str(args.condition),
         destination: str(args.destination),
+        serves: list(args.serves),
       } as ChangeBody;
     case 'remove_component':
       return { op: 'remove_component', ref: String(args.name ?? '') };
