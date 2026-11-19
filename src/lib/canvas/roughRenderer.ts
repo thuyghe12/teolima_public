@@ -519,7 +519,7 @@ export function renderCanvasElement(
           ? 'rgba(254, 243, 199, 0.5)'
           : agentRole === 'system'
           ? 'rgba(200, 241, 58, 0.22)'
-          : agentRole === 'actor' || agentRole === 'external'
+          : agentRole === 'actor' || agentRole === 'external' || agentRole === 'resource' || agentRole === 'resource_reused'
           ? '#ffffff'
           : fillColor || 'rgba(244, 244, 247, 0.85)';
 
@@ -1148,7 +1148,7 @@ function drawRoleBadge(ctx: CanvasRenderingContext2D, badgeX: number, badgeY: nu
   ctx.save();
   let bg = '#18181c';
   let textCol = '#ffffff';
-  const LABELS: Record<string, string> = { actor: 'PERSON', system: 'THIS SYSTEM', external: 'EXTERNAL SYSTEM' };
+  const LABELS: Record<string, string> = { actor: 'PERSON', system: 'THIS SYSTEM', external: 'EXTERNAL SYSTEM', resource: 'AZURE', resource_reused: 'FROM PLATFORM' };
   let label = LABELS[role] ?? role.toUpperCase();
 
   if (role === 'router' || role === 'manager') {
@@ -1178,9 +1178,12 @@ function drawRoleBadge(ctx: CanvasRenderingContext2D, badgeX: number, badgeY: nu
   } else if (role === 'human_approval') {
     bg = '#fef3c7';
     textCol = '#92400e';
-  } else if (role === 'actor' || role === 'external') {
+  } else if (role === 'actor' || role === 'external' || role === 'resource_reused') {
     bg = '#ffffff';
     textCol = '#5a5a62';
+  } else if (role === 'resource') {
+    bg = '#ffffff';
+    textCol = '#18181c';
   }
 
   ctx.font = `600 10px 'IBM Plex Mono', monospace`;

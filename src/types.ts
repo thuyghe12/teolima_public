@@ -1,5 +1,5 @@
 /**
- * Types and interfaces for Teolima — Multi-Agent Architecture Voice Coach
+ * Types and interfaces for the Teolima app: canvas elements, call state and messages.
  */
 
 export type ToolType = 
@@ -53,7 +53,10 @@ export type AgentRoleKind =
   // context diagram roles
   | 'actor'
   | 'system'
-  | 'external';
+  | 'external'
+  // deployment view roles
+  | 'resource'
+  | 'resource_reused';
 
 export type FillStyle = 'hachure' | 'solid' | 'zigzag' | 'cross-hatch' | 'dots' | 'dashed' | 'none';
 

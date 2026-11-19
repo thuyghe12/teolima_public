@@ -15,12 +15,21 @@
  *                      the order they first take part, a lifeline under
  *                      each, and the numbered steps from top to bottom.
  *
+ *   3 Technical design the C4 deployment view, below solution design: the
+ *                      Azure resources the design needs (deployment.ts).
+ *                      The request path runs left to right, from the people
+ *                      through the entry point and the agent runtime to the
+ *                      models; the data stores sit below the runtime that
+ *                      uses them; network and operations below that. With
+ *                      private networking, a panel marks the virtual network.
+ *
  * Each stage's frame appears once the stage is reached, so the board grows
  * downwards as the session moves on and an approved stage stays readable
  * above the one being worked on. Pure and deterministic.
  */
 import { CARD, fit, layoutBoard, type Box, type Layout, type LayoutEdge, type LayoutNode, type Point } from './layout';
 import type { Board, StageId } from './schema';
+import { resourcePlan, type Resource } from './deployment';
 import { stageOf } from './stages';
 
 export type Frame = Box & { id: StageId; label: string };
@@ -82,6 +91,93 @@ function dynamicView(board: Board, sc: Board['spec']['scenarios'][number], index
   });
   const w = Math.max(ids.length, 1) * SEQ.col - (SEQ.col - SEQ.w) + 2 * SEQ.pad;
   return { panel: { id: `dyn-${sc.id}`, label: `DYNAMIC VIEW · 6.${index + 1} ${sc.title.toUpperCase()}`, x: x0, y: y0, w, h: bottom - y0 + SEQ.pad / 2 }, nodes, edges };
+}
+
+const DEP = { w: 200, h: 96, col: 300, row: 60 } as const;
+
+/** The C4 deployment view: the resource plan, drawn from its top-left corner (x0, y0). */
+function deploymentView(board: Board, x0: number, y0: number): { nodes: LayoutNode[]; edges: LayoutEdge[]; panels: Panel[]; right: number; bottom: number } {
+  const plan = resourcePlan(board);
+  const nodes: LayoutNode[] = [];
+  const edges: LayoutEdge[] = [];
+  const card = (r: Resource, x: number, y: number): LayoutNode => {
+    const n: LayoutNode = { id: `dep-${r.id}`, kind: 'resource', role: r.reused ? 'resource_reused' : 'resource', title: fit(r.service, 40), subtitle: fit(r.purpose, 46), x, y, w: DEP.w, h: DEP.h };
+    nodes.push(n);
+    return n;
+  };
+  const by = (g: Resource['group']) => plan.resources.filter((r) => r.group === g);
+  const persons = board.spec.items.filter((i) => i.section === '3.2' && i.type === 'person');
+  const inset = plan.isolated ? 32 : 0;
+  const top = y0 + inset + (plan.isolated ? 24 : 0);
+  let x = x0 + (persons.length ? CARD.w + COL_GAP / 2 : 0) + inset;
+
+  // the request path: entry, runtime (main resource first), Foundry, then the model deployments stacked
+  const chain: LayoutNode[] = [];
+  for (const r of by('edge').filter((r) => r.id !== 'key-vault')) {
+    chain.push(card(r, x, top));
+    x += DEP.col;
+  }
+  const runtime = by('runtime');
+  const main = runtime[0] ? card(runtime[0], x, top) : null;
+  if (main) {
+    chain.push(main);
+    x += DEP.col;
+  }
+  const foundry = by('ai').find((r) => r.id === 'foundry');
+  const foundryNode = foundry ? card(foundry, x, top) : null;
+  if (foundryNode) chain.push(foundryNode);
+  x += DEP.col;
+  const models = by('ai').filter((r) => r.id !== 'foundry').map((r, i) => card(r, x, top + i * (DEP.h + ROW_GAP)));
+  for (let i = 1; i < chain.length; i++) edges.push({ id: `dep:${chain[i - 1].id}>${chain[i].id}`, points: [{ x: chain[i - 1].x + DEP.w, y: top + DEP.h / 2 }, { x: chain[i].x, y: top + DEP.h / 2 }], label: '', style: 'solid', kind: 'flow' });
+  for (const m of models) {
+    edges.push({ id: `dep:${foundryNode!.id}>${m.id}`, points: route(foundryNode!, m, foundryNode!.x + DEP.w + (DEP.col - DEP.w) / 2), label: '', style: 'dotted', kind: 'uses' });
+  }
+
+  // the stores and the registry below, joined to the runtime that uses them
+  const rowBottom = Math.max(top + DEP.h, ...models.map((m) => m.y + m.h));
+  const below = [...runtime.slice(1), ...by('data'), ...by('edge').filter((r) => r.id === 'key-vault')];
+  const y2 = rowBottom + DEP.row + 24;
+  const startX = main ? main.x : x0 + inset;
+  below.forEach((r, i) => {
+    const n = card(r, startX + i * (DEP.w + ROW_GAP), y2);
+    const from = r.id === 'key-vault' ? chain[0] : main;
+    if (!from) return;
+    const s0 = { x: from.x + DEP.w / 2, y: from.y + DEP.h };
+    const t0 = { x: n.x + DEP.w / 2, y: n.y };
+    const bus = y2 - 24 - (r.id === 'key-vault' ? 12 : 0);
+    edges.push({ id: `dep:${from.id}>${n.id}`, points: Math.abs(s0.x - t0.x) < 1 ? [s0, t0] : [s0, { x: s0.x, y: bus }, { x: t0.x, y: bus }, t0], label: '', style: r.id === 'key-vault' ? 'dotted' : 'solid', kind: r.id === 'key-vault' ? 'uses' : 'flow' });
+  });
+  const privateBottom = below.length ? y2 + DEP.h : rowBottom;
+  const privateRight = Math.max(...nodes.map((n) => n.x + n.w));
+
+  // people enter on the left
+  const entry = chain[0];
+  persons.forEach((p, i) => {
+    const n: LayoutNode = { id: `dep-${p.id}`, kind: 'actor', role: 'actor', title: fit(p.name ?? p.text, 40), subtitle: '', x: x0, y: top + i * (CARD.h + ROW_GAP), w: CARD.w, h: CARD.h };
+    nodes.push(n);
+    if (entry) edges.push({ id: `dep:${p.id}>${entry.id}`, points: route(n, entry, entry.x - (plan.isolated ? inset + 24 : 40)), label: '', style: 'solid', kind: 'flow' });
+  });
+
+  // network and operations, one row each, below
+  const panels: Panel[] = [];
+  let y3 = privateBottom + (plan.isolated ? inset + 24 : 0) + DEP.row;
+  const rowX = x0 + (persons.length ? CARD.w + COL_GAP / 2 : 0);
+  for (const g of ['network', 'operations'] as const) {
+    const rs = by(g);
+    if (!rs.length) continue;
+    const pad = 20;
+    const header = 48;
+    rs.forEach((r, i) => card(r, rowX + pad + i * (DEP.w + ROW_GAP), y3 + header));
+    const label = g === 'network' ? (rs.every((r) => r.reused) ? 'NETWORK · PLATFORM' : 'NETWORK') : 'OPERATIONS';
+    panels.push({ id: `dep-${g}`, label, x: rowX, y: y3, w: rs.length * (DEP.w + ROW_GAP) - ROW_GAP + 2 * pad, h: DEP.h + header + pad });
+    y3 += DEP.h + header + pad + ROW_GAP;
+  }
+  if (plan.isolated) {
+    const left = x0 + (persons.length ? CARD.w + COL_GAP / 2 : 0);
+    panels.push({ id: 'dep-vnet', label: 'VIRTUAL NETWORK · PRIVATE ENDPOINTS · EGRESS THROUGH AZURE FIREWALL', x: left, y: y0, w: privateRight - left + inset, h: privateBottom - y0 + inset });
+  }
+  const right = Math.max(...nodes.map((n) => n.x + n.w), ...panels.map((p) => p.x + p.w));
+  return { nodes, edges, panels, right, bottom: y3 - ROW_GAP };
 }
 
 /** An orthogonal route from the right of a to the left of b, turning at turnX. */
@@ -270,6 +366,16 @@ export function layoutWorkspace(board: Board): Workspace {
       w: Math.max(right - ORIGIN.x + FRAME.pad, 600),
       h: Math.max(bottom - y + FRAME.pad, FRAME.header + CARD.h),
     });
+    y += out.frames.at(-1)!.h + FRAME.gap;
+  }
+
+  // 3. Technical design: the deployment view, below solution design, once the stage is reached.
+  if (stageN >= 3) {
+    const v = deploymentView(board, ORIGIN.x + FRAME.pad, y + FRAME.header);
+    out.nodes.push(...v.nodes);
+    out.edges.push(...v.edges);
+    out.panels.push(...v.panels);
+    out.frames.push({ id: 'technical', label: frameLabel(board, 'technical', 'DEPLOYMENT'), x: ORIGIN.x, y, w: Math.max(v.right - ORIGIN.x + FRAME.pad, 600), h: v.bottom - y + FRAME.pad });
   }
 
   const all: Box[] = [...out.frames, ...out.panels, ...out.nodes, ...out.teams, ...out.bands, ...(out.legend ? [out.legend] : [])];

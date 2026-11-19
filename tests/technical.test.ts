@@ -119,3 +119,38 @@ test('resource plan: public endpoints drop the network, and a platform landing z
   assert.ok(net.every((r) => r.reused));
 });
 
+test('technical design draws the resource plan as a C4 deployment view, below solution design', async () => {
+  const { layoutWorkspace } = await import('../shared/board/workspace');
+  const { assertClean, inside } = await import('./helpers/layout');
+  const b = designed();
+  const w = layoutWorkspace(b);
+  assertClean(w);
+  assert.deepEqual(w.frames.map((f) => f.id), ['discovery', 'solution', 'technical']);
+  const [, sol, tech] = w.frames;
+  assert.ok(sol.y + sol.h < tech.y);
+  assert.match(tech.label, /^3 · TECHNICAL DESIGN · DEPLOYMENT/);
+  const plan = resourcePlan(b);
+  const cards = w.nodes.filter((n) => n.id.startsWith('dep-') && n.kind === 'resource');
+  assert.deepEqual(cards.map((n) => n.id).sort(), plan.resources.map((r) => `dep-${r.id}`).sort(), 'one card per resource');
+  for (const n of w.nodes.filter((n) => n.id.startsWith('dep-'))) assert.ok(inside(n, tech), `${n.id} inside the frame`);
+  const vnet = w.panels.find((p) => p.id === 'dep-vnet')!;
+  for (const r of plan.resources.filter((r) => r.private)) assert.ok(inside(w.nodes.find((n) => n.id === `dep-${r.id}`)!, vnet), `${r.id} inside the virtual network`);
+  // the request path runs left to right
+  const x = (id: string) => w.nodes.find((n) => n.id === `dep-${id}`)!.x;
+  assert.ok(x('app-gateway') < x('app-service') && x('app-service') < x('agent-service') && x('agent-service') < x('foundry'));
+});
+
+test('the deployment view of the reference shows Container Apps and its registry, and no virtual network when public', async () => {
+  const { layoutWorkspace } = await import('../shared/board/workspace');
+  const { assertClean } = await import('./helpers/layout');
+  const ref = replay(emptyBoard(), [...referenceDiscovery, ...referenceSolution, approveSolutionAs('Architect'), ch({ op: 'record_item', section: '7', type: 'setting', category: 'network_isolation', name: 'Public endpoints', text: 'A pilot' })]);
+  assert.equal(ref.stage.current, 'technical');
+  const w = layoutWorkspace(ref);
+  assertClean(w);
+  assert.ok(w.nodes.some((n) => n.id === 'dep-container-apps') && w.nodes.some((n) => n.id === 'dep-container-registry'));
+  assert.ok(!w.panels.some((p) => p.id === 'dep-vnet'));
+});
+
+function approveSolutionAs(by: string): Change {
+  return { body: { op: 'approve_stage', stage: 'solution', by }, actor: 'user', reason: 'Approved in the app', at };
+}
