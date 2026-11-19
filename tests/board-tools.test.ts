@@ -1,10 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BOARD_TOOLS, BoardSession, boardToolDeclarations, toChangeBody } from '../server/board-tools';
+import { discoveryChanges } from './fixtures/support-board';
+
+const discover = (s: BoardSession) => {
+  for (const c of discoveryChanges) s.apply(c.body, 'coach', c.reason, c.basis);
+};
 
 const briefed = () => {
   const s = new BoardSession();
   s.apply(toChangeBody('set_brief', { goal: 'Test system' })!, 'user', 'test');
+  discover(s);
   s.apply({ op: 'set_shape', shape: 'multi', reasons: ['multiple_teams'] }, 'user', 'test');
   return s;
 };
@@ -30,15 +36,15 @@ test('a session builds a board from tool calls, using snake_case arguments', () 
   run('add_component', { kind: 'guardrail', name: 'Safety', controls: ['prompt_shields'], applies_to: ['Triage'] });
   const summary = s.summary();
   assert.deepEqual(summary.teams, ['Desk: handoff [Triage, Refunds]']);
-  assert.equal(s.changes.length, 8);
-  assert.ok(s.changes.slice(2).every((c) => c.actor === 'coach'));
+  assert.equal(s.changes.length, 8 + discoveryChanges.length);
+  assert.ok(s.changes.slice(2 + discoveryChanges.length).every((c) => c.actor === 'coach'));
 });
 
 test('a refused change leaves the session untouched and explains why', () => {
   const s = briefed();
   const r = s.apply(toChangeBody('set_team', { name: 'T', pattern: 'sequential', members: ['Ghost'] })!, 'coach', 'test');
   assert.ok('error' in r && /not on the board/.test(r.error));
-  assert.equal(s.changes.length, 2);
+  assert.equal(s.changes.length, 2 + discoveryChanges.length);
 });
 
 test('an invalid enum from the model is refused, not stored', () => {
@@ -84,12 +90,42 @@ test('a new session restores the board the browser kept, once and only if valid'
   assert.equal(second.restore({ version: 1, title: '', components: [], teams: [], connections: [] }), false, 'a non-empty board is never overwritten');
 });
 
-test('the coach saves a brief before building, and the server refuses to build without one', () => {
+test('the coach saves a brief and runs discovery before building; the server refuses to build before either', () => {
   const s = new BoardSession();
   const early = s.apply(toChangeBody('add_component', { kind: 'agent', name: 'Eager' })!, 'coach', 'test');
   assert.ok('error' in early && /No goal yet/.test(early.error));
   const brief = s.apply(toChangeBody('set_brief', { goal: 'Route support tickets', audience: 'Support staff', constraints: ['EU data only'] })!, 'coach', 'Confirmed with the user');
   assert.ok(!('error' in brief));
   assert.deepEqual(s.summary().brief, { goal: 'Route support tickets', audience: 'Support staff', constraints: ['EU data only'] });
+  const beforeDiscovery = s.apply(toChangeBody('add_component', { kind: 'agent', name: 'Triage' })!, 'coach', 'test');
+  assert.ok('error' in beforeDiscovery && /Discovery is not done/.test(beforeDiscovery.error) && /Human oversight/.test(beforeDiscovery.error));
+  assert.equal(s.summary().discovery.done, false);
+  discover(s);
+  assert.deepEqual(s.summary().discovery, { done: true, open_topics: ['Reliability', 'Cost', 'Operations', 'Performance'] });
   assert.ok(!('error' in s.apply(toChangeBody('add_component', { kind: 'agent', name: 'Triage' })!, 'coach', 'test')));
+});
+
+test('record_requirement maps its arguments, and a requirement needs its quoted source', () => {
+  const s = new BoardSession();
+  const body = toChangeBody('record_requirement', { kind: 'nonfunctional', text: 'Data stays in the EU', pillar: 'security' })!;
+  assert.deepEqual(body, { op: 'record_requirement', id: undefined, kind: 'nonfunctional', text: 'Data stays in the EU', pillar: 'security' });
+  const noSource = s.apply(body, 'coach', 'test');
+  assert.ok('error' in noSource && /needs its source/.test(noSource.error));
+  const ok = s.apply(body, 'coach', 'test', { source: 'document', document: 'doc-1', quote: 'all data must stay in the EU' });
+  assert.ok(!('error' in ok));
+  assert.deepEqual(s.board.spec.requirements[0], {
+    id: 'nonfunctional-1',
+    kind: 'nonfunctional',
+    text: 'Data stays in the EU',
+    pillar: 'security',
+    source: { kind: 'document', document: 'doc-1', quote: 'all data must stay in the EU' },
+  });
+  const noPillar = s.apply(toChangeBody('record_requirement', { kind: 'nonfunctional', text: 'Fast' })!, 'coach', 'test', { source: 'user', quote: 'it must be fast' });
+  assert.ok('error' in noPillar && /pillar/.test(noPillar.error));
+  const corrected = s.apply(toChangeBody('record_requirement', { id: 'nonfunctional-1', kind: 'nonfunctional', text: 'Data stays in the Netherlands', pillar: 'security' })!, 'coach', 'test', { source: 'user', quote: 'stay in the Netherlands' });
+  assert.ok(!('error' in corrected));
+  assert.equal(s.board.spec.requirements.length, 1);
+  assert.equal(s.board.spec.requirements[0].text, 'Data stays in the Netherlands');
+  assert.ok(!('error' in s.apply(toChangeBody('remove_requirement', { id: 'nonfunctional-1' })!, 'coach', 'test')));
+  assert.equal(s.board.spec.requirements.length, 0);
 });

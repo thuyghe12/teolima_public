@@ -2,10 +2,12 @@
  * The guard pipeline: checks on every hop between the user, the model, its
  * tools and the board, enforced in code rather than asked of the model.
  *
- * 1. Input     the brief, typed messages and finished speech turns are
- *              screened with Prompt Shields when it is configured.
- * 2. Pre-tool  every building change must name a basis that is found in the
- *              brief or in the user's own words (provenance), then passes the
+ * 1. Input     the brief, typed messages, pasted documents and finished
+ *              speech turns are screened with Prompt Shields when it is
+ *              configured.
+ * 2. Pre-tool  every requirement and building change must name a basis that
+ *              is found in the brief, the user's own words or a pasted
+ *              document (provenance), then passes the
  *              typed change log; drawing calls pass the tool allowlist.
  * 3. Post-tool documentation results keep only Microsoft Learn links and are
  *              screened for embedded instructions before the model sees them.
@@ -19,7 +21,7 @@
 import type { Basis } from '../../shared/board/changes';
 import type { Brief } from '../../shared/board/schema';
 import { Audit, excerpt } from './audit';
-import { checkBasis, UserWords, type Verdict } from './provenance';
+import { checkBasis, DocumentStore, UserWords, type Verdict } from './provenance';
 import type { Shield } from './prompt-shields';
 
 export type Screen = 'passed' | 'flagged' | 'unscreened';
@@ -51,6 +53,7 @@ const LEAK_WORDS = 8;
 
 export class Guard {
   readonly userWords = new UserWords();
+  readonly documents = new DocumentStore();
   private readonly promptShingles: Set<string>;
   private spoken = '';
 
@@ -83,9 +86,33 @@ export class Guard {
     }
   }
 
+  /**
+   * 1. A document the user pasted (transcript, RFP, notes): screened for
+   * embedded instructions, then kept for provenance. Fails closed: a document
+   * that cannot be screened is still kept but reported as unscreened.
+   */
+  async addDocument(title: string, text: string): Promise<{ ok: true; id: string; screen: Screen } | { ok: false; error: string }> {
+    let screen: Screen = 'unscreened';
+    if (this.shield) {
+      try {
+        const r = await this.shield({ userPrompt: '', documents: [text.slice(0, 10_000)] });
+        if (r.documentAttacks.some(Boolean)) {
+          this.audit.record({ kind: 'input_flagged', where: 'document', excerpt: excerpt(title), reason: 'Prompt Shields found instructions in the pasted document' });
+          return { ok: false, error: 'The document contains instructions aimed at the assistant and was not added.' };
+        }
+        screen = 'passed';
+      } catch (err) {
+        this.audit.record({ kind: 'input_unscreened', where: 'document', reason: err instanceof Error ? err.message : String(err) });
+      }
+    }
+    const id = this.documents.add(title, text);
+    this.audit.record({ kind: 'document_added', id, excerpt: excerpt(title), reason: `screening ${screen}` });
+    return { ok: true, id, screen };
+  }
+
   /** 2. Provenance for a coach change. */
   checkChange(tool: string, basis: Basis | null, brief: Brief): Verdict {
-    const verdict = checkBasis(basis, { brief, userWords: this.userWords.text() });
+    const verdict = checkBasis(basis, { brief, userWords: this.userWords.text(), documents: this.documents });
     if ('error' in verdict) this.audit.record({ kind: 'change_refused', tool, basis, reason: verdict.error });
     return verdict;
   }

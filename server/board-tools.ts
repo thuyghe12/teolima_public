@@ -6,8 +6,9 @@
  * validates every edit, and the layout is computed from the result.
  */
 import { Type, type FunctionDeclaration } from '@google/genai';
-import { Board, emptyBoard, ShapeReason } from '../shared/board/schema';
+import { Board, emptyBoard, Pillar, REQUIREMENT_KINDS, ShapeReason } from '../shared/board/schema';
 import { readiness } from '../shared/board/readiness';
+import { discovery } from '../shared/board/discovery';
 import { applyChange, type Actor, type ApplyResult, type Basis, type ChangeBody, type Change } from '../shared/board/changes';
 
 const reason = { type: Type.STRING, description: 'Why, in one short sentence. Stored with the change.' };
@@ -20,19 +21,42 @@ const names = (description: string) => ({ type: Type.ARRAY, items: { type: Type.
  */
 const basisSource = {
   type: Type.STRING,
-  enum: ['brief', 'user'],
-  description: 'brief = it follows from the saved brief; user = the user said it or explicitly agreed to it in this call.',
+  enum: ['brief', 'user', 'document'],
+  description: 'brief = it follows from the saved brief; user = the user said it or explicitly agreed to it in this call; document = a document the user pasted states it (name it in basis_document).',
 };
 const basisQuote = {
   type: Type.STRING,
-  description: 'The exact words from the brief or from the user that this rests on, a few words long. For an agreed proposal, the user\'s words agreeing to it, naming the thing.',
+  description: 'The exact words from the brief, the user or the document that this rests on, a few words long. For an agreed proposal, the user\'s words agreeing to it, naming the thing.',
 };
-const basis = { basis_source: basisSource, basis_quote: basisQuote };
+const basisDocument = { type: Type.STRING, description: 'document only: the id the document was given when it was added, e.g. "doc-1".' };
+const basis = { basis_source: basisSource, basis_quote: basisQuote, basis_document: basisDocument };
 
 /** Tools that add to the design and so must name their basis. */
-export const GROUNDED_TOOLS = new Set(['set_brief', 'set_shape', 'add_component', 'set_team', 'connect']);
+export const GROUNDED_TOOLS = new Set(['set_brief', 'record_requirement', 'set_shape', 'add_component', 'set_team', 'connect']);
 
 export const boardToolDeclarations: FunctionDeclaration[] = [
+  {
+    name: 'record_requirement',
+    description:
+      'Record one requirement in the functional specification: what the system must do and why, never how. One statement per call, in plain words, quoting where it comes from. Kinds: problem (what is wrong today), outcome (what it must achieve and how success shows), user (who uses it or is affected), scenario (what a user does, start to finish), functional (something it must do), oversight (an action a person must approve, or something it must never do on its own), nonfunctional (a quality, with its pillar), constraint (a limit it must respect: budget, region, policy, technology; with a pillar when one applies), integration (a system or data it reads or changes). Pass id to correct an existing requirement.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        kind: { type: Type.STRING, enum: [...REQUIREMENT_KINDS] },
+        text: { type: Type.STRING, description: 'The requirement in one plain sentence, faithful to the source.' },
+        pillar: { type: Type.STRING, enum: [...Pillar.options], description: 'nonfunctional (required) and constraint (when one applies): the Well-Architected pillar.' },
+        id: { type: Type.STRING, description: 'To correct an existing requirement: its id, e.g. "scenario-2".' },
+        reason,
+        ...basis,
+      },
+      required: ['kind', 'text', 'basis_source', 'basis_quote'],
+    },
+  },
+  {
+    name: 'remove_requirement',
+    description: 'Remove a requirement the user withdrew or that was recorded by mistake.',
+    parameters: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, reason }, required: ['id'] },
+  },
   {
     name: 'set_brief',
     description:
@@ -156,7 +180,11 @@ export function basisFrom(name: string, args: Record<string, unknown> = {}): Bas
   if (!GROUNDED_TOOLS.has(name)) return null;
   const source = name === 'set_brief' ? 'user' : args.basis_source;
   const quote = typeof args.basis_quote === 'string' ? args.basis_quote.trim().slice(0, 300) : '';
-  if ((source !== 'brief' && source !== 'user') || !quote) return null;
+  if ((source !== 'brief' && source !== 'user' && source !== 'document') || !quote) return null;
+  if (source === 'document') {
+    const document = typeof args.basis_document === 'string' ? args.basis_document.trim().slice(0, 40) : '';
+    return document ? { source, document, quote } : null;
+  }
   return { source, quote };
 }
 
@@ -165,6 +193,10 @@ export function toChangeBody(name: string, args: Record<string, unknown> = {}): 
   switch (name) {
     case 'set_brief':
       return { op: 'set_brief', goal: str(args.goal), audience: str(args.audience), constraints: list(args.constraints) };
+    case 'record_requirement':
+      return { op: 'record_requirement', id: str(args.id), kind: String(args.kind ?? '') as never, text: String(args.text ?? ''), pillar: str(args.pillar) as never };
+    case 'remove_requirement':
+      return { op: 'remove_requirement', ref: String(args.id ?? '') };
     case 'set_shape':
       return { op: 'set_shape', shape: args.shape as never, reasons: list(args.reasons) as never };
     case 'set_title':
@@ -248,8 +280,13 @@ export class BoardSession {
     const name = (id: string) =>
       this.board.components.find((c) => c.id === id)?.name ?? this.board.teams.find((t) => t.id === id)?.name ?? id;
     const ready = readiness(this.board);
+    const d = discovery(this.board);
     return {
       brief: this.board.brief,
+      requirements: this.board.spec.requirements.map((r) => `${r.id}: ${r.text}${r.pillar ? ` [${r.pillar}]` : ''}`),
+      discovery: d.done
+        ? { done: true, open_topics: d.open.map((t) => t.title) }
+        : { done: false, ask_next: d.missing.map((t) => t.question) },
       shape: this.board.shape,
       next_step: ready.next ? `${ready.next.title}: ${ready.next.detail}` : 'Every step of the design standard is done.',
       title: this.board.title,
