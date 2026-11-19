@@ -118,7 +118,8 @@ export function scenarioSteps(board: Pick<Board, 'spec' | 'components' | 'teams'
   return sc.steps.map((st, n) => `${n + 1}. ${participantName(board, st.from)} → ${participantName(board, st.to)}: ${st.what}`);
 }
 
-const cell = (s: string) => s.replace(/\|/g, '\\|').replace(/\n/g, ' ');
+/** A Markdown table cell: backslashes first, then pipes, then line breaks. */
+export const cell = (s: string) => s.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 const source = (i: SpecItem, docs: Record<string, string>) => (i.source.quote ? `"${i.source.quote}", ${sourceLabel(i, docs)}` : sourceLabel(i, docs));
 
 type DocBoard = Pick<Board, 'title' | 'brief' | 'spec' | 'stage' | 'components' | 'teams' | 'shape'>;

@@ -276,6 +276,10 @@ function custom(rule: CustomRule): Rule & { run: Check } {
     source: '',
     run: ({ files }) => {
       let re: RegExp;
+      // A user's own rule: short, and without nested quantifiers that could backtrack without end.
+      if (rule.pattern.length > 200 || /\([^)]*[+*][^)]*\)[+*{]/.test(rule.pattern)) {
+        return [{ message: 'pattern refused: keep it under 200 characters, without a repeated group such as (a+)+' }];
+      }
       try {
         re = new RegExp(rule.pattern, 'm');
       } catch {

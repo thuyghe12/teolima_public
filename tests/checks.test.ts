@@ -99,3 +99,16 @@ test('a parameter changed in review is marked as such, and its check reruns', ()
   assert.ok(p.edited && /Changed in review/.test(p.because));
   assert.equal(result(check(board, r.files, emptySettings()), 'INF-05').status, 'fail', 'public endpoints with a regulatory constraint warn');
 });
+
+test('a user rule that could backtrack without end is refused, not run', () => {
+  const { board, files } = compiled();
+  const settings = { ...emptySettings(), custom: [{ id: 'OWN-3', check: 'Nested repeat.', path: '', pattern: '(a+)+$', expect: 'absent' as const, severity: 'warn' as const }] };
+  const r = result(check(board, files, settings), 'OWN-3');
+  assert.equal(r.status, 'fail');
+  assert.match(r.findings[0].message, /pattern refused/);
+});
+
+test('table cells escape backslashes before pipes', async () => {
+  const { cell } = await import('../shared/board/spec-document');
+  assert.equal(cell('a\\|b\nc'), 'a\\\\\\|b c');
+});

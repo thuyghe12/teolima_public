@@ -4,6 +4,7 @@
  * every rule turned off and who approved the export, so the review travels
  * with the code.
  */
+import { cell } from '../../shared/board/spec-document';
 import { strToU8, zipSync } from 'fflate';
 import type { CheckReport, RubricSettings } from '../../shared/compile/rubric';
 import { DOMAINS } from '../../shared/compile/rubric';
@@ -30,7 +31,7 @@ export function checksMarkdown(report: CheckReport, settings: RubricSettings, ap
   ];
   for (const r of report.results) {
     const findings = r.findings.map((f) => `${f.path ? `${f.path}${f.line ? `:${f.line}` : ''} ` : ''}${f.message}`).join('; ');
-    lines.push(`| ${r.rule.source ? `[${r.rule.id}](${r.rule.source})` : r.rule.id} | ${DOMAINS[r.rule.domain]} | ${r.rule.check} | ${r.rule.method} | ${r.rule.severity} | ${r.rule.threshold ? `${r.rule.threshold.value}` : ''} | ${icon[r.status]} | ${findings.replace(/\|/g, '\\|')} |`);
+    lines.push(`| ${r.rule.source ? `[${r.rule.id}](${r.rule.source})` : r.rule.id} | ${DOMAINS[r.rule.domain]} | ${r.rule.check} | ${r.rule.method} | ${r.rule.severity} | ${r.rule.threshold ? `${r.rule.threshold.value}` : ''} | ${icon[r.status]} | ${cell(findings)} |`);
   }
   if (settings.off.length) lines.push('', `Turned off in review: ${settings.off.join(', ')}.`);
   if (settings.custom.length) lines.push('', `Rules added in review: ${settings.custom.map((c) => `${c.id} (${c.expect} \`${c.pattern}\` under \`${c.path || '/'}\`)`).join(', ')}.`);
