@@ -60,11 +60,18 @@ jobs:
         with:
           name: knowledge-snapshot
           path: data/knowledge/
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Regenerate the Well-Architected checklists the app ships
+        run: npm run knowledge:checklists
       - name: Open a pull request if Microsoft's guidance changed
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          git add data/knowledge
+          git add data/knowledge shared/board/waf.ts
           if git diff --cached --quiet; then
             echo 'No change in the guidance.' >> "$GITHUB_STEP_SUMMARY"
             exit 0

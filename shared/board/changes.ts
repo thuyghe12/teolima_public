@@ -14,13 +14,16 @@
 import { z } from 'zod';
 import { discovery, discoveryRefusal } from './discovery';
 import { gate, outOfStage, stageOf, STAGES } from './stages';
-import { CONSTRAINT_CATEGORIES, HOSTING, hostingOf, QUALITY_ATTRIBUTES, sectionDef } from './arc42';
+import { HOSTING, hostingOf, QUALITY_ATTRIBUTES, sectionDef, type ItemType } from './arc42';
+import { CHECKLIST } from './waf';
 import {
   Board,
   Component,
   COMPONENT_KINDS,
   GuardrailControl,
   OrchestrationPattern,
+  Review,
+  ReviewStatus,
   ShapeReason,
   SpecItem,
   StageId,
@@ -80,6 +83,7 @@ export const ChangeBody = z.discriminatedUnion('op', [
     name: z.string().trim().min(1).max(40).optional(),
     attribute: SpecItem.shape.attribute,
     category: SpecItem.shape.category,
+    measure: SpecItem.shape.measure,
     serves: Refs.optional(),
     topic: SpecItem.shape.topic,
     options: SpecItem.shape.options,
@@ -95,6 +99,11 @@ export const ChangeBody = z.discriminatedUnion('op', [
     steps: z.array(z.object({ from: Ref, to: Ref, what: z.string().trim().min(1).max(100) })).min(1).max(20),
   }),
   z.object({ op: z.literal('remove_scenario'), ref: Ref }),
+  z.object({
+    op: z.literal('review'),
+    /** Well-Architected recommendations reviewed, by code (RE:01 ... PE:12). */
+    checks: z.array(z.object({ code: Review.shape.code, status: ReviewStatus, note: Review.shape.note })).min(1).max(60),
+  }),
   z.object({ op: z.literal('add_section'), title: z.string().trim().min(1).max(80) }),
   z.object({ op: z.literal('rename_section'), ref: z.string().trim().min(1).max(64), title: z.string().trim().min(1).max(80) }),
   z.object({ op: z.literal('remove_section'), ref: z.string().trim().min(1).max(64) }),
@@ -352,7 +361,7 @@ function recordItem(board: Board, body: Extract<ChangeBody, { op: 'record_item' 
   if (locked) return fail(locked);
 
   const def = sectionDef(body.section);
-  const type = section.custom ? (body.type === 'note' ? { id: 'note', named: false } : undefined) : def!.types.find((t) => t.id === body.type);
+  const type: Partial<ItemType> | undefined = section.custom ? (body.type === 'note' ? { id: 'note', named: false } : undefined) : def!.types.find((t) => t.id === body.type);
   if (!type) {
     return fail(`Section ${body.section} takes ${section.custom ? 'notes' : def!.types.map((t) => `${t.id} (${t.label.toLowerCase()})`).join(', ')}.`);
   }
@@ -361,15 +370,23 @@ function recordItem(board: Board, body: Extract<ChangeBody, { op: 'record_item' 
   const attribute = body.attribute ?? existing?.attribute;
   if (body.type === 'quality' && !attribute) return fail(`A quality goal names its quality attribute: ${Object.keys(QUALITY_ATTRIBUTES).join(', ')}.`);
   const category = body.category ?? existing?.category;
-  if (body.type === 'constraint' && !category) return fail(`A constraint names its category: ${Object.keys(CONSTRAINT_CATEGORIES).join(', ')}.`);
+  const label = type.label?.toLowerCase() ?? 'item';
+  if (type.categories) {
+    const keys = Object.keys(type.categories);
+    if (!category || !keys.includes(category)) return fail(`A ${label} names its category: ${keys.join(', ')}.`);
+    const values = type.values?.[category];
+    if (values && !values.some((v) => v.toLowerCase() === name?.toLowerCase())) return fail(`The ${type.categories[category].toLowerCase()} is one of: ${values.join(', ')}. Pass it as the name.`);
+  }
+  const measure = body.measure ?? existing?.measure;
+  if (type.measured && !measure) return fail(`A ${label} states how it is measured, in measure (e.g. "p95 under 4 seconds").`);
 
   const serves = body.serves ?? existing?.serves;
   if (serves) {
     const missing = serves.find((ref) => !items.some((i) => i.id === ref));
     if (missing) return fail(`"${missing}" is not an item in the stage documents.`);
   }
-  if (body.type === 'quality_approach' && !serves?.some((ref) => items.find((i) => i.id === ref)?.section === '1.2')) {
-    return fail('Name the quality goal from 1.2 this approach meets, in serves (e.g. quality-1).');
+  if (type.servesSection && !serves?.some((ref) => items.find((i) => i.id === ref)?.section === type.servesSection)) {
+    return fail(type.servesSection === '1.2' ? 'Name the quality goal from 1.2 it meets, in serves (e.g. quality-1).' : `Name the item from ${type.servesSection} it serves, in serves.`);
   }
   const topic = body.topic ?? existing?.topic;
   if (body.type === 'decision' && !topic) return fail('A decision record names its topic: platform, complexity, pattern, hosting or other.');
@@ -409,7 +426,8 @@ function recordItem(board: Board, body: Extract<ChangeBody, { op: 'record_item' 
     text: body.text,
     ...(type.named && name ? { name } : {}),
     ...(body.type === 'quality' && attribute ? { attribute } : {}),
-    ...(body.type === 'constraint' && category ? { category } : {}),
+    ...(type.categories && category ? { category } : {}),
+    ...(type.measured && measure ? { measure } : {}),
     ...(serves?.length ? { serves: [...new Set(serves)] } : {}),
     ...(body.type === 'decision' && topic ? { topic } : {}),
     ...(body.type === 'decision' && (body.options ?? existing?.options) ? { options: body.options ?? existing?.options } : {}),
@@ -485,6 +503,27 @@ function setScenario(board: Board, body: Extract<ChangeBody, { op: 'set_scenario
     ok: true,
     board: { ...board, spec: { ...board.spec, scenarios: existing ? scenarios.map((x) => (x.id === id ? scenario : x)) : [...scenarios, scenario] } },
     summary: `${existing ? 'Updated' : 'Added'} runtime scenario ${id} for ${body.flow}`,
+    warnings: [],
+  };
+}
+
+/** Records the Well-Architected review of one or more recommendations. */
+function review(board: Board, body: Extract<ChangeBody, { op: 'review' }>, actor: Actor, basis: Basis | undefined): ApplyResult {
+  for (const c of body.checks) {
+    if (!CHECKLIST.some((r) => r.code === c.code)) return fail(`${c.code} is not a recommendation in the Well-Architected checklists.`);
+    if (c.status !== 'met' && !c.note) return fail(`${c.code}: say why it is ${c.status.replace('_', ' ')}, in note.`);
+  }
+  let source: Review['source'];
+  if (basis) source = { kind: basis.source, ...(basis.document ? { document: basis.document } : {}), quote: basis.quote };
+  else if (actor === 'user') source = { kind: 'typed' };
+  else return fail('A review needs its source: what the user or a document said about it, quoted.');
+  const next = new Map(board.spec.reviews.map((r) => [r.code, r]));
+  for (const c of body.checks) next.set(c.code, { code: c.code, status: c.status, ...(c.note ? { note: c.note } : {}), source });
+  const order = (code: string) => CHECKLIST.findIndex((r) => r.code === code);
+  return {
+    ok: true,
+    board: { ...board, spec: { ...board.spec, reviews: [...next.values()].sort((a, b) => order(a.code) - order(b.code)) } },
+    summary: `Reviewed ${body.checks.map((c) => `${c.code} (${c.status.replace('_', ' ')})`).join(', ')}`,
     warnings: [],
   };
 }
@@ -597,6 +636,9 @@ export function applyChange(board: Board, change: Change): ApplyResult {
       break;
     case 'set_scenario':
       result = setScenario(board, body, checked.data.actor, checked.data.basis);
+      break;
+    case 'review':
+      result = review(board, body, checked.data.actor, checked.data.basis);
       break;
     case 'remove_scenario': {
       const target = board.spec.scenarios.find((x) => x.id === body.ref);

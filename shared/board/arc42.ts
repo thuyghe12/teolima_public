@@ -32,6 +32,14 @@ export interface ItemType {
   named?: boolean;
   /** Placeholder text for the item's sentence. */
   placeholder: string;
+  /** The categories an item of this type must name one of, with their labels. */
+  categories?: Record<string, string>;
+  /** Per category, the values the item's name must be one of (a setting's options). */
+  values?: Record<string, readonly string[]>;
+  /** The item must serve an item in this section, e.g. a quality scenario serves a 1.2 quality goal. */
+  servesSection?: string;
+  /** The item states how it is measured. */
+  measured?: boolean;
 }
 
 export interface SectionDef {
@@ -106,7 +114,7 @@ export const DISCOVERY_SECTIONS: SectionDef[] = [
     stage: 'discovery',
     title: 'Constraints',
     hint: 'Limits the design must respect: budget and timeline, regulation, required technology, organizational rules.',
-    types: [{ id: 'constraint', label: 'Constraint', placeholder: 'A limit the design must respect' }],
+    types: [{ id: 'constraint', label: 'Constraint', placeholder: 'A limit the design must respect', categories: CONSTRAINT_CATEGORIES }],
     guidance: [`${DISCOVERY}#evaluate-test-feasibility-constraints-and-trade-offs`],
   },
   {
@@ -142,7 +150,11 @@ export const CHAPTERS: Record<string, string> = {
   '4': 'Solution strategy',
   '5': 'Building block view',
   '6': 'Runtime view',
+  '7': 'Deployment view',
+  '8': 'Crosscutting concepts',
   '9': 'Architecture decisions',
+  '10': 'Quality requirements',
+  '11': 'Risks and technical debt',
 };
 
 const PATTERNS = 'https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/ai-agent-design-patterns';
@@ -188,7 +200,7 @@ export const SOLUTION_SECTIONS: SectionDef[] = [
     hint: 'The recommendation in a few lines: the approach, and how each top quality goal is met.',
     types: [
       { id: 'strategy', label: 'Approach', placeholder: 'A fundamental choice, e.g. one agent with tools in Microsoft Foundry' },
-      { id: 'quality_approach', label: 'Quality goal', placeholder: 'How a quality goal from 1.2 is met' },
+      { id: 'quality_approach', label: 'Quality goal', placeholder: 'How a quality goal from 1.2 is met', servesSection: '1.2' },
     ],
     guidance: [`${DISCOVERY}#recommend-propose-the-technical-strategy`, `${PATTERNS}#start-with-the-right-level-of-complexity`],
   },
@@ -217,8 +229,93 @@ export const SOLUTION_SECTIONS: SectionDef[] = [
     guidance: [`${DISCOVERY}#recommend-propose-the-technical-strategy`, CAF_TREE, BASELINE],
   },
 ];
+/**
+ * The deployment settings: the few choices that are hard or impossible to
+ * change after deployment and that the earlier stages do not settle. The
+ * compile wizard asks only these, prefilled with what technical design
+ * recorded (ADR 0003).
+ */
+export const DEPLOYMENT_SETTINGS = {
+  region: { label: 'Region', required: true, values: null },
+  network_isolation: { label: 'Network isolation', required: true, values: ['Private networking', 'Public endpoints'] },
+  landing_zone: { label: 'Platform landing zone', required: true, values: ['Standalone', 'Existing platform landing zone'] },
+  model_capacity: { label: 'Model capacity', required: false, values: null },
+} as const;
+export type DeploymentSetting = keyof typeof DEPLOYMENT_SETTINGS;
+
+/**
+ * Crosscutting concepts (arc42 section 8): the rules every building block
+ * follows. The baseline Foundry architecture covers identity, networking,
+ * data protection, monitoring and content safety for every component; the
+ * operational standards for AI agents require evaluation with acceptance
+ * thresholds before production.
+ */
+export const CONCEPTS = {
+  identity: { label: 'Identity and access', required: true },
+  networking: { label: 'Networking', required: true },
+  data_protection: { label: 'Data protection', required: false },
+  observability: { label: 'Observability', required: true },
+  content_safety: { label: 'Content safety', required: true },
+  evaluation: { label: 'Evaluation', required: true },
+  cost: { label: 'Cost management', required: false },
+} as const;
+export type Concept = keyof typeof CONCEPTS;
+
+const label = <T extends Record<string, { label: string }>>(o: T) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v.label])) as Record<keyof T, string>;
+const BASELINE_PAGE = 'https://learn.microsoft.com/en-us/azure/architecture/ai-ml/architecture/baseline-microsoft-foundry-chat';
+const OPERATIONAL = 'https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards';
+
+/**
+ * Stage 3 (technical design) owns arc42 sections 7, 8, 10 and 11: where the
+ * system runs, the rules across it, the quality scenarios that make each
+ * quality goal testable, and the risks, debt and assumptions. Alongside them,
+ * the Well-Architected design review: every coded recommendation of the five
+ * pillar checklists, with its status (shared/board/waf.ts).
+ */
+export const TECHNICAL_SECTIONS: SectionDef[] = [
+  {
+    id: '7',
+    stage: 'technical',
+    title: 'Deployment view',
+    hint: 'The environments, and the settings that are hard to change after deployment. The Azure resources follow from the design.',
+    types: [
+      { id: 'setting', label: 'Setting', named: true, placeholder: 'Why, e.g. the data residency constraint', categories: label(DEPLOYMENT_SETTINGS), values: Object.fromEntries(Object.entries(DEPLOYMENT_SETTINGS).flatMap(([k, v]) => (v.values ? [[k, v.values]] : []))) },
+      { id: 'environment', label: 'Environment', named: true, placeholder: 'What it is for, e.g. testing with production-like data' },
+    ],
+    guidance: [`${BASELINE_PAGE}#architecture`, `${BASELINE_PAGE}#security`, `${WAF}/architect-role/design-diagrams#deployment-diagram`],
+  },
+  {
+    id: '8',
+    stage: 'technical',
+    title: 'Crosscutting concepts',
+    hint: 'The rules every building block follows: identity, networking, observability, content safety, evaluation.',
+    types: [{ id: 'concept', label: 'Concept', placeholder: 'The rule, e.g. every service authenticates with a managed identity', categories: label(CONCEPTS) }],
+    guidance: [`${BASELINE_PAGE}#security`, `${BASELINE_PAGE}#operational-excellence`, OPERATIONAL],
+  },
+  {
+    id: '10',
+    stage: 'technical',
+    title: 'Quality requirements',
+    hint: 'For each quality goal in 1.2, a scenario: what happens, how the system responds, and how that is measured.',
+    types: [{ id: 'quality_scenario', label: 'Scenario', placeholder: 'When this happens, the system responds like this', servesSection: '1.2', measured: true }],
+    guidance: [`${WAF}/architect-role/architecture-design-specification`, OPERATIONAL],
+  },
+  {
+    id: '11',
+    stage: 'technical',
+    title: 'Risks and technical debt',
+    hint: 'What could go wrong, what is knowingly left for later, and every assumption the design rests on.',
+    types: [
+      { id: 'risk', label: 'Risk', placeholder: 'What could go wrong, and the mitigation' },
+      { id: 'debt', label: 'Debt', placeholder: 'What is left for later, and why' },
+      { id: 'assumption', label: 'Assumption', placeholder: 'What the design assumes until it is confirmed', categories: { general: 'General', out_of_scope: 'Out of scope', reliability: 'Reliability', performance: 'Performance', cost: 'Cost', operations: 'Operations', rollout: 'Rollout' } },
+    ],
+    guidance: [`${WAF}/architect-role/architecture-design-specification`, `${WAF}/reliability/failure-mode-analysis`],
+  },
+];
+
 /** Every arc42 section Teolima uses, in arc42 order. */
-export const SECTIONS: SectionDef[] = [...DISCOVERY_SECTIONS, ...SOLUTION_SECTIONS];
+export const SECTIONS: SectionDef[] = [...DISCOVERY_SECTIONS, ...SOLUTION_SECTIONS, ...TECHNICAL_SECTIONS].sort((a, b) => parseFloat(a.id) - parseFloat(b.id));
 
 export const sectionDef = (id: string): SectionDef | undefined => SECTIONS.find((s) => s.id === id);
 export const sectionsOf = (stage: StageId): SectionDef[] => SECTIONS.filter((s) => s.stage === stage);

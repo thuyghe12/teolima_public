@@ -58,13 +58,14 @@ test('each stage accepts only its own changes; an approved stage is frozen until
   assert.ok('error' in ahead && /has not started/.test(ahead.error));
 });
 
-test('solution design is ready for approval when its steps are done; later stages are not built yet', () => {
+test('solution design is ready for approval when its steps are done, and opens technical design', () => {
   const b = replay(emptyBoard(), supportChanges);
   assert.equal(b.stage.current, 'solution');
   assert.deepEqual(gate(b, 'solution'), { ready: true, missing: [] });
   const r = applyChange(b, ch({ op: 'approve_stage', stage: 'solution', by: 'Lead architect' }, 'user'));
   assert.ok(r.ok && r.board.stage.current === 'technical');
-  assert.deepEqual(gate(r.board, 'technical'), { ready: false, missing: ['this stage is not built yet'] });
+  assert.equal(gate(r.board, 'technical').ready, false);
+  assert.deepEqual(gate(r.board, 'compile'), { ready: false, missing: ['this stage is not built yet'] });
   const wrong = applyChange(b, ch({ op: 'approve_stage', stage: 'technical', by: 'x' }, 'user'));
   assert.ok('error' in wrong && /only it can be approved/.test(wrong.error));
 });

@@ -211,8 +211,10 @@ export const SpecItem = z.object({
   name: z.string().trim().min(1).max(40).optional(),
   /** Quality goals: the quality attribute. */
   attribute: z.enum(['reliability', 'security', 'privacy', 'compliance', 'performance', 'cost', 'operations', 'accessibility']).optional(),
-  /** Constraints: the category. */
-  category: z.enum(['business', 'regulatory', 'technical', 'organizational']).optional(),
+  /** The category, for types that name one (shared/board/arc42.ts): a constraint's, a setting's, a concept's, an assumption's. */
+  category: z.string().trim().min(1).max(40).optional(),
+  /** Quality scenarios: how the response is measured, e.g. "p95 under 4 seconds". */
+  measure: z.string().trim().min(1).max(200).optional(),
   /** Stage 2 items: the stage 1 items this one answers, by id (a quality approach serves a quality goal). */
   serves: z.array(Id).max(20).optional(),
   /** Decision records: what is decided, the options weighed, and the consequences. */
@@ -221,6 +223,21 @@ export const SpecItem = z.object({
   consequences: z.string().trim().min(1).max(400).optional(),
   source: SourceRef,
 });
+
+/**
+ * One recommendation of the Well-Architected design review checklists
+ * (shared/board/waf.ts), as reviewed in technical design.
+ */
+export const ReviewStatus = z.enum(['met', 'partly', 'not_met', 'not_applicable']);
+export type ReviewStatus = z.infer<typeof ReviewStatus>;
+export const Review = z.object({
+  code: z.string().regex(/^(RE|SE|CO|OE|PE):\d{2}$/),
+  status: ReviewStatus,
+  /** How the design meets it, or why not. Required unless met. */
+  note: z.string().trim().min(1).max(300).optional(),
+  source: SourceRef,
+});
+export type Review = z.infer<typeof Review>;
 
 /**
  * A runtime scenario (arc42 section 6): one user flow from discovery, as
@@ -256,9 +273,11 @@ export type CustomSection = z.infer<typeof CustomSection>;
 
 /** The stage documents: their items, and the sections the user added. */
 export const Spec = z.object({
-  items: z.array(SpecItem).max(150).default([]),
+  items: z.array(SpecItem).max(300).default([]),
   sections: z.array(CustomSection).max(30).default([]),
   scenarios: z.array(Scenario).max(30).default([]),
+  /** The Well-Architected design review, one entry per recommendation reviewed. */
+  reviews: z.array(Review).max(80).default([]),
 });
 export type Spec = z.infer<typeof Spec>;
 
@@ -290,7 +309,7 @@ export const Board = z.object({
   title: z.string().trim().max(120).default(''),
   brief: Brief.default({ goal: '', audience: '', constraints: [] }),
   shape: Shape.default({ kind: 'undecided', reasons: [] }),
-  spec: Spec.default({ items: [], sections: [], scenarios: [] }),
+  spec: Spec.default({ items: [], sections: [], scenarios: [], reviews: [] }),
   stage: StageState.default({ current: 'discovery', approvals: [] }),
   components: z.array(Component).max(60),
   teams: z.array(Team).max(10),
@@ -303,7 +322,7 @@ export const emptyBoard = (): Board => ({
   title: '',
   brief: { goal: '', audience: '', constraints: [] },
   shape: { kind: 'undecided', reasons: [] },
-  spec: { items: [], sections: [], scenarios: [] },
+  spec: { items: [], sections: [], scenarios: [], reviews: [] },
   stage: { current: 'discovery', approvals: [] },
   components: [],
   teams: [],

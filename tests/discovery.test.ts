@@ -60,7 +60,7 @@ test('each section takes only its own types, with the fields they need', () => {
   refuse(item({ section: '1.3', type: 'stakeholder', text: 'Owns it' }), /needs a short name/);
   refuse(item({ section: '1.2', type: 'quality', text: 'Fast' }), /names its quality attribute/);
   refuse(item({ section: '2', type: 'constraint', text: 'EU only' }), /names its category/);
-  refuse(item({ section: '7', type: 'goal', text: 'x' }), /no section "7"/);
+  refuse(item({ section: '12', type: 'goal', text: 'x' }), /no section "12"/);
   const noSource = applyChange(emptyBoard(), ch(item({ section: '1.1', type: 'goal', text: 'x' }), 'coach', null));
   assert.ok('error' in noSource && /needs its source/.test(noSource.error));
 });
