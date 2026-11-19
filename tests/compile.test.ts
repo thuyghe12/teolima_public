@@ -4,10 +4,9 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import Ajv2019 from 'ajv/dist/2019';
-import draft7 from 'ajv/dist/refs/json-schema-draft-07.json';
 import { parse } from 'yaml';
 import { compile, type CompiledFile } from '../server/compile';
+import { azdValidator } from '../server/compile/schemas';
 import { declaredParameters, LANDING_ZONE_DIR, landingZoneFiles } from '../server/compile/landing-zone';
 import { replay } from '../shared/board/changes';
 import { emptyBoard } from '../shared/board/schema';
@@ -31,26 +30,6 @@ const file = (files: CompiledFile[], path: string) => {
   assert.ok(f, `${path} is compiled`);
   return f.content;
 };
-
-/** The azd schema with the Foundry extension schemas it references, as azd itself resolves them. */
-function azdValidator() {
-  const dir = 'vendor/azd-schemas';
-  const ajv = new Ajv2019({ strict: false, allErrors: true });
-  ajv.addMetaSchema(draft7);
-  const base = 'https://raw.githubusercontent.com/Azure/azure-dev/main/cli/azd/extensions';
-  const folder: Record<string, string> = {
-    'azure.ai.agent.json': 'azure.ai.agents', 'microsoft.foundry.json': 'azure.ai.agents', 'Agent.json': 'azure.ai.agents', 'Connection.json': 'azure.ai.agents',
-    'Deployment.json': 'azure.ai.agents', 'Routine.json': 'azure.ai.agents', 'Skill.json': 'azure.ai.agents', 'Toolbox.json': 'azure.ai.agents', 'FileRef.json': 'azure.ai.agents',
-    'azure.ai.project.json': 'azure.ai.projects', 'azure.ai.connection.json': 'azure.ai.connections', 'azure.ai.routine.json': 'azure.ai.routines',
-    'azure.ai.eval.json': 'azure.ai.evaluations', 'azure.ai.skill.json': 'azure.ai.skills', 'azure.ai.toolbox.json': 'azure.ai.toolboxes',
-  };
-  for (const name of readdirSync(join(dir, 'extensions'))) {
-    const schema = JSON.parse(readFileSync(join(dir, 'extensions', name), 'utf8'));
-    delete schema.$id;
-    ajv.addSchema(schema, `${base}/${folder[name]}/schemas/${name}`);
-  }
-  return ajv.compile(JSON.parse(readFileSync(join(dir, 'azure.yaml.json'), 'utf8')));
-}
 
 test('compile waits for technical design, then asks only what no stage settled', () => {
   const inSolution = replay(emptyBoard(), supportChanges);
