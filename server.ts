@@ -11,8 +11,11 @@ import { BOARD_TOOLS, BoardSession, GROUNDED_TOOLS, basisFrom, boardToolDeclarat
 import { Audit, Guard, promptShields } from './server/guard';
 import { LIVE_SAFETY_SETTINGS } from './server/guard/gemini-safety';
 import { ChangeBody } from './shared/board/changes';
-import { emptyBoard } from './shared/board/schema';
+import { Board, emptyBoard } from './shared/board/schema';
 import { DOCUMENT_OPS } from './shared/board/stages';
+import { compile } from './server/compile';
+import { check } from './server/compile/checks';
+import { exportProject } from './server/compile/export';
 import { COACH_PROMPT, COACH_PROMPT_VERSION, openingPrompt, stageBriefing } from './server/prompts/coach';
 import { declareTools, supportsAsyncTools, toolResponse } from './server/live-tools';
 import { validateToolCall } from './server/validation';
@@ -548,6 +551,48 @@ wss.on('connection', async (clientWs: WebSocket) => {
 });
 
 // REST Endpoints
+// Compile and export work without a call: the browser sends its board, validated here.
+const compileRequest = (req: express.Request, res: express.Response) => {
+  if (!hasValidToken(typeof req.query.token === 'string' ? req.query.token : req.get('x-access-token'))) {
+    res.status(401).json({ error: 'Missing or invalid access token' });
+    return null;
+  }
+  const board = Board.safeParse(req.body?.board);
+  if (!board.success) {
+    res.status(400).json({ error: 'Not a valid board' });
+    return null;
+  }
+  return {
+    board: board.data,
+    answers: req.body.answers ?? {},
+    overrides: req.body.overrides ?? {},
+    settings: { off: [], thresholds: {}, custom: [], ...(req.body.settings ?? {}) },
+  };
+};
+
+app.post('/api/compile', (req, res) => {
+  const input = compileRequest(req, res);
+  if (!input) return;
+  try {
+    const r = compile(input);
+    res.json('files' in r ? { ...r, report: check(input.board, r.files, input.settings) } : r);
+  } catch (e) {
+    console.error('[Compile]', e);
+    res.status(500).json({ ok: false, reason: 'Compile failed on the server; see its log.', dilemmas: [] });
+  }
+});
+
+app.post('/api/export', (req, res) => {
+  const input = compileRequest(req, res);
+  if (!input) return;
+  const r = exportProject({ ...input, approvedBy: String(req.body.by ?? ''), at: new Date().toISOString() });
+  if (!r.ok) return void res.status(409).json({ error: 'reason' in r ? r.reason : 'Export refused.' });
+  console.log(`[Export] ${r.name} approved by ${String(req.body.by)}`);
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="${r.name}.zip"`);
+  res.send(Buffer.from(r.zip));
+});
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
