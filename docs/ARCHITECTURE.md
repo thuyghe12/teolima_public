@@ -58,6 +58,18 @@ The tools, knowledge and approvals a team uses sit in a lane below its agents. A
 
 The call panel shows how far the board is through the design standard (`readiness()`), with the next step named and every open item explained.
 
+## Guidance snapshot
+
+Microsoft's architecture guidance ships with the repository in `data/knowledge/`: the Well-Architected Framework, the AI section of the Azure Architecture Center and the AI agents section of the Cloud Adoption Framework, one JSON file per source. Each page keeps its place in Microsoft's table of contents, its area and pillar, and its sections; each section keeps its heading trail, a link to that heading on Microsoft Learn, and its text. The design review checklist items (RE:01, SE:06, ...) are listed separately.
+
+```mermaid
+flowchart LR
+  LEARN[(Microsoft Learn<br/>toc.json + MCP fetch)] --> BUILD[knowledge:build] --> VERIFY[knowledge:verify] --> PR[Weekly pull request] --> SNAP[(data/knowledge)]
+  SNAP --> LIB[Guidance library] --> AG[Coach and workers]
+```
+
+Agents read it by progressive disclosure, never as a whole: the outline of a source, area or pillar, then a page's headings, then one section, with a keyword search for terms whose place is unknown. A quote is accepted only if it appears in the section it cites. The snapshot needs no database or network at runtime; the decision and its alternatives are in [ADR 0006](adr/0006-guidance-snapshot.md).
+
 ## Demo mode
 
 Without `GEMINI_API_KEY`, starting a call replays `server/demo.ts`: a goal, narration and the board changes for a customer support system. The replay goes through the same board session and change log as a live session, so it exercises the real path. The tests check that every change is accepted, that the design contains a guardrail and an approval, and that the board lays out cleanly.
