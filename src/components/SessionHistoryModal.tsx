@@ -225,7 +225,7 @@ export const SessionHistoryModal: React.FC<SessionHistoryModalProps> = ({
                 )}
 
                 {/* Session Thumbnail */}
-                {selectedSession.thumbnailUrl && (
+                {selectedSession.thumbnailUrl?.startsWith('data:image/') && (
                   <div className="rounded-2xl border border-[#e2e2e6] overflow-hidden bg-[#fafafa] max-h-56 flex items-center justify-center p-2">
                     <img
                       src={selectedSession.thumbnailUrl}

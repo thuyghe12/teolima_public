@@ -126,3 +126,8 @@ and an image [diagram](images/ai-agent-adoption-process.svg).`;
   assert.deepEqual(linkedPages('[x](business-strategy-plan)', { url: hub }, [`${hub}/`]), []);
   assert.equal(flattenToc({ items: [{ href: 'ai-agents/', toc_title: 'AI agents' }] }, 'https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/', [`${hub}/`])[0].folder, true);
 });
+
+test('nested HTML comments leave nothing behind', async () => {
+  const { clean } = await import('../shared/knowledge/parse');
+  assert.doesNotMatch(clean('a <!-<!-- x -->- y --> b'), /<!--/);
+});

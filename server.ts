@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import { randomUUID } from 'node:crypto';
+import { rateLimit } from 'express-rate-limit';
 import express from 'express';
 import http from 'http';
 import path from 'path';
@@ -23,6 +25,9 @@ import { hasValidToken, isAllowedOrigin, tokenFromUpgrade } from './server/secur
 
 const PORT = config.port;
 const app = express();
+// The API and the built app are rate limited per client.
+const limiter = rateLimit({ windowMs: 60_000, limit: 300, standardHeaders: 'draft-7', legacyHeaders: false });
+app.use('/api', limiter);
 app.set('trust proxy', 1);
 app.use(express.json({ limit: config.httpBodyLimit }));
 
@@ -126,7 +131,7 @@ wss.on('connection', async (clientWs: WebSocket) => {
   };
 
   const session = new BoardSession();
-  const sessionId = `${new Date().toISOString().replace(/[:.]/g, '-')}-${Math.random().toString(36).slice(2, 8)}`;
+  const sessionId = `${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}`;
   const guard = new Guard(new Audit(sessionId, config.auditDir), shield, COACH_PROMPT);
   guard.audit.record({ kind: 'session_start', screening: guard.screening });
   let userLevel = 2;
@@ -608,6 +613,7 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
+    app.use(limiter);
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));

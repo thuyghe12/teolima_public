@@ -113,11 +113,20 @@ export interface Chunk {
 
 const MAX_CHARS = 2200;
 
+/** Removes HTML comments, repeating until none are left, so a comment hidden inside another cannot survive. */
+function stripComments(text: string): string {
+  let previous: string;
+  let current = text;
+  do {
+    previous = current;
+    current = current.replace(/<!--[\s\S]*?-->/g, '');
+  } while (current !== previous);
+  return current.replace(/<!--/g, '');
+}
+
 /** Removes Learn markup that carries no guidance: images, include markers, zone pivots, HTML comments. */
 export function clean(md: string): string {
-  return md
-    .replace(/\r\n/g, '\n')
-    .replace(/<!--[\s\S]*?-->/g, '')
+  return stripComments(md.replace(/\r\n/g, '\n'))
     .replace(/^:::.*$/gm, '')
     .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
     .replace(/^\s*\[!INCLUDE[^\]]*\]\s*$/gim, '')
