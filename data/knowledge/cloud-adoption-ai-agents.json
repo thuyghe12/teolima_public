@@ -1,0 +1,510 @@
+{
+  "source": {
+    "id": "cloud-adoption-ai-agents",
+    "title": "Cloud Adoption Framework: AI agents",
+    "seeds": [
+      "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/"
+    ],
+    "prefixes": [
+      "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/"
+    ],
+    "license": "CC-BY-4.0",
+    "attribution": "Content from Microsoft Learn (learn.microsoft.com), © Microsoft, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Changed for Teolima: page markup removed and pages split into sections by heading."
+  },
+  "pages": [
+    {
+      "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents",
+      "title": "AI agent adoption strategy",
+      "trail": [],
+      "area": "cloud-adoption",
+      "pillar": null,
+      "hash": "6bac2f5c0db5f064",
+      "retrieved": "2026-11-19",
+      "sections": [
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents",
+          "heading": "AI agent adoption strategy",
+          "headings": [
+            "AI agent adoption strategy"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents",
+          "text": "*This article provides an executive overview of Microsoft AI agent solutions and answers the key questions executives need to make an informed adoption decisions.*\n\nAI agents can improve productivity by reasoning about information and taking actions to complete tasks. Organizations must determine whether these capabilities provide enough business value to justify the additional cost and risk. This article explains when agents are useful, which Microsoft solutions are available, and what executives should consider before investing."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents#ai-agent-decision-tree-and-architecture",
+          "heading": "AI agent decision tree and architecture",
+          "headings": [
+            "AI agent adoption strategy",
+            "AI agent decision tree and architecture"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents#ai-agent-decision-tree-and-architecture",
+          "text": "[](images/ai-agent-decision-tree.svg#lightbox)\n\n[A decision tree that guides organizations through decisions about when and how to use AI agents. It starts with \"Potential agent use case\" and branches into multiple decision paths. The business plan path determines if AI agents should be used. If the answer is \"No,\" the path leads to \"Use code or nongenerative AI models\" with icons for GitHub, Microsoft Fabric, AI models in Foundry, and Machine Learning. If Yes, it asks if the task involves static question or answer or content generation without reasoning. The technology plan path checks if SaaS agents meet functional requirements. If Yes, the path leads to Use SaaS agents. There are icons representing Microsoft 365 Copilot agents (App Builder, Workflows, Researcher, Analyst, Surveys). Then there are icons for GitHub Copilot agent, Microsoft Fabric data agents, Azure Copilot agents, Dynamics 365 agents, and Security Copilot agents. If SaaS agents don't meet needs, the path leads to \"Build AI agents\" with options for GPUs & Containers (IaaS), Microsoft Foundry (PaaS pro-code), and Copilot Studio (SaaS no/low-code). You start with multiple-agent systems if the use case crosses security and compliance boundaries, has multiple teams involved, or you know there's going to be future growth of this system. Unless the system is low complexity, all other use cases should start with a single agent test to see if it could meet your requirements. Depending on the result, you'll align with a multi-agent system or single-agent system.](images/ai-agent-decision-tree.svg#lightbox)\n\n*AI agent decision tree.*\n\n[](../ready/landing-zone/media/azure-landing-zone-conceptual-architecture.svg#lightbox)\n\n[Layered architecture diagram. A top banner labeled \"Unified identity, security, and governance\" contains Microsoft Agent 365, Microsoft Defender, Microsoft Entra, and Microsoft Purview. Below, a large Azure landing zone box contains a platform landing zone centered above a workload landing zones section. The workload landing zones section contains three workload landing zone boxes representing Azure workloads. Beneath the workloads, a Microsoft Foundry and Foundry IQ box connects by dashed arrows to the workload landing zones, indicating optional AI capabilities for selected workloads.](../ready/landing-zone/media/azure-landing-zone-conceptual-architecture.svg#lightbox)\n\n*AI in an Azure landing zone. Download a [PowerPoint file](https://arch-center.azureedge.net/cloud-adoption-framework-conceptual-azure-landing-zone-architecture-v3.pptx) of this architecture.*\n\n---"
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents#1-what-is-an-ai-agent",
+          "heading": "1. What is an AI agent?",
+          "headings": [
+            "AI agent adoption strategy",
+            "1. What is an AI agent?"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents#1-what-is-an-ai-agent",
+          "text": "An AI agent is software that uses AI models and tools to pursue goals and complete tasks. Traditional automation follows fixed rules. An agent reasons about available information and chooses its next action. For example, an IT support agent can investigate an incident and recommend a fix. The same agent can also run an approved remediation. The term \"agent\" covers products with very different risk profiles. A shared definition gives leaders a common basis for investment and risk decisions."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents#2-when-should-we-use-ai-agents",
+          "heading": "2. When should we use AI agents?",
+          "headings": [
+            "AI agent adoption strategy",
+            "2. When should we use AI agents?"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents#2-when-should-we-use-ai-agents",
+          "text": "Not every business problem requires an AI agent. Traditional automation and generative AI can deliver the required outcome with more predictable behavior. The appropriate solution depends on the capabilities the task requires.\n\n- **Traditional automation or code**: Structured and predictable tasks fit rule-based automation. These solutions follow predefined steps and don't need AI reasoning. Invoice routing by vendor code is a typical example. Power Automate and workflows in Microsoft Copilot Studio support this kind of work.\n- **Retrieval-augmented generation (RAG)**: RAG fits scenarios where people need answers from organizational knowledge. A RAG solution retrieves relevant content and generates a response. It doesn't select or execute actions. An HR policy assistant is a typical example. Microsoft 365 Copilot, Copilot Studio, and Microsoft Foundry provide RAG over organizational content. Azure AI Search supports custom RAG solutions.\n- **AI agents**: Agents fit tasks where AI must reason about information and decide or coordinate actions dynamically. Agents can recommend actions for human approval. They can also execute actions within defined permissions."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents#3-what-ai-solutions-do-we-make-available",
+          "heading": "3. What AI solutions do we make available?",
+          "headings": [
+            "AI agent adoption strategy",
+            "3. What AI solutions do we make available?"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents#3-what-ai-solutions-do-we-make-available",
+          "text": "Microsoft provides prebuilt agents and platforms for developing custom agents. Organizations should make available the agetnts and platforms that meets their business requirements.\n\n**Prebuilt agents**: Start with existing solutions when they meet business requirements. Microsoft provides agents through products such as Microsoft 365 Copilot, GitHub Copilot, Microsoft Fabric, and Dynamics 365. These solutions reduce development effort but offer less customization than purpose-built agents.\n\n**Custom agents**: Make development platforms available when prebuilt agents can't meet business requirements. The appropriate platform depends on the organization's development capabilities and need for customization.\n\n- **Microsoft Copilot Studio**: Supports low-code agent development with managed platform capabilities. It suits organizations that want to enable business users and developers to create agents with less engineering effort.\n- **Microsoft Foundry**: Supports code-first agent development with greater flexibility. It suits organizations with specialized requirements and engineering teams that can manage more of the development lifecycle.\n- **Azure infrastructure**: Supports custom agent solutions that require direct control over infrastructure or capabilities beyond managed platforms. It offers greater flexibility but increases operational responsibility.\n\nOrganizations can support multiple platforms to meet different business needs. The goal is to provide enough choice without creating unnecessary platform complexity. For a detailed comparison of solutions, see [What AI should we use?](/en-us/azure/cloud-adoption-framework/ai/strategy?tabs=decisiontree#3-what-ai-should-we-use)."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents#4-what-about-risks",
+          "heading": "4. What about risks?",
+          "headings": [
+            "AI agent adoption strategy",
+            "4. What about risks?"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents#4-what-about-risks",
+          "text": "AI agents introduce risk because they access business information and act in connected systems. An agent can expose sensitive data or take an unintended action. Greater autonomy increases the impact of errors. Organizations manage this risk by limiting agent access and by requiring human approval for higher-risk actions. Microsoft provides capabilities for each risk area.\n\n| Risk category | Microsoft solution | Description |\n| --- | --- | --- |\n| **Agent governance** | Microsoft Agent 365 | Provides centralized visibility and lifecycle governance across Microsoft and supported third-party agents. |\n| **Agent security** | Microsoft Entra Agent ID and Microsoft Defender | Help secure agent identities and detect threats involving agents. |\n| **Data governance** | Microsoft Purview | Helps protect sensitive information accessed or processed by agents. |\n| **Agent behavior** | Prebuilt SaaS agents, Microsoft Copilot agents, Microsoft Copilot Studio, and Microsoft Foundry | Provide product-specific controls and safeguards to manage agent behavior and reduce the risk of unintended actions. |\n\nThese capabilities help organizations adopt agents within acceptable risk boundaries. For more information, see [Agent governance](architecture-governance#2-governance)."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents#6-how-to-adopt-ai-agents",
+          "heading": "6. How to adopt AI agents",
+          "headings": [
+            "AI agent adoption strategy",
+            "6. How to adopt AI agents"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents#6-how-to-adopt-ai-agents",
+          "text": "Organizations can use the Microsoft Cloud Adoption Framework to evaluate whether to invest in AI agents and prepare for adoption. The framework helps teams assess business value and organizational readiness before establishing the governance and operational standards needed to deploy agents.\n\n[](images/ai-agent-adoption-process.svg#lightbox)\n\n[Diagram showing the phases of AI agent adoption process: Organizational readiness, Architecture and governance, and operational standards.](images/ai-agent-adoption-process.svg#lightbox)\n\n1. **[Organizational readiness](organizational-readiness)**: Learn how to plan AI agent adoption through clear ownership, workforce preparation, financial management, and use-case prioritization.\n2. **[Architecture and governance](architecture-governance)**: Learn how to establish architecture standards and governance controls for AI agents across your organization.\n3. **[Operational standards](operational-standards)**: Establish requirements for evaluating agent behavior, monitoring actions, and managing agents throughout their lifecycle."
+        }
+      ]
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/architecture-governance",
+      "title": "Architecture and governance for AI agents",
+      "trail": [
+        "AI agent adoption strategy"
+      ],
+      "area": "cloud-adoption",
+      "pillar": null,
+      "hash": "cb3552911dc08353",
+      "retrieved": "2026-11-19",
+      "sections": [
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/architecture-governance",
+          "heading": "Architecture and governance for AI agents",
+          "headings": [
+            "Architecture and governance for AI agents"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/architecture-governance",
+          "text": "*This article helps decision makers determine agent architecture and governance across their organization.*\n\n[](images/ai-agent-adoption-process.svg#lightbox)\n\n[Diagram showing the phases of AI agent adoption process: Organizational readiness, Architecture and governance, and operational standards.](images/ai-agent-adoption-process.svg#lightbox)\n\nAI agents introduce new architectural requirements and governance risks as they gain access to enterprise systems and perform actions autonomously. Organizations should extend their existing architecture and governance frameworks to support AI agents rather than establish separate systems.\n\n**Outcome**: By the end of architecture and governance planning, your organization should have defined architectural standards and governance policies that support secure AI agent deployment across the enterprise."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/architecture-governance#ai-architecture-and-decision-tree",
+          "heading": "AI architecture and decision tree",
+          "headings": [
+            "Architecture and governance for AI agents",
+            "AI architecture and decision tree"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/architecture-governance#ai-architecture-and-decision-tree",
+          "text": "[](../ready/landing-zone/media/azure-landing-zone-conceptual-architecture.svg#lightbox)\n\n[Layered architecture diagram. A top banner labeled \"Unified identity, security, and governance\" contains Microsoft Agent 365, Microsoft Defender, Microsoft Entra, and Microsoft Purview. Below, a large Azure landing zone box contains a platform landing zone centered above a workload landing zones section. The workload landing zones section contains three workload landing zone boxes representing Azure workloads. Beneath the workloads, a Microsoft Foundry and Foundry IQ box connects by dashed arrows to the workload landing zones, indicating optional AI capabilities for selected workloads.](../ready/landing-zone/media/azure-landing-zone-conceptual-architecture.svg#lightbox)\n\n*AI in an Azure landing zone. Download a [PowerPoint file](https://arch-center.azureedge.net/cloud-adoption-framework-conceptual-azure-landing-zone-architecture-v3.pptx) of this architecture.*\n\n[](images/ai-agent-decision-tree.svg#lightbox)\n\n[A decision tree that guides organizations through decisions about when and how to use AI agents. It starts with \"Potential agent use case\" and branches into multiple decision paths. The business plan path determines if AI agents should be used. If the answer is \"No,\" the path leads to \"Use code or nongenerative AI models\" with icons for GitHub, Microsoft Fabric, AI models in Foundry, and Machine Learning. If Yes, it asks if the task involves static question or answer or content generation without reasoning. The technology plan path checks if SaaS agents meet functional requirements. If Yes, the path leads to Use SaaS agents. There are icons representing Microsoft 365 Copilot agents (App Builder, Workflows, Researcher, Analyst, Surveys). Then there are icons for GitHub Copilot agent, Microsoft Fabric data agents, Azure Copilot agents, Dynamics 365 agents, and Security Copilot agents. If SaaS agents don't meet needs, the path leads to \"Build AI agents\" with options for GPUs & Containers (IaaS), Microsoft Foundry (PaaS pro-code), and Copilot Studio (SaaS no/low-code). You start with multiple-agent systems if the use case crosses security and compliance boundaries, has multiple teams involved, or you know there's going to be future growth of this system. Unless the system is low complexity, all other use cases should start with a single agent test to see if it could meet your requirements. Depending on the result, you'll align with a multi-agent system or single-agent system.](images/ai-agent-decision-tree.svg#lightbox)\n\n*AI agent decision tree.*\n\n---"
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/architecture-governance#1-azure-landing-zone-architecture",
+          "heading": "1. Azure landing zone architecture",
+          "headings": [
+            "Architecture and governance for AI agents",
+            "1. Azure landing zone architecture"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/architecture-governance#1-azure-landing-zone-architecture",
+          "text": "*How should we update our Azure landing zone?* AI agents hosted in Azure should follow your existing Azure landing zone architecture. Organizations need to determine whether their current platform standards support AI workloads and where agent infrastructure belongs.\n\n- **Platform landing zone**: Agents hosted in Azure should follow the existing platform landing zone resource hierarchy. They don't need separate management groups. The platform team should use Azure Policy definitions to cover AI-specific infrastructure, such as Foundry resources and Azure infrastructure. Azure Policy enforces these rules across subscriptions.\n- **Workload landing zones**: Agent resources should reside in workload landing zone subscriptions. Shared agent infrastructure can serve multiple workloads without becoming a platform landing zone resource. Organizations can assign a dedicated team to manage shared infrastructure and establish access policies for consuming workloads. Workload teams should manage their agent resources under existing workload governance standards.\n\nSee [Architecture for AI](../scenarios/ai/ready)."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/architecture-governance#2-governance",
+          "heading": "2. Governance",
+          "headings": [
+            "Architecture and governance for AI agents",
+            "2. Governance"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/architecture-governance#2-governance",
+          "text": "*How should we govern agents?* Agent governance establishes the policies that determine which agents can operate and what they're permitted to do. Extend existing governance frameworks and apply additional controls based on agent risk. Central functions should establish mandatory boundaries. Platform and workload teams should manage agents within those boundaries. Governance should be based on risk. Autonomy level and impact of incorrect action factors determine an agent's risk."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/architecture-governance#21-responsible-ai",
+          "heading": "2.1 Responsible AI",
+          "headings": [
+            "Architecture and governance for AI agents",
+            "2. Governance",
+            "2.1 Responsible AI"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/architecture-governance#21-responsible-ai",
+          "text": "*How should we use agents responsibly?* Existing responsible AI policies should apply to all agents. Your organization should extend these policies to address autonomous actions and their potential consequences. An agent that makes consequential business decisions might require additional oversight and human approval. See [Responsible AI policies](../ai/responsible-ai-policies)."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/architecture-governance#22-sovereignty",
+          "heading": "2.2 Sovereignty",
+          "headings": [
+            "Architecture and governance for AI agents",
+            "2. Governance",
+            "2.2 Sovereignty"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/architecture-governance#22-sovereignty",
+          "text": "*How should we meet sovereignty requirements?* Your organization should extend existing sovereignty policies to AI agents based on applicable regulatory and contractual obligations. Evaluate where agent data is stored and processed, including data exchanged with models and connected services. Agent platforms and deployment configurations must support the required geographic and operational boundaries. Where a platform can't meet these requirements, workload teams should select an alternative deployment option or restrict the agent's use. See [Architecture and governance for sovereignty](/en-us/azure/cloud-adoption-framework/sovereignty/azure-landing-zone-architecture-governance)."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/architecture-governance#23-centralized-control",
+          "heading": "2.3 Centralized control",
+          "headings": [
+            "Architecture and governance for AI agents",
+            "2. Governance",
+            "2.3 Centralized control"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/architecture-governance#23-centralized-control",
+          "text": "*How should we control agents centrally?* Your organization needs centralized visibility across agent platforms. Centralized visibility doesn't require central approval of every agent. Microsoft Agent 365 provides a common management experience for Microsoft agents and agents from supported third-party platforms. [Connected platforms in Microsoft Agent 365](/en-us/microsoft-agent-365/admin/connected-platforms) lists current coverage. Agents outside this coverage rely on platform-native management capabilities.\n\n- **Centralized visibility**: Every agent should be discoverable through an approved inventory process. [Microsoft Agent 365 Agent Registry](/en-us/microsoft-agent-365/admin/agent-registry-overview) discovers and manages agents within its coverage. Governance teams should add inventory data from other platforms so the inventory stays complete. Each inventory entry should identify the agent's accountable owner and risk classification.\n- **Lifecycle control**: Your organization should establish consistent policies for agent visibility, access, distribution, and retirement across the tenant. The [Microsoft 365 admin center](/en-us/microsoft-agent-365/admin/agent-actions) provides governance and lifecycle management capabilities for agents through the Microsoft Agent 365 Agent Registry."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/architecture-governance#24-data-governance",
+          "heading": "2.4 Data governance",
+          "headings": [
+            "Architecture and governance for AI agents",
+            "2. Governance",
+            "2.4 Data governance"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/architecture-governance#24-data-governance",
+          "text": "*How should we govern agent data?* Data governance teams should define which data classifications agents can access and whether agents can use that information in external services. Workload teams should enforce these requirements through source-system permissions and supported platform controls. Use Microsoft Purview to apply supported data protection and compliance capabilities. See [Data governance](/en-us/azure/cloud-adoption-framework/data/data-governance-unified-data-platform?tabs=purview)."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/architecture-governance#25-security-governance",
+          "heading": "2.5 Security governance",
+          "headings": [
+            "Architecture and governance for AI agents",
+            "2. Governance",
+            "2.5 Security governance"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/architecture-governance#25-security-governance",
+          "text": "*How should we secure agents?* Your organization should extend its existing security policies to address agent identities and autonomous access to enterprise systems. Security requirements should reflect the permissions agents receive and the consequences of unauthorized actions. Agent permissions should reflect the actions the agent is authorized to perform, not the maximum access its platform supports.\n\n- **Agent identity**: Agent access should follow least privilege, and owners should review permissions periodically. Agents that act on behalf of users should respect delegated permissions. Autonomous agents should receive only the permissions their approved activities require. For example, an agent that summarizes support tickets needs read access to the ticketing system, not write access. [Microsoft Entra Agent ID](/en-us/entra/agent-id/what-is-microsoft-entra-agent-id) provides identity and access governance for supported agents.\n- **Threat protection**: Security teams should extend existing threat detection and incident response processes to agents. Security policies should address agent-specific threats, such as prompt injection. Microsoft Agent 365 security capabilities extend Microsoft Entra access controls and Microsoft Defender threat protection where supported. AI threat protection in Microsoft Defender for Cloud covers agents hosted on Azure AI services. See [Microsoft Agent 365 security capabilities](/en-us/security/security-for-ai/agent-365-security?toc=/microsoft-agent-365/toc.json&amp;bc=/microsoft-agent-365/breadcrumb/agent365/toc.json)."
+        }
+      ]
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/organizational-readiness",
+      "title": "Organizational readiness for AI agents",
+      "trail": [
+        "AI agent adoption strategy"
+      ],
+      "area": "cloud-adoption",
+      "pillar": null,
+      "hash": "adc6401f5198de25",
+      "retrieved": "2026-11-19",
+      "sections": [
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/organizational-readiness",
+          "heading": "Organizational readiness for AI agents",
+          "headings": [
+            "Organizational readiness for AI agents"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/organizational-readiness",
+          "text": "*This article helps decision makers prepare their organization for AI agent adoption.*\n\n[](images/ai-agent-adoption-process.svg#lightbox)\n\n[Diagram showing the phases of AI agent adoption process: Organizational readiness, Architecture and governance, and operational standards.](images/ai-agent-adoption-process.svg#lightbox)\n\nOrganizational readiness is the ability of your organization to support AI agents throughout their lifecycle. Agents fail more often from unclear ownership than from technical problems. This guidance helps you establish the organizational foundation for sustainable AI agent adoption.\n\n**Outcome**: By the end of organizational readiness, your organization should have a defined operating model and an investment strategy that supports responsible AI agent adoption."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/organizational-readiness#ai-agent-decision-tree-and-architecture",
+          "heading": "AI agent decision tree and architecture",
+          "headings": [
+            "Organizational readiness for AI agents",
+            "AI agent decision tree and architecture"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/organizational-readiness#ai-agent-decision-tree-and-architecture",
+          "text": "[](images/ai-agent-decision-tree.svg#lightbox)\n\n[A decision tree that guides organizations through decisions about when and how to use AI agents. It starts with \"Potential agent use case\" and branches into multiple decision paths. The business plan path determines if AI agents should be used. If the answer is \"No,\" the path leads to \"Use code or nongenerative AI models\" with icons for GitHub, Microsoft Fabric, AI models in Foundry, and Machine Learning. If Yes, it asks if the task involves static question or answer or content generation without reasoning. The technology plan path checks if SaaS agents meet functional requirements. If Yes, the path leads to Use SaaS agents. There are icons representing Microsoft 365 Copilot agents (App Builder, Workflows, Researcher, Analyst, Surveys). Then there are icons for GitHub Copilot agent, Microsoft Fabric data agents, Azure Copilot agents, Dynamics 365 agents, and Security Copilot agents. If SaaS agents don't meet needs, the path leads to \"Build AI agents\" with options for GPUs & Containers (IaaS), Microsoft Foundry (PaaS pro-code), and Copilot Studio (SaaS no/low-code). You start with multiple-agent systems if the use case crosses security and compliance boundaries, has multiple teams involved, or you know there's going to be future growth of this system. Unless the system is low complexity, all other use cases should start with a single agent test to see if it could meet your requirements. Depending on the result, you'll align with a multi-agent system or single-agent system.](images/ai-agent-decision-tree.svg#lightbox)\n\n*AI agent decision tree.*\n\n[](../ready/landing-zone/media/azure-landing-zone-conceptual-architecture.svg#lightbox)\n\n[Layered architecture diagram. A top banner labeled \"Unified identity, security, and governance\" contains Microsoft Agent 365, Microsoft Defender, Microsoft Entra, and Microsoft Purview. Below, a large Azure landing zone box contains a platform landing zone centered above a workload landing zones section. The workload landing zones section contains three workload landing zone boxes representing Azure workloads. Beneath the workloads, a Microsoft Foundry and Foundry IQ box connects by dashed arrows to the workload landing zones, indicating optional AI capabilities for selected workloads.](../ready/landing-zone/media/azure-landing-zone-conceptual-architecture.svg#lightbox)\n\n*AI in an Azure landing zone. Download a [PowerPoint file](https://arch-center.azureedge.net/cloud-adoption-framework-conceptual-azure-landing-zone-architecture-v3.pptx) of this architecture.*\n\n---"
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/organizational-readiness#1-operating-model",
+          "heading": "1. Operating model",
+          "headings": [
+            "Organizational readiness for AI agents",
+            "1. Operating model"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/organizational-readiness#1-operating-model",
+          "text": "*What operating model should we use?* An AI agent operating model defines how your organization assigns responsibility for agent adoption and ongoing management. Most organizations can extend their existing business and technology responsibilities to support AI agents. Larger adoption programs might require dedicated teams to coordinate governance and enablement. The operating model should establish clear accountability regardless of the technology used to create an agent.\n\n- **Business ownership**: The business function that relies on an agent owns its outcomes. It also accepts the agent's residual risk. A claims department owns its claims triage agent, for example. Existing process owners usually take on this responsibility. Critical or cross-functional agents can warrant a dedicated owner.\n- **Risk and compliance**: This function sets security and compliance requirements for agents. It defines risk criteria and reviews higher-risk use cases. Existing governance functions can extend their scope to agents. Business leaders still accept residual risk within their established authority.\n- **SaaS platform management**: Platform functions configure and secure the platforms that host agents. SaaS platforms such as Microsoft 365 Copilot and Copilot Studio need tenant settings and builder policies. They also establish policies that govern agent creation and use. SaaS platform teams manage shared platform capabilities rather than assume ownership of every agent created on those platforms.\n- **Azure platform management**: Azure platform teams should extend existing platform capabilities and governance controls to support agents built with Microsoft Foundry or custom AI infrastructure on Azure.\n- **Workload development**: Dedicated workload teams should develop and operate agents as managed solutions using technologies such as Microsoft Copilot Studio, Microsoft Foundry, or custom AI infrastructure on Azure. They should develop within approved environments and follow the governance controls established by the teams managing those platforms. They follow the organization's [Operational standards](operational-standards).\n- **Individual builders**: Employees can create agents for personal productivity or business processes by using approved tools such as Agent Builder in Microsoft 365 Copilot and Microsoft Copilot Studio. Individual creators should maintain their agents and ensure they comply with organizational policies. An employee-created agent that becomes business-critical requires formal ownership and operational accountability.\n- **AI enablement**: Enablement functions help employees adopt AI agents and apply organizational standards. Organizations can extend existing technology enablement functions or establish a dedicated AI enablement team. Existing functions are generally sufficient for limited adoption. Dedicated teams might provide greater coordination when adoption spans multiple business units or requires specialized expertise. The tradeoff is additional organizational cost and management overhead. See [AI CoE](../ai/center-of-excellence).\n\nFor foundational cloud operating model guidance, see [Operating model](/en-us/azure/cloud-adoption-framework/plan/prepare-organization-for-cloud)."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/organizational-readiness#2-prioritization",
+          "heading": "2. Prioritization",
+          "headings": [
+            "Organizational readiness for AI agents",
+            "2. Prioritization"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/organizational-readiness#2-prioritization",
+          "text": "*How should we prioritize AI agent opportunities?* Agent ideas usually outnumber the capacity to build and support them. Teams can benchmark ideas against the [Microsoft Scenario Library](https://adoption.microsoft.com/scenario-library/) and the [AI Use Cases catalog](https://www.microsoft.com/ai/use-case).\n\nPrioritization decides which use cases receive funding first and which ones wait. Funding the wrong candidates wastes budget and erodes executive confidence. A consistent approach lets leaders compare proposals from different business units on equal terms. Business impact, user desirability, and technical feasibility should guide prioritization.\n\n[](images/prioritize-agent-use-cases.png#lightbox)"
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/organizational-readiness#21-business-impact",
+          "heading": "2.1 Business impact",
+          "headings": [
+            "Organizational readiness for AI agents",
+            "2. Prioritization",
+            "2.1 Business impact"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/organizational-readiness#21-business-impact",
+          "text": "Business impact shows how strongly a use case supports business priorities and how quickly it delivers measurable value.\n\n- **Executive strategy alignment**: Strong candidates directly support strategic priorities and have an executive sponsor. Weak candidates have little connection to business objectives.\n- **Business value**: Strong candidates show clear and measurable benefits, such as lower cost per transaction or faster case resolution. Weak candidates have benefits that nobody quantified.\n- **Change management timeframe**: Strong candidates have short rollout timelines and limited disruption to how people work. Weak candidates require lengthy rollouts or significant process redesign."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/organizational-readiness#22-user-desirability",
+          "heading": "2.2 User desirability",
+          "headings": [
+            "Organizational readiness for AI agents",
+            "2. Prioritization",
+            "2.2 User desirability"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/organizational-readiness#22-user-desirability",
+          "text": "User desirability shows whether the intended users understand the benefits and are likely to adopt the agent. An agent that people avoid delivers no value regardless of its technical quality.\n\n- **Key personas**: Strong candidates have clearly defined users with well-understood needs. Weak candidates lack clarity about who benefits.\n- **Value proposition**: Strong candidates remove a pain point that users feel every day. Weak candidates offer limited appeal or unclear benefits.\n- **Change resistance**: Strong candidates face little resistance because the agent removes unwanted work. Weak candidates threaten established roles or habits. Their adoption stalls without a deliberate change plan."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/organizational-readiness#23-technical-feasibility",
+          "heading": "2.3 Technical feasibility",
+          "headings": [
+            "Organizational readiness for AI agents",
+            "2. Prioritization",
+            "2.3 Technical feasibility"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/organizational-readiness#23-technical-feasibility",
+          "text": "Technical feasibility shows whether teams can deliver and operate the agent with acceptable risk. For agents, risk depends heavily on what happens when the agent acts incorrectly.\n\n- **Implementation and operation risks**: Strong candidates have well-understood risks and practical mitigation plans. The consequences of an incorrect action are reversible or contained. Weak candidates carry unknown risks or actions that are difficult to undo, such as payments or customer commitments.\n- **Sufficient safeguards**: Strong candidates operate in areas where security and responsible AI practices are already mature. Weak candidates depend on safeguards that don't exist yet.\n- **Technology fit**: Strong candidates need an agent's ability to reason over variable inputs and choose among actions. Weak candidates follow fixed and predictable steps. Conventional workflow automation handles those steps at lower cost and risk."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/organizational-readiness#3-return-on-investment-roi",
+          "heading": "3. Return on investment (ROI)",
+          "headings": [
+            "Organizational readiness for AI agents",
+            "3. Return on investment (ROI)"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/organizational-readiness#3-return-on-investment-roi",
+          "text": "*How should the organization evaluate AI agent return on investment?* Return on investment (ROI) shows whether an agent's value justifies its total cost. It separates agents worth scaling from agents worth stopping. Many organizations run dozens of pilots and scale none of them. Pilots without stop criteria rarely end. They also consume capacity that proven agents need. Four elements make an ROI assessment credible.\n\n1. **Business baseline**: The business owner measures the current process before an agent enters it. Average handling time per case is a typical measure. Claims of improvement lack credibility without a baseline.\n2. **Total cost**: Total cost includes implementation and ongoing operations. Licensing and consumption charges form part of it. Integration work and the effort to govern and monitor the agent form the rest. Prebuilt agents usually cost less to implement but offer less flexibility.\n3. **Net business value**: Productivity gains don't automatically translate into financial savings. An agent that saves employees time creates additional capacity. The financial value depends on how the organization uses that capacity to reduce costs or increase output. Business cases should distinguish measurable financial benefits from productivity improvements that don't directly affect financial results.\n4. **Further investment**: Organizations should use measured costs and business value to decide whether to continue investing in an agent. Initial deployments should validate expected benefits against the business baseline. Leaders should assess whether the results justify further investment at an acceptable level of risk. Based on the findings, organizations can expand the agent's use, improve it, or retire it."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/organizational-readiness#4-financial-management-and-finops",
+          "heading": "4. Financial management and FinOps",
+          "headings": [
+            "Organizational readiness for AI agents",
+            "4. Financial management and FinOps"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/organizational-readiness#4-financial-management-and-finops",
+          "text": "*How should the organization manage AI agent finances?* AI agent financial management establishes how your organization estimates costs and assigns funding responsibility. It also defines how teams monitor consumption and control spending. Organizations should extend existing financial management and FinOps practices to account for AI agent pricing models and variable consumption.\n\n- **Pricing and cost estimation**: AI agent costs depend on the services and consumption models involved. Prebuilt agents might use per-user licensing or consumption-based pricing. Custom agents might incur costs for model inference and supporting services. Organizations should estimate costs by using expected adoption and usage patterns. Consumption-based pricing offers flexibility but creates uncertainty when usage increases. Fixed licensing can improve predictability but might result in unused capacity or licenses. For major cost factors, see [What AI should we use?](/en-us/azure/cloud-adoption-framework/ai/strategy?tabs=decisiontree#3-what-ai-should-we-use).\n- **Funding responsibility**: Central funding simplifies investment in shared capabilities such as a common model deployment. Business-unit funding creates clearer accountability when benefits stay within one function. A combined approach funds shared platforms centrally and business-specific agents locally. Most organizations use this combination.\n- **Showback and chargeback**: Each business unit should have an accountable budget owner for its agent consumption. Shared agents need an agreed allocation method. Showback is appropriate when business units need visibility without direct cost recovery. Chargeback is appropriate when consumption costs need to affect individual business-unit budgets.\n- **Consumption controls**: Finance and platform functions agree on budgets and review actual consumption as adoption grows. Budgets in Microsoft Cost Management alert owners before Azure spending exceeds plan. Copilot Studio billing management provides similar controls for Copilot Studio agents. The Cost management standards cover ongoing cost control."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/organizational-readiness#5-skilling-and-sourcing",
+          "heading": "5. Skilling and sourcing",
+          "headings": [
+            "Organizational readiness for AI agents",
+            "5. Skilling and sourcing"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/organizational-readiness#5-skilling-and-sourcing",
+          "text": "*What AI agent skills should the organization develop?* The adoption approach determines which skills the organization needs. Prebuilt agent adoption mainly needs user training and governance skills. Custom development also needs engineering and operations expertise. Leaders decide which capabilities to build internally and which to source from partners.\n\n- **Role-based training**: Training reflects each function's responsibilities. Leaders need to understand agent capabilities and investment risk. Builders need to understand appropriate use and organizational policy. Engineering teams need the expertise to develop and operate agents. Uniform training for every employee spends budget on skills that many people won't use. [Microsoft training](/en-us/training), [AI Skills Navigator](https://aiskillsnavigator.microsoft.com), and [Microsoft training partners](/en-us/training/educator-center/programs/global-training-partner/find-global-training-partner) offer starting points.\n- **Practical learning**: Hackathons and workshops let employees practice finding good agent use cases. They also let employees practice human oversight. A community of practice, such as a Teams channel for agent builders, spreads lessons across teams.\n- **Partner expertise**: Specialist partners can accelerate adoption when internal capabilities are insufficient or the required expertise is temporary. Partner support is particularly useful for complex custom agent initiatives or initial platform enablement. Your organization should retain business accountability and develop enough internal capability to govern externally delivered solutions."
+        }
+      ]
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards",
+      "title": "Operational standards for AI agents",
+      "trail": [
+        "AI agent adoption strategy"
+      ],
+      "area": "cloud-adoption",
+      "pillar": null,
+      "hash": "ce17c46b5f60ab9b",
+      "retrieved": "2026-11-19",
+      "sections": [
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards",
+          "heading": "Operational standards for AI agents",
+          "headings": [
+            "Operational standards for AI agents"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards",
+          "text": "*This article helps decision makers establish consistent operational standards for AI agents across their organization.*\n\n[](images/ai-agent-adoption-process.svg#lightbox)\n\n[Diagram showing the phases of AI agent adoption process: Organizational readiness, Architecture and governance, and operational standards.](images/ai-agent-adoption-process.svg#lightbox)\n\nOperational standards for AI agents are the common requirements that govern how teams build and run agents. Agents need these standards because they make decisions and execute actions. Standards help teams develop reliable agents and manage their behavior throughout their lifecycle. This guidance helps decision makers establish common requirements across agent platforms.\n\nOperational standards should apply across prebuilt and custom agents where relevant. Each platform provides its own controls. Employee-created agents and engineering-managed solutions need different implementation requirements. Not every standard requires the same implementation across all agent types.\n\n**Outcome**: By the end of defining your operational standards, your organization should have established consistent requirements for developing and operating AI agents safely and efficiently at scale."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#ai-agent-decision-tree-and-architecture",
+          "heading": "AI agent decision tree and architecture",
+          "headings": [
+            "Operational standards for AI agents",
+            "AI agent decision tree and architecture"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#ai-agent-decision-tree-and-architecture",
+          "text": "[](images/ai-agent-decision-tree.svg#lightbox)\n\n[A decision tree that guides organizations through decisions about when and how to use AI agents. It starts with \"Potential agent use case\" and branches into multiple decision paths. The business plan path determines if AI agents should be used. If the answer is \"No,\" the path leads to \"Use code or nongenerative AI models\" with icons for GitHub, Microsoft Fabric, AI models in Foundry, and Machine Learning. If Yes, it asks if the task involves static question or answer or content generation without reasoning. The technology plan path checks if SaaS agents meet functional requirements. If Yes, the path leads to Use SaaS agents. There are icons representing Microsoft 365 Copilot agents (App Builder, Workflows, Researcher, Analyst, Surveys). Then there are icons for GitHub Copilot agent, Microsoft Fabric data agents, Azure Copilot agents, Dynamics 365 agents, and Security Copilot agents. If SaaS agents don't meet needs, the path leads to \"Build AI agents\" with options for GPUs & Containers (IaaS), Microsoft Foundry (PaaS pro-code), and Copilot Studio (SaaS no/low-code). You start with multiple-agent systems if the use case crosses security and compliance boundaries, has multiple teams involved, or you know there's going to be future growth of this system. Unless the system is low complexity, all other use cases should start with a single agent test to see if it could meet your requirements. Depending on the result, you'll align with a multi-agent system or single-agent system.](images/ai-agent-decision-tree.svg#lightbox)\n\n*AI agent decision tree.*\n\n[](../ready/landing-zone/media/azure-landing-zone-conceptual-architecture.svg#lightbox)\n\n[Layered architecture diagram. A top banner labeled \"Unified identity, security, and governance\" contains Microsoft Agent 365, Microsoft Defender, Microsoft Entra, and Microsoft Purview. Below, a large Azure landing zone box contains a platform landing zone centered above a workload landing zones section. The workload landing zones section contains three workload landing zone boxes representing Azure workloads. Beneath the workloads, a Microsoft Foundry and Foundry IQ box connects by dashed arrows to the workload landing zones, indicating optional AI capabilities for selected workloads.](../ready/landing-zone/media/azure-landing-zone-conceptual-architecture.svg#lightbox)\n\n*AI in an Azure landing zone. Download a [PowerPoint file](https://arch-center.azureedge.net/cloud-adoption-framework-conceptual-azure-landing-zone-architecture-v3.pptx) of this architecture.*\n\n---"
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#1-development",
+          "heading": "1. Development",
+          "headings": [
+            "Operational standards for AI agents",
+            "1. Development"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#1-development",
+          "text": "*What organization-wide standards should we consider for agent development?* Development standards establish common requirements for agent capabilities without prescribing how teams build individual agents. These standards matter because inconsistent choices across teams multiply risk and support costs. The central decision is which capabilities need organizational restrictions and which choices teams can make independently. Standards that restrict too much push creators toward unapproved tools. Standards that restrict too little leave risk unmanaged."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#11-knowledge-and-actions",
+          "heading": "1.1 Knowledge and actions",
+          "headings": [
+            "Operational standards for AI agents",
+            "1. Development",
+            "1.1 Knowledge and actions"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#11-knowledge-and-actions",
+          "text": "*What organization-wide standards should we consider for agent knowledge and actions?* Knowledge sources provide information that agents use to complete tasks. Tools allow agents to interact with systems and perform actions. Development standards should set boundaries for both capabilities without central approval for every integration.\n\n- **Knowledge access**: Organizations should allow agents to access knowledge sources permitted by existing data governance policies. Additional approval should apply when access introduces risks that existing policies don't address. This approach avoids creating separate approval processes for routine integrations.\n- **Action permissions**: Organizations should establish standards for which actions agents can execute autonomously. Routine actions can operate within approved permissions. Actions with significant business consequences might require additional restrictions or human approval. The appropriate controls depend on the potential impact of an incorrect action.\n\n**Platform capabilities**: For Foundry, [Skills](/en-us/azure/foundry/agents/how-to/tools/skills) describes how builders package approved capabilities. For Copilot Studio, [Knowledge](/en-us/microsoft-copilot-studio/knowledge-copilot-studio) and [Tools](/en-us/microsoft-copilot-studio/agents-experience/tools-overview) describe how agents connect to approved sources and actions. [Skills in Copilot Studio](/en-us/microsoft-copilot-studio/agents-experience/skills-overview) covers reusable capabilities."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#12-model-selection",
+          "heading": "1.2 Model selection",
+          "headings": [
+            "Operational standards for AI agents",
+            "1. Development",
+            "1.2 Model selection"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#12-model-selection",
+          "text": "*What organization-wide standards should we consider for AI model selection?* AI models determine how agents interpret information and generate responses. Model standards should prevent the use of models that fail organizational requirements without unnecessarily restricting teams to a small set of approved options. Organizations can control model selection in custom development platforms but have fewer choices in prebuilt SaaS agents.\n\n- **Model governance**: Central governance should prohibit models that fail known organizational requirements. Other models can remain available when they satisfy established policies, such as requirements for model providers or data processing locations. This approach allows teams to select compliant models without requiring individual approval for every model. Enforcing these policies might require different controls across agent platforms.\n- **Model provisioning**: Central provisioning is appropriate when many teams use the same models and shared management provides operational or financial benefits. Decentralized provisioning is appropriate when teams need specialized models or different deployment configurations. Organizations can combine both approaches by offering shared models as defaults and allowing other compliant models when necessary.\n\n**Platform capabilities**: For Foundry, see [Foundry Models sold by Azure](/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure). For Copilot Studio, see [Choose a primary AI model](/en-us/microsoft-copilot-studio/authoring-select-agent-model) or [Bring your own model for your prompts](/en-us/microsoft-copilot-studio/bring-your-own-model-prompts)."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#13-memory",
+          "heading": "1.3 Memory",
+          "headings": [
+            "Operational standards for AI agents",
+            "1. Development",
+            "1.3 Memory"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#13-memory",
+          "text": "*What organization-wide standards should we consider for agent memory?* Agent memory allows agents to retain information across interactions. Memory standards define what information agents can retain and how teams must protect it. These requirements should extend existing data governance and retention policies. Agent memory shouldn't outlast the business need or applicable retention requirements.\n\n**Platform capabilities**: For Foundry, [Memory](/en-us/azure/foundry/agents/concepts/what-is-memory) and [Standard agent setup](/en-us/azure/ai-foundry/agents/concepts/standard-agent-setup) describe the options. [Memory in Copilot Studio](/en-us/microsoft-copilot-studio/agents-experience/memory-overview-customer-conversation) explains platform behavior."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#15-runtime-safeguards",
+          "heading": "1.5 Runtime safeguards",
+          "headings": [
+            "Operational standards for AI agents",
+            "1. Development",
+            "1.5 Runtime safeguards"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#15-runtime-safeguards",
+          "text": "*What organization-wide standards should we consider for agent safeguards?* Runtime safeguards protect agents against harmful content and attacks, such as prompt injection.\n\n- **Baseline safeguards**: A common baseline establishes minimum protections across agent platforms. This approach simplifies enforcement and provides consistent protection. Standards should identify which safeguards must remain enabled and which settings teams can adjust. Uniform requirements improve consistency but might unnecessarily restrict some legitimate use cases.\n- **Scenario-specific safeguards**: Agents with greater exposure to untrusted information or consequential actions might require stronger protections. Existing governance policies should determine when these requirements apply. This approach accommodates different business needs but requires teams to apply the relevant controls consistently.\n- **Exceptions**: Standards should establish how teams request exceptions to mandatory safeguards. Exceptions require documented justification and appropriate compensating controls. Some safeguards might remain mandatory without exception.\n\n**Platform capabilities**: For Foundry, see [Guardrails and control overview](/en-us/azure/foundry/guardrails/guardrails-overview). For Copilot Studio, see [Copilot Studio security and governance](/en-us/microsoft-copilot-studio/security-and-governance)."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#16-agent-frameworks-and-interoperability",
+          "heading": "1.6 Agent frameworks and interoperability",
+          "headings": [
+            "Operational standards for AI agents",
+            "1. Development",
+            "1.6 Agent frameworks and interoperability"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#16-agent-frameworks-and-interoperability",
+          "text": "*What organization-wide standards should we consider for agent frameworks and interoperability?* Agent development frameworks provide the capabilities used to build and coordinate agent behavior. The development approach affects engineering responsibility and dependence on platform-specific capabilities.\n\n- **Development approaches**: Organizations should support development approaches that meet their engineering and governance requirements. Standardizing on a limited set of frameworks can simplify support and promote reuse. Allowing multiple frameworks gives teams greater flexibility but increases the expertise required to maintain them. Organizations should establish preferred frameworks and define when teams can use alternatives.\n- **Interoperability**: Organizations should establish interoperability standards where agents need to connect with shared tools or communicate across platforms. Protocols such as MCP and A2A can reduce integration complexity. Requiring these protocols for every agent can introduce unnecessary constraints. Standards should reflect actual interoperability requirements.\n\n**Platform capabilities**: For Foundry, [Hosted agents](/en-us/azure/foundry/agents/concepts/hosted-agents) run code-based agents on managed infrastructure. [Microsoft Agent Framework](/en-us/agent-framework/overview/?pivots=programming-language-csharp) provides the code-based option in detail."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#2-testing-and-evaluation",
+          "heading": "2. Testing and evaluation",
+          "headings": [
+            "Operational standards for AI agents",
+            "2. Testing and evaluation"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#2-testing-and-evaluation",
+          "text": "*How should we standardize testing and evaluation?* AI agents can execute successfully yet produce incorrect results or perform unintended actions. Testing and evaluation standards establish the evidence that teams must provide before deploying agents to production. Evaluation establishes whether an agent meets its intended outcomes. Testing establishes whether it behaves acceptably under expected and unexpected conditions. The organization needs standards for both."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#21-evaluation",
+          "heading": "2.1 Evaluation",
+          "headings": [
+            "Operational standards for AI agents",
+            "2. Testing and evaluation",
+            "2.1 Evaluation"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#21-evaluation",
+          "text": "*What organization-wide standards should we consider for agent evaluations?* Evaluation criteria define how teams measure whether an agent performs its intended tasks successfully. Standards should establish common evaluation expectations and require agent owners to define measurable success criteria for their business scenarios.\n\n- **Common requirements**: All agents should demonstrate that they meet their intended purpose and operate within approved permissions. Central standards can establish minimum evaluation expectations. Agent owners should define scenario-specific criteria that reflect their business requirements. For example, knowledge agents might measure answer accuracy. An action-taking agent also needs evidence that it selects appropriate actions and respects approval boundaries.\n- **Acceptance criteria**: Every production agent should have defined acceptance thresholds. Business owners should approve the criteria that determine whether an agent delivers acceptable outcomes. Agents that perform consequential actions might require additional review before deployment.\n\n**Platform capabilities**: For Foundry, [Evaluation](/en-us/azure/foundry/concepts/evaluation-overview) describes built-in evaluators. For Copilot Studio, [Design and operationalize agent evaluation](/en-us/agents/agent-evaluation/?context=/microsoft-copilot-studio/guidance/context/context) describes the approach."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#22-testing",
+          "heading": "2.2 Testing",
+          "headings": [
+            "Operational standards for AI agents",
+            "2. Testing and evaluation",
+            "2.2 Testing"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#22-testing",
+          "text": "*What organization-wide standards should we consider for agent testing?* Testing standards define the assurance required before agents enter production. Organizations should establish minimum testing requirements for all agents and increase assurance based on the consequences of incorrect behavior. Existing software testing processes should provide the foundation, with additional requirements for agent-specific risks.\n\n- **Baseline testing**: All production agents should demonstrate expected behavior within approved permissions. Lower-risk agents can use representative scenarios and platform-supported testing capabilities. This approach reduces approval effort but provides less assurance against unusual conditions.\n- **Risk-based testing**: Agents that access sensitive information or perform consequential actions should undergo additional testing for unexpected behavior and misuse. Stronger testing improves confidence but increases delivery effort.\n\n**Platform capabilities**: For Foundry, the [AI Red Teaming Agent](/en-us/azure/foundry/concepts/ai-red-teaming-agent) automates adversarial testing. For Copilot Studio, [Design a testing strategy for your agents](/en-us/microsoft-copilot-studio/guidance/sec-gov-phase4) describes testing practices."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#3-deployment-and-lifecycle-standards",
+          "heading": "3. Deployment and lifecycle standards",
+          "headings": [
+            "Operational standards for AI agents",
+            "3. Deployment and lifecycle standards"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#3-deployment-and-lifecycle-standards",
+          "text": "*What organization-wide standards should we consider for agent deployment and lifecycle management?* Deployment and lifecycle standards keep production agents consistent with their approved configuration. They also ensure that agents leave production cleanly when they no longer serve a purpose.\n\n- **Release standards**: Controlled and repeatable deployment should be the organizational standard. The organization should extend existing release processes and accommodate platform-native deployment capabilities. Deployment methods can vary by platform. Expectations for configuration management and production approval stay consistent. The [Sample Solution Gallery](https://adoption.microsoft.com/sample-solution-gallery/) offers working examples of proven agent patterns.\n- **Change management**: Changes that can materially affect agent behavior should trigger re-evaluation before production deployment. Model replacements and instruction updates can change agent outputs. Expanded permissions can introduce additional risks. Standards should require evaluation proportional to the potential impact rather than mandate full testing for every change.\n- **Version management**: Teams should retain sufficient version history to identify changes and restore approved configurations where supported. Existing release management processes should provide the foundation for agent change control.\n- **Retirement**: Standards should establish conditions that trigger agent retirement. These conditions can include loss of business ownership or unacceptable operational risk. Agents that no longer deliver sufficient value should also be considered for retirement. Retirement should disable agent execution and revoke associated permissions. Stored information should follow applicable retention requirements. Agent owners should confirm that retirement is complete.\n\n**Platform capabilities**: For Foundry, see [Bicep](/en-us/azure/foundry/how-to/create-resource-template) and [Terraform](/en-us/azure/foundry/how-to/create-resource-terraform). For Copilot Studio, see [Copilot Studio and agent samples](/en-us/microsoft-copilot-studio/guidance/agent-samples)."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#4-monitoring",
+          "heading": "4. Monitoring",
+          "headings": [
+            "Operational standards for AI agents",
+            "4. Monitoring"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#4-monitoring",
+          "text": "*What organization-wide standards should we consider for agent monitoring?* Monitoring standards define what agent owners observe in production. Traditional monitoring detects outages. Agent monitoring must also detect wrong answers and unintended actions from agents that appear healthy."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#41-telemetry",
+          "heading": "4.1 Telemetry",
+          "headings": [
+            "Operational standards for AI agents",
+            "4. Monitoring",
+            "4.1 Telemetry"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#41-telemetry",
+          "text": "*What organization-wide standards should we consider for agent telemetry?* Telemetry is the data that agents emit about their activity. Telemetry depth should scale with risk. Organizations should establish minimum visibility requirements for production agents. These requirements should support identifying usage and failures. Agents that perform consequential actions require additional records to support investigation and accountability. Detailed tracing should depend on risk and applicable data protection requirements.\n\nFor Foundry, [Observability in generative AI](/en-us/azure/foundry/concepts/observability) describes tracing. For Copilot Studio, [Monitor agent performance in Copilot Studio](/en-us/microsoft-copilot-studio/analytics-overview) describes analytics."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#42-quality",
+          "heading": "4.2 Quality",
+          "headings": [
+            "Operational standards for AI agents",
+            "4. Monitoring",
+            "4.2 Quality"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#42-quality",
+          "text": "*What organization-wide standards should we consider for agent quality?* Quality monitoring checks whether production agents still meet their evaluation criteria. Organizations should establish minimum quality monitoring requirements for production agents. User-facing agents can use feedback to identify problems. Agents that perform consequential actions might require systematic evaluation of production behavior. Monitoring depth should reflect the consequences of undetected failures.\n\n**Platform capabilities**: For Foundry, see [Observability in generative AI](/en-us/azure/foundry/concepts/observability). For Copilot Studio, see [Monitor agent performance in Copilot Studio](/en-us/microsoft-copilot-studio/analytics-overview)."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#5-incident-response",
+          "heading": "5. Incident response",
+          "headings": [
+            "Operational standards for AI agents",
+            "5. Incident response"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#5-incident-response",
+          "text": "*What organization-wide standards should we consider for agent incidents?* Agent incident response defines how organizations identify and contain harmful agent behavior. Agent incidents differ from outages because a healthy agent can still take harmful actions. Leaders need to decide which failures count as incidents and who can stop an agent. Organizations should extend existing incident management processes to include agent-specific failures. Incident severity should reflect the consequences of agent actions, not just service availability.\n\n- **Incident classification**: Organizations should define incidents involving incorrect actions or unauthorized access. Routine quality failures can follow established support processes. Failures with significant business consequences should trigger formal incident management.\n- **Agent suspension**: Organizations should establish conditions that require immediate suspension or restriction of agent capabilities. High-impact failures may justify automatic containment. Lower-impact failures can follow an approved remediation process. Stronger containment reduces exposure but might interrupt business operations.\n- **Recovery authority**: Incident policies should identify who can approve restoration after an agent incident. Higher-risk agents might require additional assurance before resuming operation. Recovery should depend on evidence that the underlying issue is resolved."
+        },
+        {
+          "id": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#6-cost-management",
+          "heading": "6. Cost management",
+          "headings": [
+            "Operational standards for AI agents",
+            "6. Cost management"
+          ],
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ai-agents/operational-standards#6-cost-management",
+          "text": "*What organization-wide standards should we consider for agent cost management?* Agent cost management standards define how agent owners manage resource consumption and improve operational efficiency. Agent costs can vary significantly because a single business task might trigger multiple model requests or tool executions.\n\n- **Spending thresholds**: Organizations should establish spending thresholds based on agent criticality and approved budgets. Experimental agents should have restrictive consumption limits to prevent unexpected costs. Business-critical agents might require higher limits and escalation procedures to avoid service interruptions.\n- **Cost monitoring**: Organizations should establish consistent cost reporting across agent platforms. Reporting should provide business owners with visibility into spending against approved budgets. Where supported, consumption should be attributable to individual agents or business functions.\n- **Cost efficiency**: Organizations should establish requirements for measuring agent operating costs against successful business outcomes. Cost per successful task provides a useful measure when outcomes are comparable. Teams should optimize consumption without reducing quality below approved acceptance criteria.\n- **Optimization requirements**: Agent owners should periodically review operating costs against expected outcomes. Sustained cost increases or declining task success rates should trigger additional review. Agents that no longer justify their operating costs should undergo optimization or retirement.\n\n**Platform capabilities**: For Foundry, see [Plan and manage costs](/en-us/azure/foundry/concepts/manage-costs), [Manage and increase quotas](/en-us/azure/foundry/how-to/quota), and [Agent optimizer](/en-us/azure/foundry/agents/concepts/agent-optimizer-overview). For Copilot Studio, see [Billing rates and management](/en-us/microsoft-copilot-studio/requirements-messages-management) and [View agent's billing consumption](/en-us/microsoft-copilot-studio/analytics-consumption)."
+        }
+      ]
+    }
+  ],
+  "checklist": []
+}
