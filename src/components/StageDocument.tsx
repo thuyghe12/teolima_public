@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Check, ChevronRight, Copy, Download, FileText, Lock, Mic, PenLine, Plus, Trash2, Type as TypeIcon, X } from 'lucide-react';
+import { Check, ChevronRight, Copy, Download, Lock, Plus, Quote, Trash2, X } from 'lucide-react';
 import type { ChangeBody } from '../../shared/board/changes';
 import type { Board, SpecItem, StageId } from '../../shared/board/schema';
 import { CHAPTERS, DECISION_TOPICS, QUALITY_ATTRIBUTES, type ItemType } from '../../shared/board/arc42';
@@ -29,11 +29,6 @@ interface StageDocumentProps {
 
 const NOTE: ItemType = { id: 'note', label: '', placeholder: 'Write something' };
 
-const SourceIcon: React.FC<{ item: SpecItem }> = ({ item }) => {
-  const Icon = item.source.kind === 'document' ? FileText : item.source.kind === 'brief' ? PenLine : item.source.kind === 'typed' ? TypeIcon : Mic;
-  return <Icon className="w-3.5 h-3.5" aria-hidden />;
-};
-
 const field = 'bg-transparent text-sm text-[#18181c] placeholder:text-[#b4b4ba] focus:outline-none';
 const input = `w-full ${field}`;
 
@@ -50,11 +45,11 @@ const Row: React.FC<{ board: Board; section: DocSection; item: SpecItem; documen
     onEdit({ op: 'record_item', id: item.id, section: item.section, type: item.type, text: t });
   };
   return (
-    <li className="group relative -mx-2 px-2 py-1.5 rounded-md hover:bg-[#f7f7f8]">
-      <div className="flex items-start gap-3">
-        {label && <span className="w-24 shrink-0 pt-0.5 text-[11px] uppercase tracking-wide text-[#87868e]">{label}</span>}
-        <div className="flex-1 min-w-0">
-          {item.name && <span className="text-sm font-medium mr-1.5">{item.name}</span>}
+    <li className="group relative -mx-2 px-2 py-1 rounded-md hover:bg-[#f7f7f8]">
+      <div className="flex items-start gap-2">
+        <div className="flex-1 min-w-0 text-[13px] leading-5">
+          {label && <span className="mr-1.5 align-[1px] text-[10px] font-medium uppercase tracking-wide text-[#87868e]">{label}</span>}
+          {item.name && <span className="font-medium mr-1">{item.name}</span>}
           {editing ? (
             <input
               autoFocus
@@ -69,20 +64,17 @@ const Row: React.FC<{ board: Board; section: DocSection; item: SpecItem; documen
                   setEditing(false);
                 }
               }}
-              className={input}
+              className={`${input} mt-0.5 px-2 py-1 rounded-md border border-[#18181c] bg-white text-[13px]`}
               aria-label="Edit item"
             />
           ) : (
-            <span
-              onClick={() => onEdit && setEditing(true)}
-              className={`text-sm leading-snug ${item.name ? 'text-[#5a5a62]' : ''} ${onEdit ? 'cursor-text' : ''}`}
-            >
+            <span onClick={() => onEdit && setEditing(true)} className={`${item.name ? 'text-[#5a5a62]' : ''} ${onEdit ? 'cursor-text' : ''}`}>
               {item.text}
             </span>
           )}
-          {item.measure && <p className="mt-0.5 text-xs text-[#5a5a62]">Measure: {item.measure}</p>}
+          {item.measure && <p className="text-xs text-[#5a5a62]">Measure: {item.measure}</p>}
           {(item.type === 'quality_approach' || item.type === 'quality_scenario') && !!item.serves?.length && (
-            <p className="mt-0.5 text-xs text-[#87868e]">Meets {item.serves.map((id) => itemName(board, id)).join(' · ')}</p>
+            <p className="text-xs text-[#87868e]">Meets {item.serves.map((id) => itemName(board, id)).join(' · ')}</p>
           )}
           {item.type === 'decision' && (
             <div className="mt-1 space-y-1">
@@ -99,18 +91,17 @@ const Row: React.FC<{ board: Board; section: DocSection; item: SpecItem; documen
             </div>
           )}
           {showSource && (
-            <p className="mt-1 text-xs text-[#87868e]">
-              {item.source.quote ? `"${item.source.quote}" · ` : ''}
-              {sourceLabel(item, documents)}
+            <p className="mt-1 pl-2 border-l-2 border-[#c8f13a] text-xs text-[#5a5a62]">
+              {item.source.quote ? `"${item.source.quote}"` : ''} <span className="text-[#87868e]">· {sourceLabel(item, documents)}</span>
             </p>
           )}
         </div>
-        <div className="flex items-center gap-0.5 pt-0.5 text-[#b4b4ba]">
-          <button onClick={() => setShowSource(!showSource)} className="p-0.5 hover:text-[#18181c]" aria-label="Show source" title={sourceLabel(item, documents)}>
-            <SourceIcon item={item} />
+        <div className="flex items-center gap-0.5 pt-0.5 text-[#b4b4ba] opacity-0 group-hover:opacity-100 focus-within:opacity-100">
+          <button onClick={() => setShowSource(!showSource)} className="p-0.5 hover:text-[#18181c]" aria-label="Show source" title={`Source: ${sourceLabel(item, documents)}`}>
+            <Quote className="w-3.5 h-3.5" />
           </button>
           {onEdit && (
-            <button onClick={() => onEdit({ op: 'remove_item', ref: item.id })} className="p-0.5 opacity-0 group-hover:opacity-100 hover:text-[#b91c1c]" aria-label="Delete item">
+            <button onClick={() => onEdit({ op: 'remove_item', ref: item.id })} className="p-0.5 hover:text-[#b91c1c]" aria-label="Delete item">
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           )}
@@ -489,8 +480,8 @@ const SectionTitle: React.FC<{ section: DocSection; onEdit?: (b: ChangeBody) => 
   const [title, setTitle] = useState(section.title);
   if (!section.custom) {
     return (
-      <h3 className="text-sm font-semibold">
-        <span className="text-[#a1a0a8] font-normal tabular-nums mr-2">{section.number}</span>
+      <h3 className="text-[13px] font-semibold truncate">
+        <span className="text-[#a1a0a8] font-normal tabular-nums mr-1.5">{section.number}</span>
         {section.title}
       </h3>
     );
@@ -528,6 +519,7 @@ export const StageDocument: React.FC<StageDocumentProps> = ({ board, stage, stag
   const [copied, setCopied] = useState(false);
   const gaps = useMemo(() => (stage === 'solution' ? traceability(board) : stage === 'technical' ? technicalGaps(board) : []), [board, stage]);
   const [showGaps, setShowGaps] = useState(false);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const required = d.topics.filter((t) => t.topic.required);
   const covered = required.filter((t) => t.covered).length;
   const markdown = () => stageMarkdown(board, stage, documents);
@@ -551,6 +543,7 @@ export const StageDocument: React.FC<StageDocumentProps> = ({ board, stage, stag
   };
 
   let chapter = '';
+  const isOpen = (sec: DocSection) => openSections[sec.id] ?? (sec.items.length > 0 || ['5', '6', '7', '11'].includes(sec.id));
   return (
     <aside
       aria-label={`${st.title} document`}
@@ -634,25 +627,54 @@ export const StageDocument: React.FC<StageDocumentProps> = ({ board, stage, stag
         </p>
       )}
 
-      <div className="flex-1 overflow-y-auto px-5 py-3 space-y-5">
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
         {sections.map((s) => {
           const c = s.custom ? '' : s.number.split('.')[0];
           const showChapter = !s.custom && s.number.includes('.') && c !== chapter;
           if (!s.custom) chapter = c;
           return (
-            <section key={s.id}>
+            <React.Fragment key={s.id}>
               {showChapter && (
-                <p className="mb-2 text-[11px] uppercase tracking-wide text-[#a1a0a8]">
+                <p className="pt-2 px-1 text-[10px] font-medium uppercase tracking-wider text-[#a1a0a8]">
                   {c}. {CHAPTERS[c]}
                 </p>
               )}
-              <SectionTitle section={s} onEdit={onEdit} />
+            <section className="rounded-xl border border-[#ececef] bg-white">
+              <div className="flex items-center gap-2 pl-2 pr-1.5 py-1.5">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => (e.target as HTMLElement).tagName !== 'INPUT' && setOpenSections({ ...openSections, [s.id]: !isOpen(s) })}
+                  onKeyDown={(e) => (e.target as HTMLElement).tagName !== 'INPUT' && (e.key === 'Enter' || e.key === ' ') && setOpenSections({ ...openSections, [s.id]: !isOpen(s) })}
+                  aria-expanded={isOpen(s)}
+                  className="flex-1 min-w-0 flex items-center gap-1.5 text-left cursor-pointer"
+                >
+                  <ChevronRight className={`w-3.5 h-3.5 shrink-0 text-[#a1a0a8] transition-transform ${isOpen(s) ? 'rotate-90' : ''}`} />
+                  <SectionTitle section={s} onEdit={onEdit} />
+                  {s.items.length > 0 && <span className="ml-auto text-[11px] tabular-nums text-[#a1a0a8]">{s.items.length}</span>}
+                </div>
+                {onEdit && (s.custom || !!s.def?.types.length) && (
+                  <button
+                    onClick={() => {
+                      setOpenSections({ ...openSections, [s.id]: true });
+                      setAdding(s.id);
+                    }}
+                    className="p-1 rounded-md text-[#a1a0a8] hover:text-[#18181c] hover:bg-[#f0f0f2]"
+                    aria-label={`Add to ${s.title}`}
+                    title="Add"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+              {isOpen(s) && (
+              <div className="px-3 pb-2">
               {s.id === '5' && <BuildingBlocks board={board} />}
               {s.id === '6' && <Runtime board={board} onEdit={onEdit} />}
               {s.id === '11' && <ReviewRisks board={board} />}
-              {s.items.length === 0 && s.hint && adding !== s.id && s.id !== '5' && s.id !== '6' && <p className="mt-1 text-xs text-[#a1a0a8]">{s.hint}</p>}
+              {s.items.length === 0 && s.hint && adding !== s.id && s.id !== '5' && s.id !== '6' && <p className="text-xs text-[#a1a0a8]">{s.hint}</p>}
               {s.items.length > 0 && (
-                <ul className="mt-1">
+                <ul>
                   {s.items.map((i) => (
                     <Row key={`${i.id}:${i.text}`} board={board} section={s} item={i} documents={documents} onEdit={onEdit} />
                   ))}
@@ -660,12 +682,10 @@ export const StageDocument: React.FC<StageDocumentProps> = ({ board, stage, stag
               )}
               {s.id === '7' && <Resources board={board} />}
               {onEdit && adding === s.id && <Composer board={board} section={s} onAdd={onEdit} onDone={() => setAdding(null)} />}
-              {onEdit && adding !== s.id && (s.custom || !!s.def?.types.length) && (
-                <button onClick={() => setAdding(s.id)} className="mt-1 flex items-center gap-1 text-xs text-[#a1a0a8] hover:text-[#18181c]">
-                  <Plus className="w-3.5 h-3.5" /> Add
-                </button>
+              </div>
               )}
             </section>
+            </React.Fragment>
           );
         })}
 
