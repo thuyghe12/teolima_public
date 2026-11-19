@@ -12,6 +12,7 @@ import { Audit, Guard, promptShields } from './server/guard';
 import { LIVE_SAFETY_SETTINGS } from './server/guard/gemini-safety';
 import { ChangeBody } from './shared/board/changes';
 import { emptyBoard } from './shared/board/schema';
+import { DOCUMENT_OPS } from './shared/board/stages';
 import { COACH_PROMPT, COACH_PROMPT_VERSION, openingPrompt, stageBriefing } from './server/prompts/coach';
 import { declareTools, supportsAsyncTools, toolResponse } from './server/live-tools';
 import { validateToolCall } from './server/validation';
@@ -478,7 +479,7 @@ wss.on('connection', async (clientWs: WebSocket) => {
         }
         console.log(`[Board] user: ${result.summary}`);
         sendBoard(result.summary);
-        const documentEdit = ['record_item', 'remove_item', 'add_section', 'rename_section', 'remove_section'].includes(parsed.data.op);
+        const documentEdit = [...DOCUMENT_OPS, 'remove_scenario'].includes(parsed.data.op);
         if (documentEdit && liveSession && isSessionActive) {
           // The user's edits to the stage document stand; the coach is told, never asked to redo them.
           const what = parsed.data.op === 'record_item' ? `: "${parsed.data.name ? `${parsed.data.name}: ` : ''}${parsed.data.text}"` : '';

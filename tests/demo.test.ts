@@ -6,6 +6,7 @@ import { emptyBoard } from '../shared/board/schema';
 import { applyChange, type Change } from '../shared/board/changes';
 import { layoutBoard } from '../shared/board/layout';
 import { assertClean } from './helpers/layout';
+import { gate } from '../shared/board/stages';
 
 const at = '2026-11-18T12:00:00.000Z';
 
@@ -27,9 +28,10 @@ test('every demo change is accepted by the change log', () => {
 
 test('the demo runs discovery first, and every item quotes what the user said', () => {
   const b = replayDemo();
+  const approval = DEMO_SCRIPT.findIndex((s) => 'change' in s && s.change.op === 'approve_stage');
   const firstDesign = DEMO_SCRIPT.findIndex((s) => 'change' in s && s.change.op === 'upsert_component');
-  const lastRequirement = DEMO_SCRIPT.map((s) => 'change' in s && s.change.op === 'record_item').lastIndexOf(true);
-  assert.ok(lastRequirement < firstDesign, 'requirements come before design');
+  const discoveryItems = DEMO_SCRIPT.flatMap((s, i) => ('change' in s && s.change.op === 'record_item' && ['1.1', '1.2', '1.3', '2', '3.1', '3.2'].includes(s.change.section) ? [i] : []));
+  assert.ok(Math.max(...discoveryItems) < approval && approval < firstDesign, 'discovery is approved before design starts');
   assert.ok(b.spec.items.length >= 9);
   const said = DEMO_USER_WORDS.join('\n');
   for (const i of b.spec.items) assert.ok(quoteFound(i.source.quote ?? '', said), `${i.id} quotes the user: "${i.source.quote}"`);
@@ -40,6 +42,14 @@ test('the demo builds a handoff team with an approval and a guardrail', () => {
   assert.equal(b.teams[0].pattern, 'handoff');
   assert.ok(b.components.some((c) => c.kind === 'approval'));
   assert.ok(b.components.some((c) => c.kind === 'guardrail'));
+});
+
+test('the demo ends with a solution design the architect can approve', () => {
+  const b = replayDemo();
+  assert.equal(b.stage.current, 'solution');
+  assert.deepEqual(gate(b, 'solution').missing, []);
+  assert.equal(b.spec.scenarios.length, 1);
+  assert.deepEqual(b.spec.items.filter((i) => i.type === 'decision').map((i) => i.topic).sort(), ['complexity', 'hosting', 'pattern', 'platform']);
 });
 
 test('the demo board lays out cleanly', () => {
