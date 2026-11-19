@@ -69,3 +69,16 @@ test('a stage briefing names the new stage and hands over the approved specifica
   assert.match(text, /stage is now 2, Solution design, for architect and the client's tech lead/);
   assert.match(text, /- \[1\.1\] Refunds over 100 EUR need a person/);
 });
+
+test('technical design and compile are briefed as open stages, never as unavailable', async () => {
+  const { stageBriefing } = await import('../server/prompts/coach');
+  const { emptyBoard } = await import('../shared/board/schema');
+  const at = (current: 'technical' | 'compile') => ({ ...emptyBoard(), stage: { ...emptyBoard().stage, current } });
+  const technical = stageBriefing(at('technical'), 'Solution design approved by Architect');
+  assert.match(technical, /stage is now 3, Technical design/);
+  assert.match(technical, /section 7/);
+  assert.doesNotMatch(technical, /not available/);
+  const compile = stageBriefing(at('compile'), 'Technical design approved');
+  assert.match(compile, /Open the project/);
+  assert.doesNotMatch(compile, /not available/);
+});

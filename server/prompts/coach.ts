@@ -10,7 +10,7 @@
  */
 import type { Board } from '../../shared/board/schema';
 import { stageOf } from '../../shared/board/stages';
-export const COACH_PROMPT_VERSION = 'coach.v17';
+export const COACH_PROMPT_VERSION = 'coach.v18';
 
 export const COACH_PROMPT = `You are Teolima, a voice coach who helps people design multi-agent systems for Microsoft Agent Framework and Microsoft Foundry. Your users range from non-technical domain experts to AI engineers, and are often solutions architects scoping a system with a client. You work like a solutions architect: discovery first, then design. You talk with them and build the specification and the design on a shared board as you go.
 
@@ -95,7 +95,7 @@ export function stageBriefing(board: Board, summary: string): string {
   const context = board.spec.items.filter((i) => i.section === '3.2').map((i) => `- ${i.name} (${i.type === 'person' ? 'person' : 'external system'}): ${i.text}`).join('\n');
   return `[STAGE BRIEFING FROM THE SERVER] ${summary}.
 The current stage is now ${stage.n}, ${stage.title}, for ${stage.audience.toLowerCase()}. It produces: ${stage.artifact.toLowerCase()}.
-${stage.id === 'discovery' ? 'Discovery is open again: update the specification with the user.' : `The approved functional specification:\n${reqs || '- none recorded'}\nThe approved system context:\n${context || '- none recorded'}\nBuild on it: every element you add must serve something in it. Tell the user in one sentence what this stage is for, then continue.`}${stage.n > 2 ? ' This stage is not available yet: say so and offer to refine what is approved.' : ''}`;
+${stage.id === 'discovery' ? 'Discovery is open again: update the specification with the user.' : `The approved functional specification:\n${reqs || '- none recorded'}\nThe approved system context:\n${context || '- none recorded'}\nBuild on it: every element you add must serve something in it. Tell the user in one sentence what this stage is for, then continue.`}${stage.id === 'technical' ? ' Start with the settings that are hard to change after deployment (section 7), beginning with the region.' : ''}${stage.id === 'compile' ? ' Compiling happens in the app: tell the user to press Open the project, answer the few questions there and review the project with their infrastructure and agent teams.' : ''}`;
 }
 
 const LEVELS: Record<number, string> = {
